@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
+local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 type SlimeData = DataTemplate.SlimeData
@@ -13,6 +14,7 @@ export type SlimeClient = typeof(setmetatable(
 		slimeData: SlimeData,
 		model: Model,
 		isLocalPlayer: boolean,
+		sliceEntryId: string,
 	},
 	SlimeClient
 ))
@@ -44,10 +46,19 @@ function SlimeClient.new(slimeData: SlimeData, spawner: BasePart, isLocalPlayer:
 	model:PivotTo(getSpawnPivot(spawner, model))
 	model.Parent = spawner.Parent
 
+	local boundingBoxCFrame, boundingBoxSize = model:GetBoundingBox()
+	local topPosition = boundingBoxCFrame.Position + boundingBoxCFrame.UpVector * (boundingBoxSize.Y / 2)
+
+	local statsAttachment = Instance.new("Attachment")
+	statsAttachment.Name = "StatsAttachment"
+	statsAttachment.Position = rootPart.CFrame:PointToObjectSpace(topPosition)
+	statsAttachment.Parent = rootPart
+
 	local self = setmetatable({
 		slimeData = slimeData,
 		model = model,
 		isLocalPlayer = isLocalPlayer,
+		sliceEntryId = SlimeSlice.actions.addSlime(statsAttachment, slimeData.slimeId),
 	}, SlimeClient)
 
 	if self.isLocalPlayer then
@@ -78,6 +89,7 @@ function SlimeClient.new(slimeData: SlimeData, spawner: BasePart, isLocalPlayer:
 end
 
 function SlimeClient.destroy(self: SlimeClient)
+	SlimeSlice.actions.removeSlime(self.sliceEntryId)
 	self.model:Destroy()
 end
 

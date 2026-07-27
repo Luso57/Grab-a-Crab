@@ -5,6 +5,7 @@ export type SlimeDefinition = {
 	rarity: string,
 	image: string,
 	cost: number,
+	income: number,
 	chance: number,
 }
 
@@ -18,6 +19,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		rarity = "Common",
 		image = "rbxassetid://0",
 		cost = 100,
+		income = 5,
 		chance = 1,
 	},
 
@@ -26,6 +28,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		rarity = "Uncommon",
 		image = "rbxassetid://0",
 		cost = 250,
+		income = 15,
 		chance = 2,
 	},
 
@@ -34,6 +37,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		rarity = "Rare",
 		image = "rbxassetid://0",
 		cost = 1_000,
+		income = 50,
 		chance = 4,
 	},
 
@@ -42,6 +46,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		rarity = "Epic",
 		image = "rbxassetid://0",
 		cost = 2_500,
+		income = 125,
 		chance = 8,
 	},
 
@@ -50,6 +55,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		rarity = "Legendary",
 		image = "rbxassetid://0",
 		cost = 5_000,
+		income = 500,
 		chance = 5000,
 	},
 }
@@ -67,6 +73,7 @@ for slimeId, slimeDefinition in slimeDefinitions do
 		rarity = slimeDefinition.rarity,
 		image = slimeDefinition.image,
 		cost = slimeDefinition.cost,
+		income = slimeDefinition.income,
 		chance = slimeDefinition.chance,
 	}
 	table.insert(slimeIds, slimeId)
@@ -89,6 +96,13 @@ function Slimes.getSlimeInfo(slimeId: string): SlimeInfo
 	assert(slimeInfo, `Invalid slime ID: {slimeId}`)
 
 	return slimeInfo
+end
+
+function Slimes.getSlimeOneInOdds(slimeId: string): number
+	local slimeInfo = Slimes.getSlimeInfo(slimeId)
+	local oneInOdds = totalRollWeight * slimeInfo.chance
+
+	return math.max(1, math.round(oneInOdds))
 end
 
 function Slimes.getRandomSlimeId(): string

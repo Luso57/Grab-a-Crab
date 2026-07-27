@@ -8,6 +8,15 @@
         "$className": "Folder",
         "Features": {
           "$className": "Folder",
+          "App": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "RootUI": {
+                "$path": "src/features/app/ui/RootUI.luau"
+              }
+            }
+          },
           "Plots": {
             "$className": "Folder",
             "Classes": {
@@ -25,6 +34,9 @@
           },
           "Slimes": {
             "$className": "Folder",
+            "SlimeSlice": {
+              "$path": "src/features/slimes/SlimeSlice.luau"
+            },
             "Classes": {
               "$className": "Folder",
               "SlimeClient": {
@@ -38,6 +50,12 @@
               },
               "Slimes": {
                 "$path": "src/features/slimes/modules/Slimes.luau"
+              }
+            },
+            "UI": {
+              "$className": "Folder",
+              "SlimeBillboards": {
+                "$path": "src/features/slimes/ui/SlimeBillboards.luau"
               }
             }
           }
