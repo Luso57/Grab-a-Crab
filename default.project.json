@@ -1,0 +1,140 @@
+{
+  "emitLegacyScripts": false,
+  "name": "RNG",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Source": {
+        "$className": "Folder",
+        "Features": {
+          "$className": "Folder",
+          "Food": {
+            "$className": "Folder",
+            "Classes": {
+              "$className": "Folder",
+              "Food": {
+                "$path": "src/features/Food/Classes/Food.luau"
+              }
+            },
+            "FoodServiceClient": {
+              "$path": "src/features/Food/FoodServiceClient.luau"
+            }
+          },
+          "Plots": {
+            "$className": "Folder",
+            "Classes": {
+              "$className": "Folder",
+              "PlotClient": {
+                "$path": "src/features/plots/classes/PlotClient.luau"
+              }
+            },
+            "PlotServiceClient": {
+              "$path": "src/features/plots/PlotServiceClient.luau"
+            },
+            "PlotTypes": {
+              "$path": "src/features/plots/PlotTypes.luau"
+            }
+          },
+          "TreasureChest": {
+            "$className": "Folder",
+            "Classes": {
+              "$className": "Folder",
+              "TreasureChest": {
+                "$path": "src/features/TreasureChest/Classes/TreasureChest.luau"
+              }
+            },
+            "TreasureChestConfig": {
+              "$path": "src/features/TreasureChest/TreasureChestConfig.luau"
+            },
+            "TreasureChestServiceClient": {
+              "$path": "src/features/TreasureChest/TreasureChestServiceClient.luau"
+            }
+          }
+        },
+        "Core": {
+          "$className": "Folder"
+        },
+        "Game": {
+          "$className": "Folder",
+          "Enemies": {
+            "$path": "src/game/Enemies.luau"
+          },
+          "Fruits": {
+            "$path": "src/game/Fruits.luau"
+          },
+          "Items": {
+            "$className": "Folder",
+            "DataTemplate": {
+              "$path": "src/game/items/DataTemplate.luau"
+            }
+          }
+        },
+        "StartUp": {
+          "$className": "Folder",
+          "MountUI": {
+            "$path": "src/startup/MountUI.luau"
+          },
+          "Client": {
+            "$path": "src/startup/Client.client.luau"
+          }
+        }
+      },
+      "Packages": {
+        "$path": "Packages"
+      }
+    },
+    "ServerScriptService": {
+      "Features": {
+        "$className": "Folder",
+        "Enemies": {
+          "$className": "Folder",
+          "Classes": {
+            "$className": "Folder",
+            "EnemiesServer": {
+              "$path": "src/features/Enemies/Classes/EnemiesServer.luau"
+            }
+          },
+          "EnemiesServiceServer": {
+            "$path": "src/features/Enemies/EnemiesServiceServer.luau"
+          }
+        },
+        "Food": {
+          "$className": "Folder",
+          "FoodServiceServer": {
+            "$path": "src/features/Food/FoodServiceServer.luau"
+          }
+        },
+        "Plots": {
+          "$className": "Folder",
+          "Classes": {
+            "$className": "Folder",
+            "PlotServer": {
+              "$path": "src/features/plots/classes/PlotServer.luau"
+            }
+          },
+          "PlotServiceServer": {
+            "$path": "src/features/plots/PlotServiceServer.luau"
+          }
+        },
+        "TreasureChest": {
+          "$className": "Folder",
+          "TreasureChestServiceServer": {
+            "$path": "src/features/TreasureChest/TreasureChestServiceServer.luau"
+          }
+        }
+      },
+      "Core": {
+        "$className": "Folder"
+      },
+      "Game": {
+        "$className": "Folder"
+      },
+      "StartUp": {
+        "$className": "Folder",
+        "Server": {
+          "$path": "src/startup/Server.server.luau"
+        }
+      }
+    }
+  }
+}
