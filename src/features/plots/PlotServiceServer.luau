@@ -22,9 +22,12 @@ type PlayerData = {
 }
 
 function PlotServiceServer.init(self: PlotServiceServer)
-	self.networker = Networker.server.new("PlotService", self, {})
-	self.playerData = ServicePlayerData.new(PLAYER_DATA_TEMPLATE :: PlayerData, self)
+	self.networker = Networker.server.new("PlotService", self, {
+		self.requestPlots,
+		self.rollSlime,
+	})
 	self.plotSpawns = {}
+	self.plots = {}
 
 	for _, plotSpawn: BasePart in CollectionService:GetTagged("PlotSpawn") do
 		local index = plotSpawn:GetAttribute("Index") :: number
@@ -33,6 +36,8 @@ function PlotServiceServer.init(self: PlotServiceServer)
 		fakePlot.Parent = workspace
 		self.plotSpawns[index] = { part = plotSpawn, owner = nil, index = index, fakePlot = fakePlot }
 	end
+
+	self.playerData = ServicePlayerData.new(PLAYER_DATA_TEMPLATE :: PlayerData, self)
 end
 
 function PlotServiceServer.claimPlot(self: PlotServiceServer, player: Player): PlotSpawn?
@@ -65,8 +70,31 @@ function PlotServiceServer.playerAdded(self: PlotServiceServer, player: Player, 
 
 	local plot = PlotServer.new(player, plotSpawn)
 	playerData.plot = plot
+	self.plots[plot.index] = plot
 
 	self.networker:fireAll("initPlot", plot:get())
+end
+
+function PlotServiceServer.requestPlots(self: PlotServiceServer, player: Player)
+	for _, plot in self.plots do
+		self.networker:fire(player, "initPlot", plot:get())
+	end
+end
+
+function PlotServiceServer.rollSlime(self: PlotServiceServer, player: Player, plotIndex: number)
+	if type(plotIndex) ~= "number" or plotIndex % 1 ~= 0 then
+		return
+	end
+
+	local playerData = self.playerData:get(player)
+	local plot = playerData.plot
+
+	if not plot or plot.index ~= plotIndex or not plot:isOwner(player) then
+		return
+	end
+
+	local slimeId = plot:rollSlime()
+	self.networker:fireAll("showSlime", plot.index, slimeId)
 end
 
 function PlotServiceServer.playerRemoving(self: PlotServiceServer, player: Player, playerData: PlayerData)
@@ -81,17 +109,18 @@ function PlotServiceServer.playerRemoving(self: PlotServiceServer, player: Playe
 	local plot = playerData.plot
 
 	if plot then
+		self.plots[plot.index] = nil
 		plot:destroy()
 		playerData.plot = nil
+		self.networker:fireAll("removePlot", plot.index)
 	end
-
-	self.networker:fireAll("removePlot", plot.index)
 end
 
 type PlotServiceServer = typeof(PlotServiceServer) & {
 	networker: Networker.Server,
 	playerData: ServicePlayerData.ServicePlayerData<PlayerData>,
 	plotSpawns: { PlotSpawn },
+	plots: { [number]: Plot },
 }
 
 return PlotServiceServer :: PlotServiceServer

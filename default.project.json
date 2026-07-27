@@ -8,18 +8,6 @@
         "$className": "Folder",
         "Features": {
           "$className": "Folder",
-          "Food": {
-            "$className": "Folder",
-            "Classes": {
-              "$className": "Folder",
-              "Food": {
-                "$path": "src/features/Food/Classes/Food.luau"
-              }
-            },
-            "FoodServiceClient": {
-              "$path": "src/features/Food/FoodServiceClient.luau"
-            }
-          },
           "Plots": {
             "$className": "Folder",
             "Classes": {
@@ -35,19 +23,22 @@
               "$path": "src/features/plots/PlotTypes.luau"
             }
           },
-          "TreasureChest": {
+          "Slimes": {
             "$className": "Folder",
             "Classes": {
               "$className": "Folder",
-              "TreasureChest": {
-                "$path": "src/features/TreasureChest/Classes/TreasureChest.luau"
+              "SlimeClient": {
+                "$path": "src/features/slimes/classes/SlimeClient.luau"
               }
             },
-            "TreasureChestConfig": {
-              "$path": "src/features/TreasureChest/TreasureChestConfig.luau"
-            },
-            "TreasureChestServiceClient": {
-              "$path": "src/features/TreasureChest/TreasureChestServiceClient.luau"
+            "Modules": {
+              "$className": "Folder",
+              "SlimeRollVFX": {
+                "$path": "src/features/slimes/modules/SlimeRollVFX.luau"
+              },
+              "Slimes": {
+                "$path": "src/features/slimes/modules/Slimes.luau"
+              }
             }
           }
         },
@@ -56,9 +47,6 @@
         },
         "Game": {
           "$className": "Folder",
-          "Enemies": {
-            "$path": "src/game/Enemies.luau"
-          },
           "Fruits": {
             "$path": "src/game/Fruits.luau"
           },
@@ -86,24 +74,6 @@
     "ServerScriptService": {
       "Features": {
         "$className": "Folder",
-        "Enemies": {
-          "$className": "Folder",
-          "Classes": {
-            "$className": "Folder",
-            "EnemiesServer": {
-              "$path": "src/features/Enemies/Classes/EnemiesServer.luau"
-            }
-          },
-          "EnemiesServiceServer": {
-            "$path": "src/features/Enemies/EnemiesServiceServer.luau"
-          }
-        },
-        "Food": {
-          "$className": "Folder",
-          "FoodServiceServer": {
-            "$path": "src/features/Food/FoodServiceServer.luau"
-          }
-        },
         "Plots": {
           "$className": "Folder",
           "Classes": {
@@ -114,12 +84,6 @@
           },
           "PlotServiceServer": {
             "$path": "src/features/plots/PlotServiceServer.luau"
-          }
-        },
-        "TreasureChest": {
-          "$className": "Folder",
-          "TreasureChestServiceServer": {
-            "$path": "src/features/TreasureChest/TreasureChestServiceServer.luau"
           }
         }
       },

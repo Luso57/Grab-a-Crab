@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
+local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 local PlotModel = ReplicatedStorage.Assets.Misc.Plot
 
@@ -17,6 +18,7 @@ export type Plot = typeof(setmetatable(
 		index: number,
 		player: Player,
 		plotModel: Model,
+		currentSlimeId: string?,
 	},
 	PlotServer
 ))
@@ -26,6 +28,7 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		player = player,
 		cf = plotSpawn.part.CFrame,
 		index = plotSpawn.index,
+		currentSlimeId = nil,
 	}, PlotServer)
 
 	local plotModel = PlotModel:Clone()
@@ -44,6 +47,7 @@ function PlotServer.get(self: Plot): PlotTypes.PlotData
 		index = self.index,
 		plotModel = self.plotModel,
 		cf = self.cf,
+		currentSlimeId = self.currentSlimeId,
 	}
 end
 
@@ -60,10 +64,11 @@ function PlotServer.isOwner(self: Plot, player: Player): boolean
 	return self.player == player
 end
 
-function PlotServer.spawnSlime(self: Plot, player: Player)
-	if not self:isOwner(player) then
-		return
-	end
+function PlotServer.rollSlime(self: Plot): string
+	local slimeId = Slimes.getRandomSlimeId()
+	self.currentSlimeId = slimeId
+
+	return slimeId
 end
 
 function PlotServer.destroy(self: Plot)

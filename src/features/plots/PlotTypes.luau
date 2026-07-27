@@ -14,6 +14,7 @@ export type PlotData = {
 	index: number,
 	player: Player,
 	plotModel: Model,
+	currentSlimeId: string?,
 }
 
 return PlotTypes
