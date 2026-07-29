@@ -1,7 +1,8 @@
-local DataTemplate = {}
-
 export type SlimeData = {
 	slimeId: string,
 }
 
-return DataTemplate
+return {
+	currency = 100,
+	inventory = {},
+}

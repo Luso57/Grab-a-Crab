@@ -10,10 +10,31 @@
           "$className": "Folder",
           "App": {
             "$className": "Folder",
+            "Hud": {
+              "$className": "Folder",
+              "BottomBar": {
+                "$path": "src/features/app/hud/BottomBar.luau"
+              },
+              "HudRoot": {
+                "$path": "src/features/app/hud/HudRoot.luau"
+              }
+            },
+            "root.story": {
+              "$path": "src/features/app/root.story.luau"
+            },
+            "RootUI": {
+              "$path": "src/features/app/RootUI.luau"
+            }
+          },
+          "Inventory": {
+            "$className": "Folder",
+            "InventorySlice": {
+              "$path": "src/features/inventory/InventorySlice.luau"
+            },
             "UI": {
               "$className": "Folder",
-              "RootUI": {
-                "$path": "src/features/app/ui/RootUI.luau"
+              "InventoryRoot": {
+                "$path": "src/features/inventory/ui/InventoryRoot.luau"
               }
             }
           },
@@ -34,9 +55,6 @@
           },
           "Slimes": {
             "$className": "Folder",
-            "SlimeSlice": {
-              "$path": "src/features/slimes/SlimeSlice.luau"
-            },
             "Classes": {
               "$className": "Folder",
               "SlimeClient": {
@@ -52,10 +70,19 @@
                 "$path": "src/features/slimes/modules/Slimes.luau"
               }
             },
+            "SlimeSlice": {
+              "$path": "src/features/slimes/SlimeSlice.luau"
+            },
             "UI": {
               "$className": "Folder",
-              "SlimeBillboards": {
-                "$path": "src/features/slimes/ui/SlimeBillboards.luau"
+              "Screens": {
+                "$className": "Folder",
+                "SlimeBillboards": {
+                  "$path": "src/features/slimes/ui/screens/SlimeBillboards.luau"
+                }
+              },
+              "SlimeRoot": {
+                "$path": "src/features/slimes/ui/SlimeRoot.luau"
               }
             }
           }
@@ -65,6 +92,9 @@
         },
         "Game": {
           "$className": "Folder",
+          "Data": {
+            "$path": "src/game/Data.luau"
+          },
           "Fruits": {
             "$path": "src/game/Fruits.luau"
           },
@@ -92,6 +122,12 @@
     "ServerScriptService": {
       "Features": {
         "$className": "Folder",
+        "Inventory": {
+          "$className": "Folder",
+          "InventoryServiceServer": {
+            "$path": "src/features/inventory/InventoryServiceServer.luau"
+          }
+        },
         "Plots": {
           "$className": "Folder",
           "Classes": {

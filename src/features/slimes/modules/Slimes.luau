@@ -20,7 +20,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		image = "rbxassetid://0",
 		cost = 100,
 		income = 5,
-		chance = 1,
+		chance = 2,
 	},
 
 	blue = {
@@ -57,6 +57,14 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		cost = 5_000,
 		income = 500,
 		chance = 5000,
+	},
+	rob = {
+		name = "Young Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 1,
 	},
 }
 

@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
@@ -8,7 +9,6 @@ local PlotServiceClient = {}
 
 function PlotServiceClient.init(self: PlotServiceClient)
 	self.plots = {}
-	self.pendingSlimes = {}
 	self.networker = Networker.client.new("PlotService", self)
 	self.networker:fire("requestPlots")
 end
@@ -26,33 +26,25 @@ function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes
 		existingPlot:destroy()
 	end
 
-	local plot = PlotClient.new(plotData, self.networker)
+	local plot = PlotClient.new(plotData)
 	self.plots[plot.index] = plot
-
-	local pendingSlimeId = self.pendingSlimes[plot.index]
-	if pendingSlimeId then
-		self.pendingSlimes[plot.index] = nil
-		plot:showSlime(pendingSlimeId)
-	end
-end
-
-function PlotServiceClient.showSlime(self: PlotServiceClient, plotIndex: number, slimeId: string)
-	local plot = self.plots[plotIndex]
-	if not plot then
-		self.pendingSlimes[plotIndex] = slimeId
-		return
-	end
-
-	plot:showSlime(slimeId)
 end
 
 function PlotServiceClient.getPlot(self: PlotServiceClient, index: number): PlotClient.PlotClient?
 	return self.plots[index]
 end
 
-function PlotServiceClient.removePlot(self: PlotServiceClient, index: number)
-	self.pendingSlimes[index] = nil
+function PlotServiceClient.getLocalPlayerPlot(self: PlotServiceClient): PlotClient.PlotClient?
+	for _, plot in self.plots do
+		if plot.player == Players.LocalPlayer then
+			return plot
+		end
+	end
 
+	return nil
+end
+
+function PlotServiceClient.removePlot(self: PlotServiceClient, index: number)
 	local plot = self.plots[index]
 	if plot then
 		plot:destroy()
@@ -63,7 +55,6 @@ end
 type PlotServiceClient = typeof(PlotServiceClient) & {
 	networker: Networker.Client,
 	plots: { [number]: PlotClient.PlotClient },
-	pendingSlimes: { [number]: string },
 }
 
 return PlotServiceClient :: PlotServiceClient

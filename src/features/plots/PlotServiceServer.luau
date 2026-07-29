@@ -24,7 +24,6 @@ type PlayerData = {
 function PlotServiceServer.init(self: PlotServiceServer)
 	self.networker = Networker.server.new("PlotService", self, {
 		self.requestPlots,
-		self.rollSlime,
 	})
 	self.plotSpawns = {}
 	self.plots = {}
@@ -81,20 +80,9 @@ function PlotServiceServer.requestPlots(self: PlotServiceServer, player: Player)
 	end
 end
 
-function PlotServiceServer.rollSlime(self: PlotServiceServer, player: Player, plotIndex: number)
-	if type(plotIndex) ~= "number" or plotIndex % 1 ~= 0 then
-		return
-	end
-
+function PlotServiceServer.getPlayerPlot(self: PlotServiceServer, player: Player): Plot?
 	local playerData = self.playerData:get(player)
-	local plot = playerData.plot
-
-	if not plot or plot.index ~= plotIndex or not plot:isOwner(player) then
-		return
-	end
-
-	local slimeId = plot:rollSlime()
-	self.networker:fireAll("showSlime", plot.index, slimeId)
+	return playerData.plot
 end
 
 function PlotServiceServer.playerRemoving(self: PlotServiceServer, player: Player, playerData: PlayerData)
