@@ -4,5 +4,6 @@ export type SlimeData = {
 
 return {
 	currency = 100,
+	slimes = {},
 	inventory = {},
 }

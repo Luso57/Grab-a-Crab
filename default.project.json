@@ -12,8 +12,11 @@
             "$className": "Folder",
             "Hud": {
               "$className": "Folder",
-              "BottomBar": {
-                "$path": "src/features/app/hud/BottomBar.luau"
+              "SideBar": {
+                "$path": "src/features/app/hud/SideBar.luau"
+              },
+              "MenuButton": {
+                "$path": "src/features/app/hud/MenuButton.luau"
               },
               "HudRoot": {
                 "$path": "src/features/app/hud/HudRoot.luau"
@@ -33,6 +36,18 @@
             },
             "UI": {
               "$className": "Folder",
+              "Components": {
+                "$className": "Folder",
+                "InventorySlot": {
+                  "$path": "src/features/inventory/ui/components/InventorySlot.luau"
+                }
+              },
+              "Screens": {
+                "$className": "Folder",
+                "InventoryWindow": {
+                  "$path": "src/features/inventory/ui/screens/InventoryWindow.luau"
+                }
+              },
               "InventoryRoot": {
                 "$path": "src/features/inventory/ui/InventoryRoot.luau"
               }

@@ -66,6 +66,42 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		income = 500,
 		chance = 1,
 	},
+
+	BubbleSlime = {
+		name = "Bubble Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 1,
+	},
+
+	HoneySlime = {
+		name = "Honey Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 1,
+	},
+
+	JungleSlime = {
+		name = "Jungle Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 1,
+	},
+
+	PoopSlime = {
+		name = "Poop Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 1,
+	},
 }
 
 local slimes: { [string]: SlimeInfo } = {}
