@@ -17,6 +17,7 @@ function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes
 	local existingPlot = self.plots[plotData.index]
 	if existingPlot then
 		if existingPlot.plotModel == plotData.plotModel then
+			existingPlot:syncPlaypenSlimes(plotData.slimes)
 			if plotData.currentSlimeId then
 				existingPlot:showSlime(plotData.currentSlimeId)
 			end

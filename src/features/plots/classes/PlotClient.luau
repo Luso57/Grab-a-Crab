@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
 local SlimeClient = require(ReplicatedStorage.Source.Features.Slimes.Classes.SlimeClient)
@@ -8,6 +9,8 @@ local SlimeRollVFX = require(ReplicatedStorage.Source.Features.Slimes.Modules.Sl
 
 local PlotClient = {}
 PlotClient.__index = PlotClient
+
+type SlimeData = DataTemplate.SlimeData
 
 export type PlotClient = typeof(setmetatable(
 	{} :: {
@@ -17,7 +20,9 @@ export type PlotClient = typeof(setmetatable(
 		plotModel: Model,
 		networker: Networker.Client,
 		spawner: BasePart,
+		playpenBase: BasePart,
 		currentSlime: SlimeClient.SlimeClient?,
+		playpenSlimes: { SlimeClient.SlimeClient },
 		rollPrompt: ProximityPrompt?,
 		activeRoll: SlimeRollVFX.RollHandle?,
 		promptConnection: RBXScriptConnection?,
@@ -26,10 +31,21 @@ export type PlotClient = typeof(setmetatable(
 	PlotClient
 ))
 
+local function getPlaypenBase(plotModel: Model): BasePart
+	for _, descendant in plotModel:GetDescendants() do
+		if descendant:IsA("BasePart") and string.lower(descendant.Name) == "playpenbase" then
+			return descendant
+		end
+	end
+
+	error("Plot is missing its PlaypenBase BasePart")
+end
+
 function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	local slimeSpawner = plotData.plotModel:WaitForChild("SlimeSpawner")
 	local spawner = slimeSpawner:WaitForChild("Spawner")
 	assert(spawner:IsA("BasePart"), "Plot SlimeSpawner.Spawner must be a BasePart")
+	local playpenBase = getPlaypenBase(plotData.plotModel)
 
 	local self = setmetatable({
 		cf = plotData.cf,
@@ -38,7 +54,9 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 		plotModel = plotData.plotModel,
 		networker = nil :: any,
 		spawner = spawner,
+		playpenBase = playpenBase,
 		currentSlime = nil,
+		playpenSlimes = {},
 		rollPrompt = nil,
 		activeRoll = nil,
 		promptConnection = nil,
@@ -54,6 +72,8 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	if plotData.currentSlimeId then
 		self:showSlime(plotData.currentSlimeId)
 	end
+
+	self:syncPlaypenSlimes(plotData.slimes)
 
 	return self
 end
@@ -71,13 +91,42 @@ function PlotClient.initModel(self: PlotClient)
 	end)
 end
 
-function PlotClient.slimeBought(self: PlotClient, _slimeId: string)
-	if not self.currentSlime then
+function PlotClient.slimeBought(self: PlotClient, slimeData: SlimeData)
+	if self.currentSlime then
+		self.currentSlime:destroy()
+		self.currentSlime = nil
+	end
+
+	self:addPlaypenSlime(slimeData)
+end
+
+function PlotClient.addPlaypenSlime(self: PlotClient, slimeData: SlimeData)
+	if self.destroyed then
 		return
 	end
 
-	self.currentSlime:destroy()
-	self.currentSlime = nil
+	local slime = SlimeClient.newPlaypenSlime(slimeData, self.playpenBase)
+	table.insert(self.playpenSlimes, slime)
+end
+
+function PlotClient.syncPlaypenSlimes(self: PlotClient, slimes: { SlimeData })
+	for _, slime in self.playpenSlimes do
+		slime:destroy()
+	end
+	table.clear(self.playpenSlimes)
+
+	for _, slimeData in slimes do
+		self:addPlaypenSlime(slimeData)
+	end
+end
+
+function PlotClient.slimeProductionUpdated(self: PlotClient, productionUpdates: { [string]: number })
+	for _, slime in self.playpenSlimes do
+		local storedSlime = productionUpdates[slime.slimeData.instanceId]
+		if storedSlime ~= nil then
+			slime:setStoredSlime(storedSlime)
+		end
+	end
 end
 
 function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, animationSeed: number)
@@ -117,7 +166,10 @@ function PlotClient.showSlime(self: PlotClient, slimeId: string, startingRotatio
 	end
 
 	local slime = SlimeClient.new({
+		instanceId = "preview",
 		slimeId = slimeId,
+		mutationId = "normal",
+		storedSlime = 0,
 	}, self.spawner, self.player == Players.LocalPlayer, startingRotation)
 
 	if self.player == Players.LocalPlayer then
@@ -148,6 +200,11 @@ function PlotClient.destroy(self: PlotClient)
 		self.currentSlime:destroy()
 		self.currentSlime = nil
 	end
+
+	for _, slime in self.playpenSlimes do
+		slime:destroy()
+	end
+	table.clear(self.playpenSlimes)
 
 	self.networker:destroy()
 	self.plotModel:Destroy()

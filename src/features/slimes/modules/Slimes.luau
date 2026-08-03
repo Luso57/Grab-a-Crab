@@ -102,6 +102,186 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		income = 500,
 		chance = 1,
 	},
+
+	CloudPuffSlime = {
+		name = "Cloud Puff Slime",
+		rarity = "Common",
+		image = "rbxassetid://0",
+		cost = 100,
+		income = 5,
+		chance = 1,
+	},
+
+	DumbSlime = {
+		name = "Dumb Slime",
+		rarity = "Common",
+		image = "rbxassetid://0",
+		cost = 100,
+		income = 5,
+		chance = 1,
+	},
+
+	HappyEyeSlime = {
+		name = "Happy Eye Slime",
+		rarity = "Common",
+		image = "rbxassetid://0",
+		cost = 100,
+		income = 5,
+		chance = 1,
+	},
+
+	WinkyEyeSlime = {
+		name = "Winky Eye Slime",
+		rarity = "Common",
+		image = "rbxassetid://0",
+		cost = 100,
+		income = 5,
+		chance = 1,
+	},
+
+	DinoSlime = {
+		name = "Dino Slime",
+		rarity = "Uncommon",
+		image = "rbxassetid://0",
+		cost = 250,
+		income = 15,
+		chance = 2,
+	},
+
+	FishSlime = {
+		name = "Fish Slime",
+		rarity = "Uncommon",
+		image = "rbxassetid://0",
+		cost = 250,
+		income = 15,
+		chance = 2,
+	},
+
+	SparkleEyeSlime = {
+		name = "Sparkle Eye Slime",
+		rarity = "Uncommon",
+		image = "rbxassetid://0",
+		cost = 250,
+		income = 15,
+		chance = 2,
+	},
+
+	StrawberrySlime = {
+		name = "Strawberry Slime",
+		rarity = "Uncommon",
+		image = "rbxassetid://0",
+		cost = 250,
+		income = 15,
+		chance = 2,
+	},
+
+	GhostSlime = {
+		name = "Ghost Slime",
+		rarity = "Rare",
+		image = "rbxassetid://0",
+		cost = 1_000,
+		income = 50,
+		chance = 4,
+	},
+
+	KittenSlime = {
+		name = "Kitten Slime",
+		rarity = "Rare",
+		image = "rbxassetid://0",
+		cost = 1_000,
+		income = 50,
+		chance = 4,
+	},
+
+	SproutSlime = {
+		name = "Sprout Slime",
+		rarity = "Rare",
+		image = "rbxassetid://0",
+		cost = 1_000,
+		income = 50,
+		chance = 4,
+	},
+
+	ToadstoolSlime = {
+		name = "Toadstool Slime",
+		rarity = "Rare",
+		image = "rbxassetid://0",
+		cost = 1_000,
+		income = 50,
+		chance = 4,
+	},
+
+	CoolSlime = {
+		name = "Cool Slime",
+		rarity = "Epic",
+		image = "rbxassetid://0",
+		cost = 2_500,
+		income = 125,
+		chance = 8,
+	},
+
+	MoonNapSlime = {
+		name = "Moon Nap Slime",
+		rarity = "Epic",
+		image = "rbxassetid://0",
+		cost = 2_500,
+		income = 125,
+		chance = 8,
+	},
+
+	SakuraSlime = {
+		name = "Sakura Slime",
+		rarity = "Epic",
+		image = "rbxassetid://0",
+		cost = 2_500,
+		income = 125,
+		chance = 8,
+	},
+
+	TeaPartySlime = {
+		name = "Tea Party Slime",
+		rarity = "Epic",
+		image = "rbxassetid://0",
+		cost = 2_500,
+		income = 125,
+		chance = 8,
+	},
+
+	WatermelonSlime = {
+		name = "Watermelon Slime",
+		rarity = "Epic",
+		image = "rbxassetid://0",
+		cost = 2_500,
+		income = 125,
+		chance = 8,
+	},
+
+	DemonSlime = {
+		name = "Demon Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 16,
+	},
+
+	NismoSlime = {
+		name = "Nismo Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 16,
+	},
+
+	VunnySlime = {
+		name = "Vunny Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://0",
+		cost = 5_000,
+		income = 500,
+		chance = 16,
+	},
 }
 
 local slimes: { [string]: SlimeInfo } = {}

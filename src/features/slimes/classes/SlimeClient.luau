@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
+local SlimeMovement = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMovement)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 type SlimeData = DataTemplate.SlimeData
@@ -19,6 +20,7 @@ export type SlimeClient = typeof(setmetatable(
 		isLocalPlayer: boolean,
 		sliceEntryId: string,
 		rotationConnection: RBXScriptConnection?,
+		activeMovement: SlimeMovement.MovementHandle?,
 		onBought: () -> (),
 	},
 	SlimeClient
@@ -36,12 +38,7 @@ local function getSpawnPivot(spawner: BasePart, slimeModel: Model): CFrame
 	return targetBoundingBox * boundingBoxToPivot
 end
 
-function SlimeClient.new(
-	slimeData: SlimeData,
-	spawner: BasePart,
-	isLocalPlayer: boolean,
-	startingRotation: number?
-): SlimeClient
+local function prepareModel(slimeData: SlimeData): (Model, BasePart)
 	local model = Slimes.getSlimeModel(slimeData.slimeId)
 	local rootPart = model:FindFirstChildWhichIsA("BasePart", true)
 	assert(rootPart, `Slime model has no BaseParts: {slimeData.slimeId}`)
@@ -53,9 +50,15 @@ function SlimeClient.new(
 		end
 	end
 
-	model:PivotTo(getSpawnPivot(spawner, model))
-	model.Parent = spawner.Parent
+	return model, rootPart
+end
 
+local function addStatsAttachment(
+	rootPart: BasePart,
+	model: Model,
+	slimeData: SlimeData,
+	billboardType: "purchase" | "playpen"
+): (string, Attachment)
 	local boundingBoxCFrame, boundingBoxSize = model:GetBoundingBox()
 	local topPosition = boundingBoxCFrame.Position + boundingBoxCFrame.UpVector * (boundingBoxSize.Y / 2)
 
@@ -64,12 +67,34 @@ function SlimeClient.new(
 	statsAttachment.Position = rootPart.CFrame:PointToObjectSpace(topPosition)
 	statsAttachment.Parent = rootPart
 
+	return SlimeSlice.actions.addSlime(
+		statsAttachment,
+		slimeData.slimeId,
+		billboardType,
+		slimeData.instanceId,
+		slimeData.storedSlime
+	), statsAttachment
+end
+
+function SlimeClient.new(
+	slimeData: SlimeData,
+	spawner: BasePart,
+	isLocalPlayer: boolean,
+	startingRotation: number?
+): SlimeClient
+	local model, rootPart = prepareModel(slimeData)
+
+	model:PivotTo(getSpawnPivot(spawner, model))
+	model.Parent = spawner.Parent
+	local sliceEntryId = addStatsAttachment(rootPart, model, slimeData, "purchase")
+
 	local self = setmetatable({
 		slimeData = slimeData,
 		model = model,
 		isLocalPlayer = isLocalPlayer,
-		sliceEntryId = SlimeSlice.actions.addSlime(statsAttachment, slimeData.slimeId),
+		sliceEntryId = sliceEntryId,
 		rotationConnection = nil,
+		activeMovement = nil,
 		onBought = function() end,
 	}, SlimeClient)
 
@@ -113,10 +138,39 @@ function SlimeClient.new(
 	return self
 end
 
+function SlimeClient.newPlaypenSlime(slimeData: SlimeData, playpenBase: BasePart): SlimeClient
+	local model, rootPart = prepareModel(slimeData)
+	local sliceEntryId, statsAttachment = addStatsAttachment(rootPart, model, slimeData, "playpen")
+
+	local self = setmetatable({
+		slimeData = slimeData,
+		model = model,
+		isLocalPlayer = false,
+		sliceEntryId = sliceEntryId,
+		rotationConnection = nil,
+		activeMovement = nil,
+		onBought = function() end,
+	}, SlimeClient)
+
+	self.activeMovement = SlimeMovement.play(model, playpenBase, statsAttachment)
+
+	return self
+end
+
+function SlimeClient.setStoredSlime(self: SlimeClient, amount: number)
+	self.slimeData.storedSlime = amount
+	SlimeSlice.actions.setStoredSlime(self.sliceEntryId, amount)
+end
+
 function SlimeClient.destroy(self: SlimeClient)
 	if self.rotationConnection then
 		self.rotationConnection:Disconnect()
 		self.rotationConnection = nil
+	end
+
+	if self.activeMovement then
+		self.activeMovement:cancel()
+		self.activeMovement = nil
 	end
 
 	SlimeSlice.actions.removeSlime(self.sliceEntryId)

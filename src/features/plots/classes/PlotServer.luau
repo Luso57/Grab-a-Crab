@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
@@ -15,6 +17,7 @@ type PlotSpawn = PlotTypes.PlotSpawn
 
 local CHAR_SPAWN_OFFSET = CFrame.new(0, 10, 0) * CFrame.Angles(0, math.pi, 0)
 local ROLL_LOCK_DURATION = 6.25
+local PRODUCTION_INTERVAL = 1
 
 export type Plot = typeof(setmetatable(
 	{} :: {
@@ -26,6 +29,7 @@ export type Plot = typeof(setmetatable(
 		networker: Networker.Server,
 		activeRollSeed: number?,
 		random: Random,
+		destroyed: boolean,
 	},
 	PlotServer
 ))
@@ -39,6 +43,7 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		networker = nil :: any,
 		activeRollSeed = nil,
 		random = Random.new(),
+		destroyed = false,
 	}, PlotServer)
 
 	local plotModel = PlotModel:Clone()
@@ -50,18 +55,85 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		self.buySlime,
 	})
 
+	Data.Service:waitForData(player)
+	self:migrateSlimeData()
+	self:startProduction()
+
 	self.charInit(self)
 
 	return self
 end
 
+function PlotServer.migrateSlimeData(self: Plot)
+	local playerData = Data[self.player]
+	if not playerData then
+		return
+	end
+
+	for index, slimeData in playerData.slimes() do
+		local slimeValue = playerData.slimes[index]
+
+		if not slimeData.instanceId then
+			slimeValue.instanceId(HttpService:GenerateGUID(false))
+		end
+
+		if slimeData.mutationId == nil then
+			slimeValue.mutationId("normal")
+		end
+
+		if slimeData.storedSlime == nil then
+			slimeValue.storedSlime(0)
+		end
+	end
+end
+
+function PlotServer.startProduction(self: Plot)
+	task.spawn(function()
+		while not self.destroyed do
+			task.wait(PRODUCTION_INTERVAL)
+
+			if self.destroyed then
+				break
+			end
+
+			local playerData = Data[self.player]
+			if not playerData then
+				continue
+			end
+
+			local productionUpdates = {}
+
+			for index, slimeData in playerData.slimes() do
+				if not Slimes.isValidSlimeId(slimeData.slimeId) then
+					continue
+				end
+
+				local income = Slimes.getSlimeInfo(slimeData.slimeId).income
+				local storedSlime = playerData.slimes[index].storedSlime(function(previous)
+					return previous + income
+				end)
+
+				productionUpdates[slimeData.instanceId] = storedSlime
+			end
+
+			if next(productionUpdates) then
+				self.networker:fireAll("slimeProductionUpdated", productionUpdates)
+			end
+		end
+	end)
+end
+
 function PlotServer.get(self: Plot): PlotTypes.PlotData
+	local playerData = Data[self.player]
+	local savedSlimes = if playerData then playerData.slimes() else {}
+
 	return {
 		player = self.player,
 		index = self.index,
 		plotModel = self.plotModel,
 		cf = self.cf,
 		currentSlimeId = self.currentSlimeId,
+		slimes = savedSlimes,
 	}
 end
 
@@ -124,17 +196,26 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 		return false
 	end
 
+	local slimeData: DataTemplate.SlimeData = {
+		instanceId = HttpService:GenerateGUID(false),
+		slimeId = slimeId,
+		mutationId = "normal",
+		storedSlime = 0,
+	}
+
 	playerData.currency(function(value)
 		return value - cost
 	end)
+	playerData.slimes.Insert(slimeData)
 
 	self.currentSlimeId = nil
-	self.networker:fireAll("slimeBought", slimeId)
+	self.networker:fireAll("slimeBought", slimeData)
 
 	return true
 end
 
 function PlotServer.destroy(self: Plot)
+	self.destroyed = true
 	self.activeRollSeed = nil
 	self.networker:destroy()
 	self.plotModel:Destroy()

@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local DataService = require(ReplicatedStorage.Source.Game.Data).server
@@ -27,7 +28,10 @@ function InventoryServiceServer.addSlime(
 
 	for _ = 1, amount do
 		playerData.slimes.Insert({
+			instanceId = HttpService:GenerateGUID(false),
 			slimeId = slimeId,
+			mutationId = "normal",
+			storedSlime = 0,
 		})
 	end
 

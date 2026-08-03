@@ -1,4 +1,10 @@
 {
+    "luau-lsp.platform.type": "roblox",
+    "luau-lsp.sourcemap.enabled": true,
+    "luau-lsp.sourcemap.autogenerate": true,
+    "luau-lsp.sourcemap.rojoPath": "C:\\Users\\13016\\.rokit\\tool-storage\\rojo-rbx\\rojo\\7.6.1\\rojo.exe",
+    "luau-lsp.sourcemap.rojoProjectFile": "default.project.json",
+    "luau-lsp.sourcemap.sourcemapFile": "sourcemap.json",
     "cSpell.words": [
         "Networker",
         "setmetatable"

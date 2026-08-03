@@ -12,14 +12,17 @@
             "$className": "Folder",
             "Hud": {
               "$className": "Folder",
-              "SideBar": {
-                "$path": "src/features/app/hud/SideBar.luau"
+              "BottomBar": {
+                "$path": "src/features/app/hud/BottomBar.luau"
+              },
+              "HudRoot": {
+                "$path": "src/features/app/hud/HudRoot.luau"
               },
               "MenuButton": {
                 "$path": "src/features/app/hud/MenuButton.luau"
               },
-              "HudRoot": {
-                "$path": "src/features/app/hud/HudRoot.luau"
+              "SideBar": {
+                "$path": "src/features/app/hud/SideBar.luau"
               }
             },
             "root.story": {
@@ -42,14 +45,14 @@
                   "$path": "src/features/inventory/ui/components/InventorySlot.luau"
                 }
               },
+              "InventoryRoot": {
+                "$path": "src/features/inventory/ui/InventoryRoot.luau"
+              },
               "Screens": {
                 "$className": "Folder",
                 "InventoryWindow": {
                   "$path": "src/features/inventory/ui/screens/InventoryWindow.luau"
                 }
-              },
-              "InventoryRoot": {
-                "$path": "src/features/inventory/ui/InventoryRoot.luau"
               }
             }
           },
@@ -78,6 +81,9 @@
             },
             "Modules": {
               "$className": "Folder",
+              "SlimeMovement": {
+                "$path": "src/features/slimes/modules/SlimeMovement.luau"
+              },
               "SlimeRollVFX": {
                 "$path": "src/features/slimes/modules/SlimeRollVFX.luau"
               },

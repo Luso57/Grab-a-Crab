@@ -1,5 +1,9 @@
 -- invisible parts that allow you to spawn in stuff in the invis parts
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
+
 local PlotTypes = {}
 
 export type PlotSpawn = {
@@ -15,6 +19,7 @@ export type PlotData = {
 	player: Player,
 	plotModel: Model,
 	currentSlimeId: string?,
+	slimes: { DataTemplate.SlimeData },
 }
 
 return PlotTypes
