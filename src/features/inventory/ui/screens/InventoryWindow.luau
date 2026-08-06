@@ -4,9 +4,26 @@ local React = require(ReplicatedStorage.Packages.React)
 local InventorySlot = require(ReplicatedStorage.Source.Features.Inventory.UI.Components.InventorySlot)
 
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
+local GRID_COLUMNS = 4
+local GRID_CELL_HEIGHT_SCALE = 0.36
+local GRID_ROW_PADDING_SCALE = 0.04
+local GRID_VERTICAL_PADDING = 28
+local DEFAULT_VIEWPORT_HEIGHT = 400
+
+export type Item = {
+	key: string?,
+	name: string,
+	image: string?,
+	rarity: string?,
+	rarityColor: Color3?,
+	quantity: number?,
+}
 
 export type Props = {
 	OnClose: () -> (),
+	Title: string?,
+	Items: { Item }?,
+	EmptyMessage: string?,
 }
 
 local PLACEHOLDER_ITEMS = {
@@ -21,12 +38,21 @@ local PLACEHOLDER_ITEMS = {
 }
 
 local function InventoryWindow(props: Props)
+	local viewportHeight, setViewportHeight = React.useState(DEFAULT_VIEWPORT_HEIGHT)
 	local slots = {}
+	local items = props.Items or PLACEHOLDER_ITEMS
+	local rowCount = math.ceil(#items / GRID_COLUMNS)
+	local cellHeight = math.round(viewportHeight * GRID_CELL_HEIGHT_SCALE)
+	local rowPadding = math.round(viewportHeight * GRID_ROW_PADDING_SCALE)
+	local canvasHeight = rowCount * cellHeight + math.max(0, rowCount - 1) * rowPadding + GRID_VERTICAL_PADDING
 
-	for layoutOrder, item in PLACEHOLDER_ITEMS do
-		slots[`Slot{layoutOrder}`] = React.createElement(InventorySlot, {
+	for layoutOrder, item in items do
+		local slotKey = item.key or tostring(layoutOrder)
+		slots[`Slot-{slotKey}`] = React.createElement(InventorySlot, {
 			Name = item.name,
-			Image = "",
+			Image = item.image or "",
+			Rarity = item.rarity,
+			RarityColor = item.rarityColor,
 			Quantity = item.quantity,
 			LayoutOrder = layoutOrder,
 		})
@@ -95,7 +121,7 @@ local function InventoryWindow(props: Props)
 					Font = Enum.Font.FredokaOne,
 					Position = UDim2.fromScale(0.035, 0.5),
 					Size = UDim2.fromScale(0.66, 0.7),
-					Text = "INVENTORY",
+					Text = props.Title or "INVENTORY",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextStrokeColor3 = Color3.new(0, 0, 0),
@@ -205,23 +231,29 @@ local function InventoryWindow(props: Props)
 				}),
 			}),
 			Content = React.createElement("ScrollingFrame", {
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				AutomaticCanvasSize = Enum.AutomaticSize.None,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				CanvasSize = UDim2.new(),
+				CanvasSize = UDim2.fromOffset(0, canvasHeight),
 				Position = UDim2.fromScale(0.035, 0.3),
 				ScrollBarImageColor3 = Color3.fromRGB(110, 114, 123),
 				ScrollBarThickness = 7,
 				Size = UDim2.fromScale(0.93, 0.65),
 				ZIndex = 23,
+				[React.Change.AbsoluteSize] = function(scrollingFrame)
+					local nextViewportHeight = math.round(scrollingFrame.AbsoluteSize.Y)
+					if nextViewportHeight > 0 then
+						setViewportHeight(nextViewportHeight)
+					end
+				end,
 			}, {
 				Corner = React.createElement("UICorner", {
 					CornerRadius = UDim.new(0, 9),
 				}),
 				Grid = React.createElement("UIGridLayout", {
-					CellPadding = UDim2.fromScale(0.025, 0.04),
-					CellSize = UDim2.fromScale(0.22, 0.36),
-					FillDirectionMaxCells = 4,
+					CellPadding = UDim2.new(0.025, 0, 0, rowPadding),
+					CellSize = UDim2.new(0.22, 0, 0, cellHeight),
+					FillDirectionMaxCells = GRID_COLUMNS,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
@@ -232,6 +264,29 @@ local function InventoryWindow(props: Props)
 					PaddingTop = UDim.new(0, 14),
 				}),
 			}, slots),
+			EmptyState = #items == 0 and props.EmptyMessage and React.createElement("TextLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Font = Enum.Font.FredokaOne,
+				Position = UDim2.fromScale(0.5, 0.62),
+				Size = UDim2.fromScale(0.72, 0.12),
+				Text = props.EmptyMessage,
+				TextColor3 = Color3.fromRGB(210, 213, 220),
+				TextScaled = true,
+				TextStrokeColor3 = Color3.new(0, 0, 0),
+				TextStrokeTransparency = 0,
+				ZIndex = 25,
+			}, {
+				Constraint = React.createElement("UITextSizeConstraint", {
+					MaxTextSize = 28,
+					MinTextSize = 14,
+				}),
+				Stroke = React.createElement("UIStroke", {
+					Color = Color3.new(0, 0, 0),
+					LineJoinMode = Enum.LineJoinMode.Round,
+					Thickness = 2,
+				}),
+			}),
 		}),
 	})
 end

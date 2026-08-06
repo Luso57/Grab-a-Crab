@@ -2,34 +2,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
+local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 
 local e = React.createElement
 local PLAYPEN_BILLBOARD_SCALE = 0.625
-
-local function formatCompactNumber(value: number): string
-	local divisor = 1
-	local suffix = ""
-
-	if value >= 1_000_000_000 then
-		divisor = 1_000_000_000
-		suffix = "b"
-	elseif value >= 1_000_000 then
-		divisor = 1_000_000
-		suffix = "m"
-	elseif value >= 1_000 then
-		divisor = 1_000
-		suffix = "k"
-	end
-
-	local scaledValue = value / divisor
-	local formattedValue = if scaledValue % 1 == 0
-		then tostring(math.floor(scaledValue))
-		else string.format("%.1f", scaledValue)
-
-	return formattedValue .. suffix
-end
 
 local function createStatLabel(text: string, color: Color3, layoutOrder: number, scale: number?)
 	local visualScale = scale or 1
@@ -66,26 +44,28 @@ local function createStatsFrame(height: number, children: { [string]: any }, sca
 	}, children)
 end
 
-local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, oneInOdds: number)
+local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: string)
+	local rarityColor = Slimes.getRarityColor(slimeInfo.rarity)
+
 	return createStatsFrame(132, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
-		Odds = createStatLabel(`1 in {oneInOdds}`, Color3.fromRGB(65, 255, 55), 2),
-		Income = createStatLabel(`${formatCompactNumber(slimeInfo.income)}/s`, Color3.fromRGB(255, 221, 33), 3),
-		Cost = createStatLabel(`${formatCompactNumber(slimeInfo.cost)}`, Color3.fromRGB(65, 255, 55), 4),
+		Odds = createStatLabel(`1 in {formattedOdds}`, rarityColor, 2),
+		Income = createStatLabel(`${CompactNumber.format(slimeInfo.income, 1)}/s`, Color3.fromRGB(255, 221, 33), 3),
+		Cost = createStatLabel(CompactNumber.format(slimeInfo.cost, 1), Color3.fromRGB(65, 255, 55), 4),
 	})
 end
 
-local function createPlaypenStats(slimeInfo: Slimes.SlimeInfo, oneInOdds: number, storedSlime: number)
+local function createPlaypenStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: string, storedSlime: number)
 	return createStatsFrame(100, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, PLAYPEN_BILLBOARD_SCALE),
 		Rarity = createStatLabel(
-			`{slimeInfo.rarity} • 1 in {oneInOdds}`,
-			Color3.fromRGB(65, 255, 55),
+			`{slimeInfo.rarity} • 1 in {formattedOdds}`,
+			Slimes.getRarityColor(slimeInfo.rarity),
 			2,
 			PLAYPEN_BILLBOARD_SCALE
 		),
 		Production = createStatLabel(
-			`+{formatCompactNumber(slimeInfo.income)} Slime/s • {formatCompactNumber(storedSlime)} Slime`,
+			`+{CompactNumber.format(slimeInfo.income, 1)} Slime/s • {CompactNumber.format(storedSlime, 1)} Slime`,
 			Color3.fromRGB(255, 221, 33),
 			3,
 			PLAYPEN_BILLBOARD_SCALE
@@ -99,7 +79,7 @@ local function SlimeBillboards()
 
 	for entryId, entry in activeSlimes do
 		local slimeInfo = Slimes.getSlimeInfo(entry.slimeId)
-		local oneInOdds = Slimes.getSlimeOneInOdds(entry.slimeId)
+		local formattedOdds = Slimes.getFormattedSlimeOdds(entry.slimeId)
 
 		billboards[entryId] = e("BillboardGui", {
 			Adornee = entry.adornee,
@@ -111,8 +91,8 @@ local function SlimeBillboards()
 				else UDim2.fromOffset(190, 288),
 		}, {
 			Stats = if entry.billboardType == "playpen"
-				then createPlaypenStats(slimeInfo, oneInOdds, entry.storedSlime)
-				else createPurchaseStats(slimeInfo, oneInOdds),
+				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime)
+				else createPurchaseStats(slimeInfo, formattedOdds),
 		})
 	end
 

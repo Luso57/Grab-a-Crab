@@ -1,27 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
+local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
-
-local SUFFIXES = {
-	{ threshold = 1e12, suffix = "T" },
-	{ threshold = 1e9, suffix = "B" },
-	{ threshold = 1e6, suffix = "M" },
-	{ threshold = 1e3, suffix = "K" },
-}
-
-local function formatAmount(amount: number): string
-	for _, entry in SUFFIXES do
-		if math.abs(amount) >= entry.threshold then
-			local formatted = string.format("%.1f", amount / entry.threshold)
-			formatted = string.gsub(formatted, "%.0$", "")
-
-			return `{formatted}{entry.suffix}`
-		end
-	end
-
-	return tostring(math.floor(amount))
-end
 
 local function BottomBar()
 	local slimeCurrency, setSlimeCurrency = React.useState(PlayerData.slimeCurrency())
@@ -67,7 +48,7 @@ local function BottomBar()
 			Font = Enum.Font.FredokaOne,
 			Position = UDim2.fromScale(0.5, .6),
 			Size = UDim2.fromScale(0.42, 0.32),
-			Text = formatAmount(slimeCurrency),
+			Text = CompactNumber.format(slimeCurrency, 1),
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextStrokeTransparency = 1,

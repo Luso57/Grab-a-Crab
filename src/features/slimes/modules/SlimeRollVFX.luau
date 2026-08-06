@@ -193,9 +193,13 @@ local function createDisplay(spawner: BasePart, slimeId: string)
 end
 
 local function showMystery(display, slimeId: string)
+	local slimeInfo = Slimes.getSlimeInfo(slimeId)
+
 	display.nameLabel.Text = "???"
-	display.oddsLabel.Text = `1 in {Slimes.getSlimeOneInOdds(slimeId)}`
+	display.oddsLabel.Text = `1 in {Slimes.getFormattedSlimeOdds(slimeId)}`
+	display.oddsLabel.TextColor3 = Slimes.getRarityColor(slimeInfo.rarity)
 	display.rarityLabel.Text = "???"
+	display.rarityLabel.TextColor3 = Color3.new(1, 1, 1)
 end
 
 local function revealWinner(display, winnerId: string)
@@ -203,8 +207,10 @@ local function revealWinner(display, winnerId: string)
 
 	display.silhouette.FillTransparency = 1
 	display.nameLabel.Text = slimeInfo.name
-	display.oddsLabel.Text = `1 in {Slimes.getSlimeOneInOdds(winnerId)}`
+	display.oddsLabel.Text = `1 in {Slimes.getFormattedSlimeOdds(winnerId)}`
+	display.oddsLabel.TextColor3 = Slimes.getRarityColor(slimeInfo.rarity)
 	display.rarityLabel.Text = slimeInfo.rarity
+	display.rarityLabel.TextColor3 = Slimes.getRarityColor(slimeInfo.rarity)
 end
 
 function RollHandle.cancel(self: RollHandle)

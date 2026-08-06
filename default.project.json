@@ -18,6 +18,9 @@
               "HudRoot": {
                 "$path": "src/features/app/hud/HudRoot.luau"
               },
+              "LeftBottom": {
+                "$path": "src/features/app/hud/LeftBottom.luau"
+              },
               "MenuButton": {
                 "$path": "src/features/app/hud/MenuButton.luau"
               },
@@ -56,6 +59,15 @@
               }
             }
           },
+          "Index": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "IndexRoot": {
+                "$path": "src/features/index/ui/IndexRoot.luau"
+              }
+            }
+          },
           "Plots": {
             "$className": "Folder",
             "Classes": {
@@ -69,6 +81,54 @@
             },
             "PlotTypes": {
               "$path": "src/features/plots/PlotTypes.luau"
+            }
+          },
+          "Selling": {
+            "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "CashCollectionVFX": {
+                "$path": "src/features/selling/modules/CashCollectionVFX.luau"
+              },
+              "DepositConfetti": {
+                "$path": "src/features/selling/modules/DepositConfetti.luau"
+              }
+            },
+            "SellingConfig": {
+              "$path": "src/features/selling/SellingConfig.luau"
+            },
+            "SellingServiceClient": {
+              "$path": "src/features/selling/SellingServiceClient.luau"
+            },
+            "SellingSlice": {
+              "$path": "src/features/selling/SellingSlice.luau"
+            },
+            "SellingTypes": {
+              "$path": "src/features/selling/SellingTypes.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "Screens": {
+                "$className": "Folder",
+                "CollectCashBillboard": {
+                  "$path": "src/features/selling/ui/screens/CollectCashBillboard.luau"
+                },
+                "SlimeDepositBillboard": {
+                  "$path": "src/features/selling/ui/screens/SlimeDepositBillboard.luau"
+                },
+                "SlimeQueueSign": {
+                  "$path": "src/features/selling/ui/screens/SlimeQueueSign.luau"
+                },
+                "UncollectedCashBillboard": {
+                  "$path": "src/features/selling/ui/screens/UncollectedCashBillboard.luau"
+                },
+                "UpgradePerSecondBillboard": {
+                  "$path": "src/features/selling/ui/screens/UpgradePerSecondBillboard.luau"
+                }
+              },
+              "SellingRoot": {
+                "$path": "src/features/selling/ui/SellingRoot.luau"
+              }
             }
           },
           "Slimes": {
@@ -89,6 +149,9 @@
               },
               "Slimes": {
                 "$path": "src/features/slimes/modules/Slimes.luau"
+              },
+              "SlimeTouchDetector": {
+                "$path": "src/features/slimes/modules/SlimeTouchDetector.luau"
               }
             },
             "SlimeSlice": {
@@ -106,6 +169,33 @@
                 "$path": "src/features/slimes/ui/SlimeRoot.luau"
               }
             }
+          },
+          "Upgrades": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "Screens": {
+                "$className": "Folder",
+                "UpgradeBoard": {
+                  "$path": "src/features/upgrades/ui/screens/UpgradeBoard.luau"
+                }
+              },
+              "UpgradeRoot": {
+                "$path": "src/features/upgrades/ui/UpgradeRoot.luau"
+              }
+            },
+            "UpgradeConfig": {
+              "$path": "src/features/upgrades/UpgradeConfig.luau"
+            },
+            "UpgradeServiceClient": {
+              "$path": "src/features/upgrades/UpgradeServiceClient.luau"
+            },
+            "UpgradeSlice": {
+              "$path": "src/features/upgrades/UpgradeSlice.luau"
+            },
+            "UpgradeTypes": {
+              "$path": "src/features/upgrades/UpgradeTypes.luau"
+            }
           }
         },
         "Core": {
@@ -113,6 +203,9 @@
         },
         "Game": {
           "$className": "Folder",
+          "CompactNumber": {
+            "$path": "src/game/CompactNumber.luau"
+          },
           "Data": {
             "$path": "src/game/Data.luau"
           },
@@ -159,6 +252,18 @@
           },
           "PlotServiceServer": {
             "$path": "src/features/plots/PlotServiceServer.luau"
+          }
+        },
+        "Selling": {
+          "$className": "Folder",
+          "SellingServiceServer": {
+            "$path": "src/features/selling/SellingServiceServer.luau"
+          }
+        },
+        "Upgrades": {
+          "$className": "Folder",
+          "UpgradeServiceServer": {
+            "$path": "src/features/upgrades/UpgradeServiceServer.luau"
           }
         }
       },

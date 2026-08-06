@@ -5,6 +5,7 @@ local MenuButton = require(ReplicatedStorage.Source.Features.App.Hud.MenuButton)
 
 export type Props = {
 	OnInventoryActivated: () -> (),
+	OnIndexActivated: () -> (),
 }
 
 local BUTTONS = {
@@ -33,6 +34,8 @@ local function SideBar(props: Props)
 			OnActivated = function()
 				if buttonInfo.Text == "Inventory" then
 					props.OnInventoryActivated()
+				elseif buttonInfo.Text == "Index" then
+					props.OnIndexActivated()
 				end
 			end,
 		})

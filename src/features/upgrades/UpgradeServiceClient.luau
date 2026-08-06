@@ -1,0 +1,3 @@
+local UpgradeServiceClient = {}
+
+return UpgradeServiceClient

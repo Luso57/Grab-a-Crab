@@ -14,6 +14,8 @@ local PLAYPEN_AIR_VERTICAL_SCALE = 1.08
 local PLAYPEN_AIR_HORIZONTAL_SCALE = 0.96
 local PLAYPEN_LANDING_VERTICAL_SCALE = 0.86
 local PLAYPEN_LANDING_HORIZONTAL_SCALE = 1.07
+local JUMP_SOUND_ID = "rbxassetid://109872799119131"
+local JUMP_SOUND_MAX_DISTANCE = 35
 
 type DeformPart = {
 	part: BasePart,
@@ -32,6 +34,7 @@ MovementHandle.__index = MovementHandle
 export type MovementHandle = typeof(setmetatable(
 	{} :: {
 		connection: RBXScriptConnection?,
+		jumpSound: Sound,
 		cancelled: boolean,
 	},
 	MovementHandle
@@ -127,6 +130,7 @@ function MovementHandle.cancel(self: MovementHandle)
 		self.connection:Disconnect()
 		self.connection = nil
 	end
+	self.jumpSound:Destroy()
 end
 
 function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment: Attachment): MovementHandle
@@ -138,9 +142,18 @@ function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment
 
 	local deformParts = getDeformParts(model, spawnPivot)
 	local statsAttachmentPosition = statsAttachment.Position
+	local jumpSound = Instance.new("Sound")
+	jumpSound.Name = "SlimeJump"
+	jumpSound.SoundId = JUMP_SOUND_ID
+	jumpSound.Volume = 0.5
+	jumpSound.RollOffMode = Enum.RollOffMode.InverseTapered
+	jumpSound.RollOffMinDistance = 5
+	jumpSound.RollOffMaxDistance = JUMP_SOUND_MAX_DISTANCE
+	jumpSound.Parent = statsAttachment
 	local hopHeight = math.clamp(placement.boundingBoxSize.Y * 0.18, 0.3, 0.75)
 	local handle = setmetatable({
 		connection = nil,
+		jumpSound = jumpSound,
 		cancelled = false,
 	}, MovementHandle)
 
@@ -214,6 +227,8 @@ function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment
 					(phaseTargetPivot.Position - phaseStartPivot.Position).Magnitude / PLAYPEN_HOP_SPEED
 				)
 				state = "airborne"
+				jumpSound.TimePosition = 0
+				jumpSound:Play()
 			end
 		elseif state == "airborne" then
 			elapsed += deltaTime

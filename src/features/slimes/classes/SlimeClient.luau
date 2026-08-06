@@ -1,9 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 local SlimeMovement = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMovement)
+local SlimeTouchDetector = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeTouchDetector)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 type SlimeData = DataTemplate.SlimeData
@@ -12,15 +14,19 @@ local SlimeClient = {}
 SlimeClient.__index = SlimeClient
 
 local ROTATION_SPEED = math.rad(25)
+local COLLECTION_SOUND_ID = "rbxassetid://128847265647261"
+local COLLECTION_SOUND_LIFETIME = 10
 
 export type SlimeClient = typeof(setmetatable(
 	{} :: {
 		slimeData: SlimeData,
 		model: Model,
+		rootPart: BasePart,
 		isLocalPlayer: boolean,
 		sliceEntryId: string,
 		rotationConnection: RBXScriptConnection?,
 		activeMovement: SlimeMovement.MovementHandle?,
+		touchHandle: SlimeTouchDetector.TouchHandle?,
 		onBought: () -> (),
 	},
 	SlimeClient
@@ -91,10 +97,12 @@ function SlimeClient.new(
 	local self = setmetatable({
 		slimeData = slimeData,
 		model = model,
+		rootPart = rootPart,
 		isLocalPlayer = isLocalPlayer,
 		sliceEntryId = sliceEntryId,
 		rotationConnection = nil,
 		activeMovement = nil,
+		touchHandle = nil,
 		onBought = function() end,
 	}, SlimeClient)
 
@@ -138,21 +146,30 @@ function SlimeClient.new(
 	return self
 end
 
-function SlimeClient.newPlaypenSlime(slimeData: SlimeData, playpenBase: BasePart): SlimeClient
+function SlimeClient.newPlaypenSlime(
+	slimeData: SlimeData,
+	playpenBase: BasePart,
+	onTouched: (() -> ())?
+): SlimeClient
 	local model, rootPart = prepareModel(slimeData)
 	local sliceEntryId, statsAttachment = addStatsAttachment(rootPart, model, slimeData, "playpen")
 
 	local self = setmetatable({
 		slimeData = slimeData,
 		model = model,
+		rootPart = rootPart,
 		isLocalPlayer = false,
 		sliceEntryId = sliceEntryId,
 		rotationConnection = nil,
 		activeMovement = nil,
+		touchHandle = nil,
 		onBought = function() end,
 	}, SlimeClient)
 
 	self.activeMovement = SlimeMovement.play(model, playpenBase, statsAttachment)
+	if onTouched then
+		self.touchHandle = SlimeTouchDetector.watch(model, onTouched)
+	end
 
 	return self
 end
@@ -160,6 +177,23 @@ end
 function SlimeClient.setStoredSlime(self: SlimeClient, amount: number)
 	self.slimeData.storedSlime = amount
 	SlimeSlice.actions.setStoredSlime(self.sliceEntryId, amount)
+end
+
+function SlimeClient.playCollectionSound(self: SlimeClient)
+	local sound = Instance.new("Sound")
+	sound.Name = "SlimeCollected"
+	sound.SoundId = COLLECTION_SOUND_ID
+	sound.Volume = 0.7
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMinDistance = 5
+	sound.RollOffMaxDistance = 35
+	sound.Parent = self.rootPart
+
+	sound.Ended:Once(function()
+		sound:Destroy()
+	end)
+	Debris:AddItem(sound, COLLECTION_SOUND_LIFETIME)
+	sound:Play()
 end
 
 function SlimeClient.destroy(self: SlimeClient)
@@ -171,6 +205,11 @@ function SlimeClient.destroy(self: SlimeClient)
 	if self.activeMovement then
 		self.activeMovement:cancel()
 		self.activeMovement = nil
+	end
+
+	if self.touchHandle then
+		self.touchHandle:cancel()
+		self.touchHandle = nil
 	end
 
 	SlimeSlice.actions.removeSlime(self.sliceEntryId)
