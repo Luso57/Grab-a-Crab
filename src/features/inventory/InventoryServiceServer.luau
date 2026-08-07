@@ -3,7 +3,10 @@ local HttpService = game:GetService("HttpService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local DataService = require(ReplicatedStorage.Source.Game.Data).server
+local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
+
+local SLIMES_PER_PLAYPEN = 7
 
 local InventoryServiceServer = {}
 
@@ -25,13 +28,36 @@ function InventoryServiceServer.addSlime(
 	if not playerData then
 		return false
 	end
+	local plotLevel = PlotLevelConfig.getLevel(playerData.plotLevel())
+	local savedSlimes = playerData.slimes()
+	if #savedSlimes + amount > plotLevel * SLIMES_PER_PLAYPEN then
+		return false
+	end
+
+	local floorCounts = {}
+	for _, slimeData in savedSlimes do
+		local level = PlotLevelConfig.getLevel(slimeData.playpenLevel)
+		floorCounts[level] = (floorCounts[level] or 0) + 1
+	end
 
 	for _ = 1, amount do
+		local playpenLevel = PlotLevelConfig.StartingLevel
+		for level = PlotLevelConfig.StartingLevel, plotLevel do
+			if (floorCounts[level] or 0) < SLIMES_PER_PLAYPEN then
+				playpenLevel = level
+				break
+			end
+		end
+		floorCounts[playpenLevel] = (floorCounts[playpenLevel] or 0) + 1
+
 		playerData.slimes.Insert({
 			instanceId = HttpService:GenerateGUID(false),
 			slimeId = slimeId,
 			mutationId = "normal",
 			storedSlime = 0,
+			level = 1,
+			upgradeInvestment = 0,
+			playpenLevel = playpenLevel,
 		})
 	end
 

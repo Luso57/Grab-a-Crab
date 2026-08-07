@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
+local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 
 export type Props = {
 	Name: string,
@@ -25,6 +26,7 @@ local function InventorySlot(props: Props)
 		Text = "",
 		[React.Event.Activated] = function()
 			if props.OnActivated then
+				UISounds.playSelect()
 				props.OnActivated()
 			end
 		end,

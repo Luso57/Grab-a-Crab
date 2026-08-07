@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
+local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local InventorySlot = require(ReplicatedStorage.Source.Features.Inventory.UI.Components.InventorySlot)
 
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
@@ -17,6 +18,7 @@ export type Item = {
 	rarity: string?,
 	rarityColor: Color3?,
 	quantity: number?,
+	onActivated: (() -> ())?,
 }
 
 export type Props = {
@@ -55,6 +57,7 @@ local function InventoryWindow(props: Props)
 			RarityColor = item.rarityColor,
 			Quantity = item.quantity,
 			LayoutOrder = layoutOrder,
+			OnActivated = item.onActivated,
 		})
 	end
 
@@ -153,7 +156,10 @@ local function InventoryWindow(props: Props)
 					TextStrokeColor3 = Color3.new(0, 0, 0),
 					TextStrokeTransparency = 0,
 					ZIndex = 25,
-					[React.Event.Activated] = props.OnClose,
+					[React.Event.Activated] = function()
+						UISounds.playSelect()
+						props.OnClose()
+					end,
 				}, {
 					AspectRatio = React.createElement("UIAspectRatioConstraint", {
 						AspectRatio = 1,

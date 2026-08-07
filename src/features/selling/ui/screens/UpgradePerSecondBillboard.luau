@@ -9,6 +9,7 @@ local SellingSlice = require(ReplicatedStorage.Source.Features.Selling.SellingSl
 local e = React.createElement
 local COST_ATTRIBUTE = "UpgradePerSecondCost"
 local GAIN_ATTRIBUTE = "UpgradePerSecondGain"
+local CAN_AFFORD_ATTRIBUTE = "UpgradePerSecondCanAfford"
 
 type EntryProps = {
 	adornee: Attachment,
@@ -18,6 +19,11 @@ type EntryProps = {
 local function getNumberAttribute(instance: Instance, attributeName: string, defaultValue: number): number
 	local value = instance:GetAttribute(attributeName)
 	return if type(value) == "number" then math.floor(math.max(0, value)) else defaultValue
+end
+
+local function getBooleanAttribute(instance: Instance, attributeName: string, defaultValue: boolean): boolean
+	local value = instance:GetAttribute(attributeName)
+	return if type(value) == "boolean" then value else defaultValue
 end
 
 local function createOutlinedLabel(props: { [string]: any }, maxTextSize: number)
@@ -41,6 +47,7 @@ local function UpgradePerSecondEntry(props: EntryProps)
 	local gain, setGain = React.useState(
 		getNumberAttribute(props.plotModel, GAIN_ATTRIBUTE, SellingConfig.UpgradePerSecondBaseGain)
 	)
+	local canAfford, setCanAfford = React.useState(getBooleanAttribute(props.plotModel, CAN_AFFORD_ATTRIBUTE, false))
 
 	React.useEffect(function()
 		local costConnection = props.plotModel:GetAttributeChangedSignal(COST_ATTRIBUTE):Connect(function()
@@ -49,13 +56,18 @@ local function UpgradePerSecondEntry(props: EntryProps)
 		local gainConnection = props.plotModel:GetAttributeChangedSignal(GAIN_ATTRIBUTE):Connect(function()
 			setGain(getNumberAttribute(props.plotModel, GAIN_ATTRIBUTE, SellingConfig.UpgradePerSecondBaseGain))
 		end)
+		local affordabilityConnection = props.plotModel:GetAttributeChangedSignal(CAN_AFFORD_ATTRIBUTE):Connect(function()
+			setCanAfford(getBooleanAttribute(props.plotModel, CAN_AFFORD_ATTRIBUTE, false))
+		end)
 
 		setCost(getNumberAttribute(props.plotModel, COST_ATTRIBUTE, SellingConfig.UpgradePerSecondBaseCost))
 		setGain(getNumberAttribute(props.plotModel, GAIN_ATTRIBUTE, SellingConfig.UpgradePerSecondBaseGain))
+		setCanAfford(getBooleanAttribute(props.plotModel, CAN_AFFORD_ATTRIBUTE, false))
 
 		return function()
 			costConnection:Disconnect()
 			gainConnection:Disconnect()
+			affordabilityConnection:Disconnect()
 		end
 	end, { props.plotModel })
 
@@ -82,7 +94,7 @@ local function UpgradePerSecondEntry(props: EntryProps)
 			Position = UDim2.fromScale(0, 0.43),
 			Size = UDim2.fromScale(1, 0.48),
 			Text = CompactNumber.format(cost, 2),
-			TextColor3 = Color3.fromRGB(65, 255, 55),
+			TextColor3 = if canAfford then Color3.fromRGB(65, 255, 55) else Color3.fromRGB(255, 70, 70),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
 		}, 42),

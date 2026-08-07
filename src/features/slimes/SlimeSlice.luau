@@ -8,6 +8,7 @@ export type SlimeEntry = {
 	instanceId: string?,
 	slimeId: string,
 	storedSlime: number,
+	level: number,
 }
 
 type Atom<T> = Charm.Atom<T>
@@ -21,7 +22,8 @@ local actions = {
 		slimeId: string,
 		billboardType: "purchase" | "playpen",
 		instanceId: string?,
-		storedSlime: number?
+		storedSlime: number?,
+		level: number?
 	): string
 		nextSlimeEntryId += 1
 		local entryId = `slime-{nextSlimeEntryId}`
@@ -34,6 +36,7 @@ local actions = {
 				instanceId = instanceId,
 				slimeId = slimeId,
 				storedSlime = storedSlime or 0,
+				level = math.max(1, math.floor(level or 1)),
 			}
 
 			return nextSlimes
@@ -53,6 +56,20 @@ local actions = {
 			nextEntry.storedSlime = amount
 			nextSlimes[entryId] = nextEntry
 
+			return nextSlimes
+		end)
+	end,
+
+	setLevel = function(entryId: string, level: number)
+		if slimes()[entryId] == nil then
+			return
+		end
+
+		slimes(function(previousSlimes)
+			local nextSlimes = table.clone(previousSlimes)
+			local nextEntry = table.clone(nextSlimes[entryId])
+			nextEntry.level = math.max(1, math.floor(level))
+			nextSlimes[entryId] = nextEntry
 			return nextSlimes
 		end)
 	end,

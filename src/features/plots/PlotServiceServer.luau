@@ -32,6 +32,10 @@ function PlotServiceServer.init(self: PlotServiceServer)
 		local index = plotSpawn:GetAttribute("Index") :: number
 		local fakePlot: Model & any = ReplicatedStorage.Assets.Misc.Plot:Clone()
 		fakePlot:PivotTo(plotSpawn.CFrame)
+		local fakeLevels = fakePlot:FindFirstChild("Levels")
+		if fakeLevels then
+			fakeLevels:Destroy()
+		end
 		fakePlot.Parent = workspace
 		self.plotSpawns[index] = { part = plotSpawn, owner = nil, index = index, fakePlot = fakePlot }
 	end

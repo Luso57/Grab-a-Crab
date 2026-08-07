@@ -6,6 +6,7 @@ type Atom<T> = Charm.Atom<T>
 
 local isOpen: Atom<boolean> = Charm.atom(false)
 local searchQuery: Atom<string> = Charm.atom("")
+local selectedInstanceId: Atom<string?> = Charm.atom(nil)
 
 local actions = {
 	open = function()
@@ -14,12 +15,28 @@ local actions = {
 
 	close = function()
 		isOpen(false)
+		selectedInstanceId(nil)
 	end,
 
 	toggle = function()
-		isOpen(function(previous)
-			return not previous
-		end)
+		local willOpen = not isOpen()
+		if not willOpen then
+			selectedInstanceId(nil)
+		end
+		isOpen(willOpen)
+	end,
+
+	select = function(instanceId: string)
+		selectedInstanceId(instanceId)
+	end,
+
+	clearSelection = function()
+		selectedInstanceId(nil)
+	end,
+
+	inspectSlime = function(instanceId: string)
+		selectedInstanceId(instanceId)
+		isOpen(true)
 	end,
 
 	setSearchQuery = function(query: string)
@@ -31,6 +48,7 @@ return {
 	state = {
 		isOpen = isOpen,
 		searchQuery = searchQuery,
+		selectedInstanceId = selectedInstanceId,
 	},
 	actions = actions,
 }

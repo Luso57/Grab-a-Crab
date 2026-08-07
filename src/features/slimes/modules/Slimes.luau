@@ -22,7 +22,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		name = "Green Slime",
 		rarity = "Common",
 		image = "rbxassetid://133166580358352",
-		cost = 100,
+		cost = 0,
 		income = 5,
 		chance = 1.6059219164651048,
 	},
@@ -31,7 +31,7 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		name = "Blue Slime",
 		rarity = "Common",
 		image = "rbxassetid://100827892652136",
-		cost = 120,
+		cost = 0,
 		income = 6,
 		chance = 8,
 	},
@@ -761,9 +761,11 @@ local rarityColors: { [SlimeRarity]: Color3 } = {
 
 local slimes: { [string]: SlimeInfo } = {}
 local slimeIds: { string } = {}
+local freeSlimeIds: { string } = {}
 
 for slimeId, slimeDefinition in slimeDefinitions do
 	assert(slimeDefinition.chance > 0, `Slime chance must be greater than zero: {slimeId}`)
+	assert(slimeDefinition.cost >= 0, `Slime cost cannot be negative: {slimeId}`)
 	slimes[slimeId] = {
 		id = slimeId,
 		name = slimeDefinition.name,
@@ -774,9 +776,13 @@ for slimeId, slimeDefinition in slimeDefinitions do
 		chance = slimeDefinition.chance,
 	}
 	table.insert(slimeIds, slimeId)
+	if slimeDefinition.cost == 0 then
+		table.insert(freeSlimeIds, slimeId)
+	end
 end
 
 table.sort(slimeIds)
+table.sort(freeSlimeIds)
 
 local Slimes = {
 	slimes = slimes,
@@ -833,6 +839,12 @@ end
 function Slimes.getLuckyRandomSlimeId(luckMultiplier: number, random: Random?): string
 	assert(#slimeIds > 0, "Cannot roll a slime because the slime catalog is empty")
 	return getWeightedRandomSlimeId(luckMultiplier, random)
+end
+
+function Slimes.getRandomFreeSlimeId(random: Random?): string
+	assert(#freeSlimeIds > 0, "Cannot perform a zero-cash safety roll because the slime catalog has no free slimes")
+	local index = if random then random:NextInteger(1, #freeSlimeIds) else math.random(1, #freeSlimeIds)
+	return freeSlimeIds[index]
 end
 
 function Slimes.getSlimeModel(slimeId: string): Model

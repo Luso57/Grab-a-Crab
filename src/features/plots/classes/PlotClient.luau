@@ -4,6 +4,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
+local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
+local PlotLevelSlice = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelSlice)
+local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
+local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local CashCollectionVFX = require(ReplicatedStorage.Source.Features.Selling.Modules.CashCollectionVFX)
 local DepositConfetti = require(ReplicatedStorage.Source.Features.Selling.Modules.DepositConfetti)
 local SellingSlice = require(ReplicatedStorage.Source.Features.Selling.SellingSlice)
@@ -25,6 +29,7 @@ export type PlotClient = typeof(setmetatable(
 		networker: Networker.Client,
 		spawner: BasePart,
 		playpenBase: BasePart,
+		playpenBases: { [number]: BasePart },
 		collectCashAttachment: Attachment,
 		collectCashEntryId: string,
 		slimeDepositAttachment: Attachment,
@@ -33,6 +38,7 @@ export type PlotClient = typeof(setmetatable(
 		upgradePadAttachment: Attachment,
 		upgradePadEntryId: string,
 		upgradeBoardEntryId: string?,
+		levelSignEntryId: string,
 		currentSlime: SlimeClient.SlimeClient?,
 		playpenSlimes: { SlimeClient.SlimeClient },
 		rollPrompt: ProximityPrompt?,
@@ -51,6 +57,14 @@ local function getPlaypenBase(plotModel: Model): BasePart
 	end
 
 	error("Plot is missing its PlaypenBase BasePart")
+end
+
+local function getUpperPlaypenBase(plotModel: Model, level: number): BasePart
+	local levelModel = plotModel:WaitForChild(`PlayPenBaseLvl{level}`)
+	assert(levelModel:IsA("Model"), `PlayPenBaseLvl{level} must be a Model`)
+	local playpenArea = levelModel:WaitForChild("PlayPenArea")
+	assert(playpenArea:IsA("BasePart"), `PlayPenBaseLvl{level}.PlayPenArea must be a BasePart`)
+	return playpenArea
 end
 
 local function createSlimeDepositAttachment(plotModel: Model): (Attachment, string)
@@ -99,6 +113,21 @@ local function registerSlimeSign(plotModel: Model): string
 	assert(display:IsA("BasePart"), "Plot SlimeSign.display must be a BasePart")
 
 	return SellingSlice.actions.addSlimeSign(display, plotModel)
+end
+
+local function registerLevelSign(
+	plotModel: Model,
+	currentLevel: number,
+	canPurchase: boolean,
+	onPurchase: (() -> ())?
+): string
+	local levelSign = plotModel:WaitForChild("LevelSign")
+	assert(levelSign:IsA("Model"), "Plot LevelSign must be a Model")
+
+	local board = levelSign:WaitForChild("board")
+	assert(board:IsA("BasePart"), "Plot LevelSign.board must be a BasePart")
+
+	return PlotLevelSlice.actions.addSign(board, plotModel, currentLevel, canPurchase, onPurchase)
 end
 
 local function createUpgradePadAttachment(plotModel: Model): (Attachment, string)
@@ -166,11 +195,13 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 		networker = nil :: any,
 		spawner = spawner,
 		playpenBase = playpenBase,
+		playpenBases = { [PlotLevelConfig.StartingLevel] = playpenBase },
 		collectCashAttachment = collectCashAttachment,
 		collectCashEntryId = collectCashEntryId,
 		slimeDepositAttachment = slimeDepositAttachment,
 		slimeDepositEntryId = slimeDepositEntryId,
 		slimeSignEntryId = slimeSignEntryId,
+		levelSignEntryId = "",
 		upgradePadAttachment = upgradePadAttachment,
 		upgradePadEntryId = upgradePadEntryId,
 		upgradeBoardEntryId = nil :: string?,
@@ -182,8 +213,22 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 		destroyed = false,
 	}, PlotClient)
 
+	for level = PlotLevelConfig.StartingLevel + 1, PlotLevelConfig.getLevel(plotData.plotLevel) do
+		self.playpenBases[level] = getUpperPlaypenBase(self.plotModel, level)
+	end
+
 	self.networker = Networker.client.new(`Plot{self.index}`, self)
 	local canPurchaseUpgrades = self.player == Players.LocalPlayer
+	self.levelSignEntryId = registerLevelSign(
+		self.plotModel,
+		plotData.plotLevel,
+		canPurchaseUpgrades,
+		if canPurchaseUpgrades
+			then function()
+				self.networker:fire("purchasePlotLevel")
+			end
+			else nil
+	)
 	self.upgradeBoardEntryId = registerUpgradeBoard(
 		self.plotModel,
 		canPurchaseUpgrades,
@@ -256,7 +301,15 @@ function PlotClient.addPlaypenSlime(self: PlotClient, slimeData: SlimeData)
 			end
 		end
 		else nil
-	local slime = SlimeClient.newPlaypenSlime(slimeData, self.playpenBase, onTouched)
+	local onClicked = if self.player == Players.LocalPlayer
+		then function()
+			UISounds.playSelect()
+			InventorySlice.actions.inspectSlime(slimeData.instanceId)
+		end
+		else nil
+	local assignedLevel = PlotLevelConfig.getLevel(slimeData.playpenLevel)
+	local assignedPlaypen = self.playpenBases[assignedLevel] or self.playpenBase
+	local slime = SlimeClient.newPlaypenSlime(slimeData, assignedPlaypen, onTouched, onClicked)
 	table.insert(self.playpenSlimes, slime)
 end
 
@@ -287,6 +340,82 @@ function PlotClient.slimeCollected(self: PlotClient, instanceId: string, _amount
 			return
 		end
 	end
+end
+
+function PlotClient.slimeUpgraded(self: PlotClient, instanceId: string, level: number)
+	for _, slime in self.playpenSlimes do
+		if slime.slimeData.instanceId == instanceId then
+			slime:setLevel(level)
+			if self.player == Players.LocalPlayer then
+				DepositConfetti.playSound()
+			end
+			return
+		end
+	end
+end
+
+function PlotClient.slimeSold(self: PlotClient, instanceId: string)
+	for index, slime in self.playpenSlimes do
+		if slime.slimeData.instanceId == instanceId then
+			slime:destroy()
+			table.remove(self.playpenSlimes, index)
+			return
+		end
+	end
+end
+
+function PlotClient.requestSlimeUpgrade(self: PlotClient, instanceId: string)
+	if not self.destroyed and self.player == Players.LocalPlayer then
+		self.networker:fire("upgradeSlime", instanceId)
+	end
+end
+
+function PlotClient.requestSlimeSale(self: PlotClient, instanceId: string)
+	if not self.destroyed and self.player == Players.LocalPlayer then
+		self.networker:fire("sellSlime", instanceId)
+	end
+end
+
+function PlotClient.requestRebirth(self: PlotClient)
+	if not self.destroyed and self.player == Players.LocalPlayer then
+		self.networker:fire("rebirth")
+	end
+end
+
+function PlotClient.rebirthed(self: PlotClient, _rebirthCount: number)
+	for _, slime in self.playpenSlimes do
+		slime:destroy()
+	end
+	table.clear(self.playpenSlimes)
+end
+
+function PlotClient.plotLevelPurchased(self: PlotClient, level: number)
+	if self.destroyed then
+		return
+	end
+
+	local safeLevel = PlotLevelConfig.getLevel(level)
+	if safeLevel > PlotLevelConfig.StartingLevel and self.playpenBases[safeLevel] == nil then
+		self.playpenBases[safeLevel] = getUpperPlaypenBase(self.plotModel, safeLevel)
+	end
+	PlotLevelSlice.actions.setLevel(self.levelSignEntryId, safeLevel)
+	if self.player == Players.LocalPlayer then
+		UISounds.playSelect()
+	end
+end
+
+function PlotClient.setPlotLevel(self: PlotClient, level: number)
+	if self.destroyed or self.levelSignEntryId == "" then
+		return
+	end
+
+	local safeLevel = PlotLevelConfig.getLevel(level)
+	for unlockedLevel = PlotLevelConfig.StartingLevel + 1, safeLevel do
+		if self.playpenBases[unlockedLevel] == nil then
+			self.playpenBases[unlockedLevel] = getUpperPlaypenBase(self.plotModel, unlockedLevel)
+		end
+	end
+	PlotLevelSlice.actions.setLevel(self.levelSignEntryId, safeLevel)
 end
 
 function PlotClient.slimeDeposited(self: PlotClient, _amount: number)
@@ -354,6 +483,8 @@ function PlotClient.showSlime(self: PlotClient, slimeId: string, startingRotatio
 		slimeId = slimeId,
 		mutationId = "normal",
 		storedSlime = 0,
+		level = 1,
+		upgradeInvestment = 0,
 	}, self.spawner, self.player == Players.LocalPlayer, startingRotation)
 
 	if self.player == Players.LocalPlayer then
@@ -372,6 +503,10 @@ function PlotClient.destroy(self: PlotClient)
 	SellingSlice.actions.removeDeposit(self.slimeDepositEntryId)
 	self.slimeDepositAttachment:Destroy()
 	SellingSlice.actions.removeSlimeSign(self.slimeSignEntryId)
+	if self.levelSignEntryId ~= "" then
+		PlotLevelSlice.actions.removeSign(self.levelSignEntryId)
+		self.levelSignEntryId = ""
+	end
 	SellingSlice.actions.removeUpgradePad(self.upgradePadEntryId)
 	self.upgradePadAttachment:Destroy()
 	if self.upgradeBoardEntryId then

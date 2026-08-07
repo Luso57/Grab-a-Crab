@@ -7,7 +7,8 @@ local SellingSlice = require(ReplicatedStorage.Source.Features.Selling.SellingSl
 
 local e = React.createElement
 local CASH_ATTRIBUTE = "UncollectedCash"
-local CASH_MULTIPLIER_ATTRIBUTE = "CashMultiplier"
+local CASH_PAYOUT_MULTIPLIER_ATTRIBUTE = "CashPayoutMultiplier"
+local LEGACY_CASH_MULTIPLIER_ATTRIBUTE = "CashMultiplier"
 
 type EntryProps = {
 	adornee: Attachment,
@@ -16,9 +17,17 @@ type EntryProps = {
 
 local function getCash(plotModel: Model): number
 	local value = plotModel:GetAttribute(CASH_ATTRIBUTE)
-	local multiplier = plotModel:GetAttribute(CASH_MULTIPLIER_ATTRIBUTE)
+	local multiplier = plotModel:GetAttribute(CASH_PAYOUT_MULTIPLIER_ATTRIBUTE)
+	if type(multiplier) ~= "number" then
+		multiplier = plotModel:GetAttribute(LEGACY_CASH_MULTIPLIER_ATTRIBUTE)
+	end
 	local baseCash = if type(value) == "number" then math.floor(math.max(0, value)) else 0
-	local cashMultiplier = if type(multiplier) == "number" then math.max(1, multiplier) else 1
+	local cashMultiplier = if type(multiplier) == "number"
+		and multiplier == multiplier
+		and multiplier ~= math.huge
+		and multiplier ~= -math.huge
+		then math.max(1, multiplier)
+		else 1
 	return math.floor(baseCash * cashMultiplier)
 end
 
@@ -43,7 +52,9 @@ local function CollectCashEntry(props: EntryProps)
 		local connection = props.plotModel:GetAttributeChangedSignal(CASH_ATTRIBUTE):Connect(function()
 			setCash(getCash(props.plotModel))
 		end)
-		local multiplierConnection = props.plotModel:GetAttributeChangedSignal(CASH_MULTIPLIER_ATTRIBUTE):Connect(function()
+		local multiplierConnection = props.plotModel
+			:GetAttributeChangedSignal(CASH_PAYOUT_MULTIPLIER_ATTRIBUTE)
+			:Connect(function()
 			setCash(getCash(props.plotModel))
 		end)
 		setCash(getCash(props.plotModel))

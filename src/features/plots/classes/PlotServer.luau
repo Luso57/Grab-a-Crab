@@ -1,11 +1,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
+local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
+local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
+local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeTypes = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeTypes)
@@ -26,6 +30,22 @@ local PRODUCTION_INTERVAL = 1
 local COLLECTION_REQUEST_COOLDOWN = 0.25
 local COLLECTION_HORIZONTAL_MARGIN = 6
 local COLLECTION_VERTICAL_MARGIN = 10
+local SLIMES_PER_PLAYPEN = 7
+
+local function getSafeCurrency(value: number): number
+	if value ~= value or value == math.huge or value == -math.huge then
+		return 0
+	end
+	return math.floor(math.max(0, value))
+end
+
+local function stagePlotLevels(plotModel: Model, player: Player, plotIndex: number): Folder
+	local levels = plotModel:FindFirstChild("Levels")
+	assert(levels and levels:IsA("Folder"), "Plot must contain a Levels folder")
+	levels.Name = `PlotLevels_{player.UserId}_{plotIndex}`
+	levels.Parent = ServerStorage
+	return levels
+end
 
 export type Plot = typeof(setmetatable(
 	{} :: {
@@ -34,12 +54,16 @@ export type Plot = typeof(setmetatable(
 		player: Player,
 		plotModel: Model,
 		playpenBase: BasePart,
+		levelTemplates: Folder,
+		plotLevel: number,
+		plotLevelPurchaseLocked: boolean,
 		currentSlimeId: string?,
 		networker: Networker.Server,
 		activeRollSeed: number?,
 		random: Random,
 		destroyed: boolean,
 		lastCollectionAt: { [string]: number },
+		slimeManagementLocked: boolean,
 		sellingHandle: SellingServiceServer.SellingHandle?,
 		upgradeHandle: UpgradeServiceServer.UpgradeHandle?,
 	},
@@ -57,12 +81,16 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		random = Random.new(),
 		destroyed = false,
 		lastCollectionAt = {},
+		slimeManagementLocked = false,
+		plotLevel = PlotLevelConfig.StartingLevel,
+		plotLevelPurchaseLocked = false,
 		sellingHandle = nil,
 		upgradeHandle = nil,
 	}, PlotServer)
 
 	local plotModel = PlotModel:Clone()
 	plotModel:PivotTo(plotSpawn.part.CFrame)
+	self.levelTemplates = stagePlotLevels(plotModel, player, plotSpawn.index)
 	plotModel.Parent = workspace
 	self.plotModel = plotModel
 	self.playpenBase = self:getPlaypenBase()
@@ -70,12 +98,24 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		self.rollSlime,
 		self.buySlime,
 		self.collectSlime,
+		self.upgradeSlime,
+		self.sellSlime,
+		self.rebirth,
 		self.purchaseSlimeLuck,
 		self.purchaseCashMultiplier,
+		self.purchasePlotLevel,
 	})
 
 	Data.Service:waitForData(player)
-	self:migrateSlimeData()
+	local playerData = Data[player]
+	if playerData then
+		self.plotLevel = PlotLevelConfig.getLevel(playerData.plotLevel())
+		playerData.plotLevel(self.plotLevel)
+		self:migrateSlimeData()
+		for level = PlotLevelConfig.StartingLevel + 1, self.plotLevel do
+			self:spawnPlotLevel(level)
+		end
+	end
 	self.upgradeHandle = UpgradeServiceServer.attachPlot(player, self.plotModel)
 	self.sellingHandle = SellingServiceServer.attachPlot(player, self.plotModel, function(amount)
 		self.networker:fire(player, "slimeDeposited", amount)
@@ -91,7 +131,33 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 	return self
 end
 
-function PlotServer.getPlaypenBase(self: Plot): BasePart
+function PlotServer.spawnPlotLevel(self: Plot, level: number): boolean
+	local levelName = `PlayPenBaseLvl{level}`
+	if self.plotModel:FindFirstChild(levelName) then
+		return true
+	end
+
+	local levelModel = self.levelTemplates:FindFirstChild(levelName)
+	if not levelModel or not levelModel:IsA("Model") then
+		warn(`Missing authored plot level model {levelName}`)
+		return false
+	end
+
+	levelModel.Parent = self.plotModel
+	return true
+end
+
+function PlotServer.getPlaypenBase(self: Plot, level: number?): BasePart
+	local safeLevel = math.max(1, math.floor(level or 1))
+	if safeLevel > 1 then
+		local levelModel = self.plotModel:FindFirstChild(`PlayPenBaseLvl{safeLevel}`)
+		local playpenArea = if levelModel then levelModel:FindFirstChild("PlayPenArea", true) else nil
+		if playpenArea and playpenArea:IsA("BasePart") then
+			return playpenArea
+		end
+		error(`Plot is missing the PlayPenArea for level {safeLevel}`)
+	end
+
 	for _, descendant in self.plotModel:GetDescendants() do
 		if descendant:IsA("BasePart") and string.lower(descendant.Name) == "playpenbase" then
 			return descendant
@@ -101,15 +167,16 @@ function PlotServer.getPlaypenBase(self: Plot): BasePart
 	error("Plot is missing its PlaypenBase BasePart")
 end
 
-function PlotServer.isPlayerNearPlaypen(self: Plot, player: Player): boolean
+function PlotServer.isPlayerNearPlaypen(self: Plot, player: Player, level: number): boolean
 	local character = player.Character
 	local rootPart = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if not rootPart or not rootPart:IsA("BasePart") then
 		return false
 	end
 
-	local localPosition = self.playpenBase.CFrame:PointToObjectSpace(rootPart.Position)
-	local halfSize = self.playpenBase.Size / 2
+	local playpenBase = self:getPlaypenBase(level)
+	local localPosition = playpenBase.CFrame:PointToObjectSpace(rootPart.Position)
+	local halfSize = playpenBase.Size / 2
 
 	return math.abs(localPosition.X) <= halfSize.X + COLLECTION_HORIZONTAL_MARGIN
 		and math.abs(localPosition.Z) <= halfSize.Z + COLLECTION_HORIZONTAL_MARGIN
@@ -122,7 +189,17 @@ function PlotServer.migrateSlimeData(self: Plot)
 		return
 	end
 
-	for index, slimeData in playerData.slimes() do
+	local savedSlimes = playerData.slimes()
+	local neededLevel = PlotLevelConfig.getLevel(math.ceil(#savedSlimes / SLIMES_PER_PLAYPEN))
+	if neededLevel > self.plotLevel then
+		self.plotLevel = neededLevel
+		playerData.plotLevel(self.plotLevel)
+	end
+
+	local floorCounts = {}
+	local needsAssignment = {}
+
+	for index, slimeData in savedSlimes do
 		local slimeValue = playerData.slimes[index]
 
 		if not slimeData.instanceId then
@@ -136,7 +213,70 @@ function PlotServer.migrateSlimeData(self: Plot)
 		if slimeData.storedSlime == nil then
 			slimeValue.storedSlime(0)
 		end
+
+		if slimeData.level == nil then
+			slimeValue.level(1)
+		end
+
+		if slimeData.upgradeInvestment == nil then
+			slimeValue.upgradeInvestment(0)
+		end
+
+		local assignedLevel = slimeData.playpenLevel
+		local isValidAssignment = type(assignedLevel) == "number"
+			and assignedLevel == assignedLevel
+			and assignedLevel % 1 == 0
+			and assignedLevel >= PlotLevelConfig.StartingLevel
+			and assignedLevel <= self.plotLevel
+			and (floorCounts[assignedLevel] or 0) < SLIMES_PER_PLAYPEN
+
+		if isValidAssignment then
+			floorCounts[assignedLevel] = (floorCounts[assignedLevel] or 0) + 1
+		else
+			table.insert(needsAssignment, index)
+		end
 	end
+
+	for _, index in needsAssignment do
+		local assignedLevel = PlotLevelConfig.MaxLevel
+		for level = PlotLevelConfig.StartingLevel, self.plotLevel do
+			if (floorCounts[level] or 0) < SLIMES_PER_PLAYPEN then
+				assignedLevel = level
+				break
+			end
+		end
+
+		floorCounts[assignedLevel] = (floorCounts[assignedLevel] or 0) + 1
+		playerData.slimes[index].playpenLevel(assignedLevel)
+	end
+end
+
+function PlotServer.getAvailablePlaypenLevel(self: Plot): number?
+	local playerData = Data[self.player]
+	if not playerData then
+		return nil
+	end
+
+	local savedSlimes = playerData.slimes()
+	if #savedSlimes >= self.plotLevel * SLIMES_PER_PLAYPEN then
+		return nil
+	end
+
+	local floorCounts = {}
+	for _, slimeData in savedSlimes do
+		local level = slimeData.playpenLevel
+		if type(level) == "number" and level % 1 == 0 and level >= 1 and level <= self.plotLevel then
+			floorCounts[level] = (floorCounts[level] or 0) + 1
+		end
+	end
+
+	for level = PlotLevelConfig.StartingLevel, self.plotLevel do
+		if (floorCounts[level] or 0) < SLIMES_PER_PLAYPEN then
+			return level
+		end
+	end
+
+	return nil
 end
 
 function PlotServer.startProduction(self: Plot)
@@ -160,7 +300,8 @@ function PlotServer.startProduction(self: Plot)
 					continue
 				end
 
-				local income = Slimes.getSlimeInfo(slimeData.slimeId).income
+				local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
+				local income = SlimeEconomy.getProduction(slimeInfo.income, slimeData.level)
 				local storedSlime = playerData.slimes[index].storedSlime(function(previous)
 					return previous + income
 				end)
@@ -185,8 +326,47 @@ function PlotServer.get(self: Plot): PlotTypes.PlotData
 		plotModel = self.plotModel,
 		cf = self.cf,
 		currentSlimeId = self.currentSlimeId,
+		plotLevel = self.plotLevel,
 		slimes = savedSlimes,
 	}
+end
+
+function PlotServer.purchasePlotLevel(self: Plot, player: Player): boolean
+	if not self:isOwner(player) or self.plotLevelPurchaseLocked then
+		return false
+	end
+
+	local nextLevel = self.plotLevel + 1
+	local cost = PlotLevelConfig.getCost(nextLevel)
+	if nextLevel > PlotLevelConfig.MaxLevel or cost == nil then
+		return false
+	end
+
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	local currency = getSafeCurrency(playerData.currency())
+	if currency < cost then
+		return false
+	end
+
+	local levelModel = self.levelTemplates:FindFirstChild(`PlayPenBaseLvl{nextLevel}`)
+	if not levelModel or not levelModel:IsA("Model") then
+		warn(`Cannot purchase missing plot level {nextLevel} for {player.Name}`)
+		return false
+	end
+
+	self.plotLevelPurchaseLocked = true
+	playerData.currency(currency - cost)
+	playerData.plotLevel(nextLevel)
+	self.plotLevel = nextLevel
+	levelModel.Parent = self.plotModel
+	self.plotLevelPurchaseLocked = false
+
+	self.networker:fireAll("plotLevelPurchased", nextLevel)
+	return true
 end
 
 function PlotServer.charInit(self: Plot)
@@ -211,9 +391,18 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	if not playerData then
 		return false
 	end
+	local currency = getSafeCurrency(playerData.currency())
 
-	local luckMultiplier = UpgradeConfig.getLuckMultiplier(playerData.slimeLuckLevel())
-	local slimeId = Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
+	local ownedSlimes = playerData.slimes()
+	local needsFreeStarter = currency == 0 and #ownedSlimes == 0
+	local slimeId: string
+	if needsFreeStarter then
+		slimeId = Slimes.getRandomFreeSlimeId(self.random)
+	else
+		local luckMultiplier = UpgradeConfig.getLuckMultiplier(playerData.slimeLuckLevel())
+			* RebirthConfig.getRewardMultiplier(playerData.rebirths())
+		slimeId = Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
+	end
 	local animationSeed = self.random:NextInteger(1, 2_147_483_647)
 	self.currentSlimeId = slimeId
 	self.activeRollSeed = animationSeed
@@ -245,8 +434,12 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	if not playerData then
 		return false
 	end
+	local playpenLevel = self:getAvailablePlaypenLevel()
+	if playpenLevel == nil then
+		return false
+	end
 
-	local currency = playerData.currency()
+	local currency = getSafeCurrency(playerData.currency())
 
 	print(`{player.Name} has {currency} currency; {slimeInfo.name} costs {cost}`)
 
@@ -259,11 +452,12 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 		slimeId = slimeId,
 		mutationId = "normal",
 		storedSlime = 0,
+		level = 1,
+		upgradeInvestment = 0,
+		playpenLevel = playpenLevel,
 	}
 
-	playerData.currency(function(value)
-		return value - cost
-	end)
+	playerData.currency(currency - cost)
 	playerData.slimes.Insert(slimeData)
 
 	self.currentSlimeId = nil
@@ -288,21 +482,133 @@ function PlotServer.purchaseCashMultiplier(self: Plot, player: Player, mode: Upg
 	return UpgradeServiceServer.purchaseCashMultiplier(player, self.plotModel, mode)
 end
 
+function PlotServer.upgradeSlime(self: Plot, player: Player, instanceId: string): boolean
+	if not self:isOwner(player)
+		or self.slimeManagementLocked
+		or type(instanceId) ~= "string"
+		or #instanceId > 64
+	then
+		return false
+	end
+
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	for index, slimeData in playerData.slimes() do
+		if slimeData.instanceId ~= instanceId or not Slimes.isValidSlimeId(slimeData.slimeId) then
+			continue
+		end
+
+		local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
+		local level = SlimeEconomy.getLevel(slimeData.level)
+		local upgradeCost = SlimeEconomy.getUpgradeCost(slimeInfo.cost, level)
+		local currency = math.floor(math.max(0, playerData.currency()))
+		if upgradeCost == math.huge or currency < upgradeCost then
+			return false
+		end
+
+		self.slimeManagementLocked = true
+		playerData.currency(currency - upgradeCost)
+		playerData.slimes[index].level(level + 1)
+		playerData.slimes[index].upgradeInvestment(function(previous)
+			return math.max(0, previous or 0) + upgradeCost
+		end)
+		self.slimeManagementLocked = false
+		self.networker:fireAll("slimeUpgraded", instanceId, level + 1)
+		return true
+	end
+
+	return false
+end
+
+function PlotServer.sellSlime(self: Plot, player: Player, instanceId: string): boolean
+	if not self:isOwner(player)
+		or self.slimeManagementLocked
+		or type(instanceId) ~= "string"
+		or #instanceId > 64
+	then
+		return false
+	end
+
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	for index, slimeData in playerData.slimes() do
+		if slimeData.instanceId ~= instanceId or not Slimes.isValidSlimeId(slimeData.slimeId) then
+			continue
+		end
+
+		local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
+		local sellValue = SlimeEconomy.getSellValue(slimeInfo.cost, slimeData.upgradeInvestment)
+		local storedSlime = math.floor(math.max(0, slimeData.storedSlime))
+
+		self.slimeManagementLocked = true
+		playerData.currency(function(previous)
+			return math.max(0, previous) + sellValue
+		end)
+		if storedSlime > 0 then
+			playerData.slimeCurrency(function(previous)
+				return math.max(0, previous) + storedSlime
+			end)
+		end
+		playerData.slimes.Remove(index)
+		self.lastCollectionAt[instanceId] = nil
+		self.slimeManagementLocked = false
+		self.networker:fireAll("slimeSold", instanceId)
+		return true
+	end
+
+	return false
+end
+
+function PlotServer.rebirth(self: Plot, player: Player): boolean
+	if not self:isOwner(player) or self.slimeManagementLocked then
+		return false
+	end
+
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	local rebirthCount = RebirthConfig.getCount(playerData.rebirths())
+	local rebirthCost = RebirthConfig.getCost(rebirthCount)
+	local currency = math.floor(math.max(0, playerData.currency()))
+	if rebirthCost == math.huge or currency < rebirthCost then
+		return false
+	end
+
+	self.slimeManagementLocked = true
+	playerData.currency(0)
+	playerData.slimeCurrency(0)
+	playerData.slimeQueue(0)
+	playerData.uncollectedCash(0)
+	playerData.slimesPerSecond(5)
+	playerData.sellUpgradeLevel(0)
+	playerData.slimeLuckLevel(0)
+	playerData.cashMultiplierLevel(0)
+	playerData.slimes({})
+	playerData.rebirths(rebirthCount + 1)
+	table.clear(self.lastCollectionAt)
+	self.slimeManagementLocked = false
+
+	SellingServiceServer.refresh(player, self.plotModel)
+	self.networker:fireAll("rebirthed", rebirthCount + 1)
+	return true
+end
+
 function PlotServer.collectSlime(self: Plot, player: Player, instanceId: string): boolean
 	if type(instanceId) ~= "string" or #instanceId > 64 then
 		return false
 	end
 
-	if not self:isOwner(player) or not self:isPlayerNearPlaypen(player) then
+	if not self:isOwner(player) then
 		return false
 	end
-
-	local now = os.clock()
-	local lastCollectedAt = self.lastCollectionAt[instanceId]
-	if lastCollectedAt and now - lastCollectedAt < COLLECTION_REQUEST_COOLDOWN then
-		return false
-	end
-	self.lastCollectionAt[instanceId] = now
 
 	local playerData = Data[player]
 	if not playerData then
@@ -313,6 +619,16 @@ function PlotServer.collectSlime(self: Plot, player: Player, instanceId: string)
 		if slimeData.instanceId ~= instanceId then
 			continue
 		end
+		if not self:isPlayerNearPlaypen(player, slimeData.playpenLevel) then
+			return false
+		end
+
+		local now = os.clock()
+		local lastCollectedAt = self.lastCollectionAt[instanceId]
+		if lastCollectedAt and now - lastCollectedAt < COLLECTION_REQUEST_COOLDOWN then
+			return false
+		end
+		self.lastCollectionAt[instanceId] = now
 
 		local amount = math.floor(math.max(0, slimeData.storedSlime))
 		if amount <= 0 then
@@ -337,6 +653,7 @@ end
 function PlotServer.destroy(self: Plot)
 	self.destroyed = true
 	self.activeRollSeed = nil
+	self.plotLevelPurchaseLocked = false
 	if self.sellingHandle then
 		self.sellingHandle:destroy()
 		self.sellingHandle = nil
@@ -347,6 +664,7 @@ function PlotServer.destroy(self: Plot)
 	end
 	self.networker:destroy()
 	self.plotModel:Destroy()
+	self.levelTemplates:Destroy()
 end
 
 return PlotServer

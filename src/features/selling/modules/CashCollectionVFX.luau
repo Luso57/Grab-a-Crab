@@ -37,7 +37,7 @@ local function playSound()
 	local sound = Instance.new("Sound")
 	sound.Name = "CashCollected"
 	sound.SoundId = SOUND_ID
-	sound.Volume = 0.8
+	sound.Volume = 0.2
 	sound.Parent = SoundService
 	sound:Play()
 	Debris:AddItem(sound, 5)

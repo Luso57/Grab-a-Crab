@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local React = require(ReplicatedStorage.Packages.React)
+local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 
 local HOVER_SCALE = 1.06
 local PRESSED_SCALE = 0.95
@@ -11,6 +12,7 @@ export type Props = {
 	Text: string,
 	Image: string?,
 	LayoutOrder: number?,
+	HeightScale: number?,
 	OnActivated: (() -> ())?,
 }
 
@@ -49,10 +51,11 @@ local function MenuButton(props: Props)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		LayoutOrder = props.LayoutOrder,
-		Size = UDim2.fromScale(1, 0.3),
+		Size = UDim2.fromScale(1, props.HeightScale or 0.3),
 		Text = "",
 
 		[React.Event.Activated] = function()
+			UISounds.playSelect()
 			if props.OnActivated then
 				props.OnActivated()
 			end

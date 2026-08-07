@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeTypes = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeTypes)
 
@@ -12,6 +13,7 @@ local MAX_QUANTITY_ATTRIBUTE = "SlimeLuckMaxQuantity"
 local MAX_COST_ATTRIBUTE = "SlimeLuckMaxCost"
 local CASH_LEVEL_ATTRIBUTE = "CashMultiplierLevel"
 local CASH_MULTIPLIER_ATTRIBUTE = "CashMultiplier"
+local CASH_PAYOUT_MULTIPLIER_ATTRIBUTE = "CashPayoutMultiplier"
 local CASH_NEXT_MULTIPLIER_ATTRIBUTE = "CashMultiplierNextMultiplier"
 local CASH_COST_ATTRIBUTE = "CashMultiplierCost"
 local CASH_MAX_QUANTITY_ATTRIBUTE = "CashMultiplierMaxQuantity"
@@ -58,6 +60,10 @@ function UpgradeHandle.updateAttributes(self: UpgradeHandle)
 	self.plotModel:SetAttribute(MAX_COST_ATTRIBUTE, maxCost)
 	self.plotModel:SetAttribute(CASH_LEVEL_ATTRIBUTE, cashLevel)
 	self.plotModel:SetAttribute(CASH_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel))
+	self.plotModel:SetAttribute(
+		CASH_PAYOUT_MULTIPLIER_ATTRIBUTE,
+		UpgradeConfig.getCashMultiplier(cashLevel) * RebirthConfig.getRewardMultiplier(playerData.rebirths())
+	)
 	self.plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel + 1))
 	self.plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(cashLevel))
 	self.plotModel:SetAttribute(CASH_MAX_QUANTITY_ATTRIBUTE, cashMaxQuantity)
@@ -156,6 +162,10 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 	local maxQuantity, maxCost = UpgradeConfig.getMaxAffordableCashUpgrades(levelAfterPurchase, currencyAfterPurchase)
 	plotModel:SetAttribute(CASH_LEVEL_ATTRIBUTE, levelAfterPurchase)
 	plotModel:SetAttribute(CASH_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(levelAfterPurchase))
+	plotModel:SetAttribute(
+		CASH_PAYOUT_MULTIPLIER_ATTRIBUTE,
+		UpgradeConfig.getCashMultiplier(levelAfterPurchase) * RebirthConfig.getRewardMultiplier(playerData.rebirths())
+	)
 	plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(levelAfterPurchase + 1))
 	plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(levelAfterPurchase))
 	plotModel:SetAttribute(CASH_MAX_QUANTITY_ATTRIBUTE, maxQuantity)
@@ -196,6 +206,9 @@ function UpgradeServiceServer.attachPlot(player: Player, plotModel: Model): Upgr
 		handle:updateAttributes()
 	end))
 	table.insert(handle.cleanups, playerData.cashMultiplierLevel.Changed(function()
+		handle:updateAttributes()
+	end))
+	table.insert(handle.cleanups, playerData.rebirths.Changed(function()
 		handle:updateAttributes()
 	end))
 

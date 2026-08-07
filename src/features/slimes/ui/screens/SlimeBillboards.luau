@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
+local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 
@@ -51,11 +52,21 @@ local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: s
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
 		Odds = createStatLabel(`1 in {formattedOdds}`, rarityColor, 2),
 		Income = createStatLabel(`${CompactNumber.format(slimeInfo.income, 1)}/s`, Color3.fromRGB(255, 221, 33), 3),
-		Cost = createStatLabel(CompactNumber.format(slimeInfo.cost, 1), Color3.fromRGB(65, 255, 55), 4),
+		Cost = createStatLabel(
+			if slimeInfo.cost == 0 then "FREE" else CompactNumber.format(slimeInfo.cost, 1),
+			Color3.fromRGB(65, 255, 55),
+			4
+		),
 	})
 end
 
-local function createPlaypenStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: string, storedSlime: number)
+local function createPlaypenStats(
+	slimeInfo: Slimes.SlimeInfo,
+	formattedOdds: string,
+	storedSlime: number,
+	level: number
+)
+	local production = SlimeEconomy.getProduction(slimeInfo.income, level)
 	return createStatsFrame(100, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, PLAYPEN_BILLBOARD_SCALE),
 		Rarity = createStatLabel(
@@ -65,7 +76,7 @@ local function createPlaypenStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: st
 			PLAYPEN_BILLBOARD_SCALE
 		),
 		Production = createStatLabel(
-			`+{CompactNumber.format(slimeInfo.income, 1)} Slime/s • {CompactNumber.format(storedSlime, 1)} Slime`,
+			`+{CompactNumber.format(production, 1)} Slime/s • {CompactNumber.format(storedSlime, 1)} Slime`,
 			Color3.fromRGB(255, 221, 33),
 			3,
 			PLAYPEN_BILLBOARD_SCALE
@@ -91,7 +102,7 @@ local function SlimeBillboards()
 				else UDim2.fromOffset(190, 288),
 		}, {
 			Stats = if entry.billboardType == "playpen"
-				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime)
+				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level)
 				else createPurchaseStats(slimeInfo, formattedOdds),
 		})
 	end

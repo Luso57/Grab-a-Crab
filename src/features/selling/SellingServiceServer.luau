@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local SellingConfig = require(ReplicatedStorage.Source.Features.Selling.SellingConfig)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 
@@ -10,6 +11,9 @@ local RATE_ATTRIBUTE = "SlimesPerSecond"
 local CASH_ATTRIBUTE = "UncollectedCash"
 local UPGRADE_COST_ATTRIBUTE = "UpgradePerSecondCost"
 local UPGRADE_GAIN_ATTRIBUTE = "UpgradePerSecondGain"
+local UPGRADE_CAN_AFFORD_ATTRIBUTE = "UpgradePerSecondCanAfford"
+local UPGRADE_AFFORDABLE_COLOR = Color3.fromRGB(58, 125, 21)
+local UPGRADE_UNAFFORDABLE_COLOR = Color3.fromRGB(220, 48, 45)
 
 local SellingHandle = {}
 SellingHandle.__index = SellingHandle
@@ -17,6 +21,7 @@ SellingHandle.__index = SellingHandle
 export type SellingHandle = typeof(setmetatable(
 	{} :: {
 		connections: { RBXScriptConnection },
+		cleanups: { () -> () },
 		destroyed: boolean,
 	},
 	SellingHandle
@@ -32,11 +37,18 @@ function SellingHandle.destroy(self: SellingHandle)
 		connection:Disconnect()
 	end
 	table.clear(self.connections)
+	for _, cleanup in self.cleanups do
+		cleanup()
+	end
+	table.clear(self.cleanups)
 end
 
 local SellingServiceServer = {}
 
 local function getNonNegativeInteger(value: number): number
+	if value ~= value or value == math.huge or value == -math.huge then
+		return 0
+	end
 	return math.floor(math.max(0, value))
 end
 
@@ -58,8 +70,16 @@ local function updatePlotAttributes(player: Player, plotModel: Model)
 	plotModel:SetAttribute(RATE_ATTRIBUTE, getNonNegativeInteger(playerData.slimesPerSecond()))
 	plotModel:SetAttribute(CASH_ATTRIBUTE, getNonNegativeInteger(playerData.uncollectedCash()))
 	local upgradeCost, upgradeGain = getUpgradeOffer(playerData.sellUpgradeLevel())
+	local canAffordUpgrade = getNonNegativeInteger(playerData.currency()) >= upgradeCost
 	plotModel:SetAttribute(UPGRADE_COST_ATTRIBUTE, upgradeCost)
 	plotModel:SetAttribute(UPGRADE_GAIN_ATTRIBUTE, upgradeGain)
+	plotModel:SetAttribute(UPGRADE_CAN_AFFORD_ATTRIBUTE, canAffordUpgrade)
+
+	local upgradeModel = plotModel:FindFirstChild("UpgradePerSecond")
+	local upgradeButton = if upgradeModel then upgradeModel:FindFirstChild("button") else nil
+	if upgradeButton and upgradeButton:IsA("BasePart") then
+		upgradeButton.Color = if canAffordUpgrade then UPGRADE_AFFORDABLE_COLOR else UPGRADE_UNAFFORDABLE_COLOR
+	end
 end
 
 local function depositSlime(player: Player, plotModel: Model): number
@@ -117,6 +137,7 @@ local function collectCash(player: Player, plotModel: Model): number
 	end
 
 	local multiplier = UpgradeConfig.getCashMultiplier(playerData.cashMultiplierLevel())
+		* RebirthConfig.getRewardMultiplier(playerData.rebirths())
 	local payout = math.floor(amount * multiplier)
 	playerData.uncollectedCash(0)
 	playerData.currency(function(previous)
@@ -174,6 +195,7 @@ function SellingServiceServer.attachPlot(
 
 	local handle = setmetatable({
 		connections = {},
+		cleanups = {},
 		destroyed = false,
 	}, SellingHandle)
 	local lastDepositAt = -math.huge
@@ -243,8 +265,9 @@ function SellingServiceServer.attachPlot(
 		end
 		lastUpgradeAt = now
 
-		onUpgradeStepped()
-		purchasePerSecondUpgrade(player, plotModel)
+		if purchasePerSecondUpgrade(player, plotModel) then
+			onUpgradeStepped()
+		end
 	end
 
 	for _, descendant in slimeDeposit:GetDescendants() do
@@ -258,6 +281,16 @@ function SellingServiceServer.attachPlot(
 		end
 	end
 	table.insert(handle.connections, upgradeButton.Touched:Connect(onUpgradeTouched))
+
+	local playerData = Data[player]
+	if playerData then
+		table.insert(handle.cleanups, playerData.currency.Changed(function()
+			updatePlotAttributes(player, plotModel)
+		end))
+		table.insert(handle.cleanups, playerData.sellUpgradeLevel.Changed(function()
+			updatePlotAttributes(player, plotModel)
+		end))
+	end
 
 	updatePlotAttributes(player, plotModel)
 	task.spawn(function()
@@ -273,5 +306,7 @@ function SellingServiceServer.attachPlot(
 
 	return handle
 end
+
+SellingServiceServer.refresh = updatePlotAttributes
 
 return SellingServiceServer

@@ -10,6 +10,9 @@
           "$className": "Folder",
           "App": {
             "$className": "Folder",
+            "UISounds": {
+              "$path": "src/features/app/UISounds.luau"
+            },
             "Hud": {
               "$className": "Folder",
               "BottomBar": {
@@ -20,6 +23,9 @@
               },
               "LeftBottom": {
                 "$path": "src/features/app/hud/LeftBottom.luau"
+              },
+              "MultiplierBadges": {
+                "$path": "src/features/app/hud/MultiplierBadges.luau"
               },
               "MenuButton": {
                 "$path": "src/features/app/hud/MenuButton.luau"
@@ -46,6 +52,9 @@
                 "$className": "Folder",
                 "InventorySlot": {
                   "$path": "src/features/inventory/ui/components/InventorySlot.luau"
+                },
+                "SlimeDetails": {
+                  "$path": "src/features/inventory/ui/components/SlimeDetails.luau"
                 }
               },
               "InventoryRoot": {
@@ -56,6 +65,27 @@
                 "InventoryWindow": {
                   "$path": "src/features/inventory/ui/screens/InventoryWindow.luau"
                 }
+              }
+            }
+          },
+          "Leaderboards": {
+            "$className": "Folder",
+            "LeaderboardConfig": {
+              "$path": "src/features/leaderboards/LeaderboardConfig.luau"
+            },
+            "LeaderboardServiceClient": {
+              "$path": "src/features/leaderboards/LeaderboardServiceClient.luau"
+            },
+            "LeaderboardSlice": {
+              "$path": "src/features/leaderboards/LeaderboardSlice.luau"
+            },
+            "LeaderboardTypes": {
+              "$path": "src/features/leaderboards/LeaderboardTypes.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "LeaderboardRoot": {
+                "$path": "src/features/leaderboards/ui/LeaderboardRoot.luau"
               }
             }
           },
@@ -81,6 +111,33 @@
             },
             "PlotTypes": {
               "$path": "src/features/plots/PlotTypes.luau"
+            }
+          },
+          "PlotLevels": {
+            "$className": "Folder",
+            "PlotLevelConfig": {
+              "$path": "src/features/plotlevels/PlotLevelConfig.luau"
+            },
+            "PlotLevelSlice": {
+              "$path": "src/features/plotlevels/PlotLevelSlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "PlotLevelRoot": {
+                "$path": "src/features/plotlevels/ui/PlotLevelRoot.luau"
+              }
+            }
+          },
+          "Rebirth": {
+            "$className": "Folder",
+            "RebirthConfig": {
+              "$path": "src/features/rebirth/RebirthConfig.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "RebirthRoot": {
+                "$path": "src/features/rebirth/ui/RebirthRoot.luau"
+              }
             }
           },
           "Selling": {
@@ -143,6 +200,9 @@
               "$className": "Folder",
               "SlimeMovement": {
                 "$path": "src/features/slimes/modules/SlimeMovement.luau"
+              },
+              "SlimeEconomy": {
+                "$path": "src/features/slimes/modules/SlimeEconomy.luau"
               },
               "SlimeRollVFX": {
                 "$path": "src/features/slimes/modules/SlimeRollVFX.luau"
@@ -236,6 +296,12 @@
     "ServerScriptService": {
       "Features": {
         "$className": "Folder",
+        "Leaderboards": {
+          "$className": "Folder",
+          "LeaderboardServiceServer": {
+            "$path": "src/features/leaderboards/LeaderboardServiceServer.luau"
+          }
+        },
         "Inventory": {
           "$className": "Folder",
           "InventoryServiceServer": {
