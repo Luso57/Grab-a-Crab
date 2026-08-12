@@ -8,6 +8,9 @@ export type Props = {
 	Image: string?,
 	Rarity: string?,
 	RarityColor: Color3?,
+	Mutation: string?,
+	MutationColor: Color3?,
+	Locked: boolean?,
 	Quantity: number?,
 	LayoutOrder: number?,
 	OnActivated: (() -> ())?,
@@ -15,6 +18,12 @@ export type Props = {
 
 local function InventorySlot(props: Props)
 	local rarityColor = props.RarityColor or Color3.fromRGB(125, 128, 135)
+	local topColor = Color3.fromRGB(42, 45, 52)
+	local bottomColor = Color3.fromRGB(20, 22, 27)
+	if props.MutationColor then
+		topColor = topColor:Lerp(props.MutationColor, 0.26)
+		bottomColor = bottomColor:Lerp(props.MutationColor, 0.13)
+	end
 
 	return React.createElement("TextButton", {
 		AutoButtonColor = false,
@@ -39,8 +48,8 @@ local function InventorySlot(props: Props)
 		}),
 		Gradient = React.createElement("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 45, 52)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 22, 27)),
+				ColorSequenceKeypoint.new(0, topColor),
+				ColorSequenceKeypoint.new(1, bottomColor),
 			}),
 			Rotation = 90,
 		}),
@@ -50,10 +59,27 @@ local function InventorySlot(props: Props)
 			Thickness = 2,
 			Transparency = 0.12,
 		}),
+		Mutation = props.Mutation and React.createElement("TextLabel", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = props.MutationColor or Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			Font = Enum.Font.FredokaOne,
+			Position = UDim2.fromScale(0.5, 0.035),
+			Size = UDim2.fromScale(0.72, 0.16),
+			Text = props.Mutation,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextStrokeTransparency = 0,
+			ZIndex = 3,
+		}, {
+			Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 7) }),
+			Stroke = React.createElement("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2 }),
+		}),
 		Icon = React.createElement("ImageLabel", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = props.Image or "",
+			ImageColor3 = if props.Locked then Color3.new(0, 0, 0) else Color3.new(1, 1, 1),
 			Position = UDim2.fromScale(0.5, 0.36),
 			ScaleType = Enum.ScaleType.Fit,
 			Size = UDim2.fromScale(0.76, 0.56),

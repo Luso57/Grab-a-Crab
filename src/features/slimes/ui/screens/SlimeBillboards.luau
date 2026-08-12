@@ -4,6 +4,7 @@ local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 
@@ -45,17 +46,24 @@ local function createStatsFrame(height: number, children: { [string]: any }, sca
 	}, children)
 end
 
-local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: string)
+local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: string, mutationId: string)
 	local rarityColor = Slimes.getRarityColor(slimeInfo.rarity)
+	local mutation = SlimeMutations.get(mutationId)
+	local isMutated = mutation.id ~= "normal"
 
-	return createStatsFrame(132, {
+	return createStatsFrame(if isMutated then 162 else 132, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
-		Odds = createStatLabel(`1 in {formattedOdds}`, rarityColor, 2),
-		Income = createStatLabel(`${CompactNumber.format(slimeInfo.income, 1)}/s`, Color3.fromRGB(255, 221, 33), 3),
-		Cost = createStatLabel(
-			if slimeInfo.cost == 0 then "FREE" else CompactNumber.format(slimeInfo.cost, 1),
-			Color3.fromRGB(65, 255, 55),
+		Mutation = if isMutated then createStatLabel(string.upper(mutation.name), mutation.color, 2) else nil,
+		Odds = createStatLabel(`1 in {formattedOdds}`, rarityColor, 3),
+		Income = createStatLabel(
+			`{CompactNumber.format(slimeInfo.income * mutation.incomeMultiplier, 1)} Slime/s`,
+			Color3.fromRGB(255, 221, 33),
 			4
+		),
+		Cost = createStatLabel(
+			if slimeInfo.cost == 0 then "FREE" else `${CompactNumber.format(slimeInfo.cost, 1)}`,
+			Color3.fromRGB(65, 255, 55),
+			5
 		),
 	})
 end
@@ -64,21 +72,32 @@ local function createPlaypenStats(
 	slimeInfo: Slimes.SlimeInfo,
 	formattedOdds: string,
 	storedSlime: number,
-	level: number
+	level: number,
+	mutationId: string
 )
-	local production = SlimeEconomy.getProduction(slimeInfo.income, level)
-	return createStatsFrame(100, {
+	local mutation = SlimeMutations.get(mutationId)
+	local isMutated = mutation.id ~= "normal"
+	local production = SlimeEconomy.getProduction(slimeInfo.income, level) * mutation.incomeMultiplier
+	return createStatsFrame(if isMutated then 122 else 100, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, PLAYPEN_BILLBOARD_SCALE),
+		Mutation = if isMutated
+			then createStatLabel(
+				`{string.upper(mutation.name)} • {mutation.incomeMultiplier}x`,
+				mutation.color,
+				2,
+				PLAYPEN_BILLBOARD_SCALE
+			)
+			else nil,
 		Rarity = createStatLabel(
 			`{slimeInfo.rarity} • 1 in {formattedOdds}`,
 			Slimes.getRarityColor(slimeInfo.rarity),
-			2,
+			3,
 			PLAYPEN_BILLBOARD_SCALE
 		),
 		Production = createStatLabel(
 			`+{CompactNumber.format(production, 1)} Slime/s • {CompactNumber.format(storedSlime, 1)} Slime`,
 			Color3.fromRGB(255, 221, 33),
-			3,
+			4,
 			PLAYPEN_BILLBOARD_SCALE
 		),
 	}, PLAYPEN_BILLBOARD_SCALE)
@@ -102,8 +121,8 @@ local function SlimeBillboards()
 				else UDim2.fromOffset(190, 288),
 		}, {
 			Stats = if entry.billboardType == "playpen"
-				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level)
-				else createPurchaseStats(slimeInfo, formattedOdds),
+				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level, entry.mutationId)
+				else createPurchaseStats(slimeInfo, formattedOdds, entry.mutationId),
 		})
 	end
 

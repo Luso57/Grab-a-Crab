@@ -2,9 +2,9 @@ local PlotLevelConfig = {
 	StartingLevel = 1,
 	MaxLevel = 4,
 	LevelCosts = {
-		[2] = 100_000,
-		[3] = 1_000_000,
-		[4] = 10_000_000,
+		[2] = 10_000,
+		[3] = 100_000,
+		[4] = 1_000_000,
 	},
 }
 

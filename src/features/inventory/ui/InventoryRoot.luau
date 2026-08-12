@@ -8,6 +8,7 @@ local SlimeDetails = require(ReplicatedStorage.Source.Features.Inventory.UI.Comp
 local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
 local InventoryWindow = require(ReplicatedStorage.Source.Features.Inventory.UI.Screens.InventoryWindow)
 local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 export type Props = {
@@ -55,12 +56,15 @@ local function InventoryRoot(props: Props)
 	local items = table.create(#validSlimes)
 	for _, slimeData in validSlimes do
 		local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
+		local mutation = SlimeMutations.get(slimeData.mutationId)
 		table.insert(items, {
 			key = slimeData.instanceId,
 			name = slimeInfo.name,
 			image = slimeInfo.image,
 			rarity = slimeInfo.rarity,
 			rarityColor = Slimes.getRarityColor(slimeInfo.rarity),
+			mutation = if mutation.id == "normal" then nil else string.upper(mutation.name),
+			mutationColor = mutation.color,
 			onActivated = function()
 				InventorySlice.actions.select(slimeData.instanceId)
 			end,
@@ -80,9 +84,10 @@ local function InventoryRoot(props: Props)
 	local details = nil
 	if selectedSlimeData then
 		local slimeInfo = Slimes.getSlimeInfo(selectedSlimeData.slimeId)
+		local mutation = SlimeMutations.get(selectedSlimeData.mutationId)
 		local level = SlimeEconomy.getLevel(selectedSlimeData.level)
-		local production = SlimeEconomy.getProduction(slimeInfo.income, level)
-		local nextProduction = SlimeEconomy.getProduction(slimeInfo.income, level + 1)
+		local production = SlimeEconomy.getProduction(slimeInfo.income, level) * mutation.incomeMultiplier
+		local nextProduction = SlimeEconomy.getProduction(slimeInfo.income, level + 1) * mutation.incomeMultiplier
 		local upgradeCost = SlimeEconomy.getUpgradeCost(slimeInfo.cost, level)
 		local sellValue = SlimeEconomy.getSellValue(slimeInfo.cost, selectedSlimeData.upgradeInvestment)
 
@@ -91,6 +96,9 @@ local function InventoryRoot(props: Props)
 			Image = slimeInfo.image,
 			Rarity = slimeInfo.rarity,
 			RarityColor = Slimes.getRarityColor(slimeInfo.rarity),
+			Mutation = if mutation.id == "normal" then nil else string.upper(mutation.name),
+			MutationColor = mutation.color,
+			MutationMultiplier = mutation.incomeMultiplier,
 			Level = level,
 			Production = production,
 			NextProduction = nextProduction,

@@ -3,13 +3,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
+local SlimeCurrencyVFX = require(ReplicatedStorage.Source.Features.App.Hud.SlimeCurrencyVFX)
 
 local function BottomBar()
 	local slimeCurrency, setSlimeCurrency = React.useState(PlayerData.slimeCurrency())
 
 	React.useEffect(function()
+		local previousAmount = PlayerData.slimeCurrency()
+		setSlimeCurrency(previousAmount)
+
 		return PlayerData.slimeCurrency.Changed(function(amount: number)
+			local gainedAmount = amount - previousAmount
+			previousAmount = amount
 			setSlimeCurrency(amount)
+			if gainedAmount > 0 then
+				SlimeCurrencyVFX.play(gainedAmount)
+			end
 		end)
 	end, {})
 

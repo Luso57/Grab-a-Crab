@@ -4,6 +4,7 @@ local HttpService = game:GetService("HttpService")
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local DataService = require(ReplicatedStorage.Source.Game.Data).server
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
+local SlimeDiscovery = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeDiscovery)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
 local SLIMES_PER_PLAYPEN = 7
@@ -59,6 +60,14 @@ function InventoryServiceServer.addSlime(
 			upgradeInvestment = 0,
 			playpenLevel = playpenLevel,
 		})
+	end
+
+	local discoveryKey = SlimeDiscovery.getKey(slimeId, "normal")
+	local discoveredSlimes = playerData.discoveredSlimes()
+	if discoveredSlimes[discoveryKey] ~= true then
+		local nextDiscoveredSlimes = table.clone(discoveredSlimes)
+		nextDiscoveredSlimes[discoveryKey] = true
+		playerData.discoveredSlimes(nextDiscoveredSlimes)
 	end
 
 	return true

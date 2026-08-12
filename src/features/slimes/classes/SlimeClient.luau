@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 local SlimeMovement = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMovement)
+local SlimeMutationEffects = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutationEffects)
 local SlimeTouchDetector = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeTouchDetector)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 
@@ -27,6 +28,7 @@ export type SlimeClient = typeof(setmetatable(
 		sliceEntryId: string,
 		rotationConnection: RBXScriptConnection?,
 		activeMovement: SlimeMovement.MovementHandle?,
+		mutationEffect: SlimeMutationEffects.EffectHandle?,
 		touchHandle: SlimeTouchDetector.TouchHandle?,
 		interactionHitbox: BasePart?,
 		hoverHighlight: Highlight?,
@@ -80,6 +82,7 @@ local function addStatsAttachment(
 	return SlimeSlice.actions.addSlime(
 		statsAttachment,
 		slimeData.slimeId,
+		slimeData.mutationId,
 		billboardType,
 		slimeData.instanceId,
 		slimeData.storedSlime,
@@ -152,6 +155,7 @@ function SlimeClient.new(
 		sliceEntryId = sliceEntryId,
 		rotationConnection = nil,
 		activeMovement = nil,
+		mutationEffect = nil,
 		touchHandle = nil,
 		interactionHitbox = nil,
 		hoverHighlight = nil,
@@ -167,6 +171,7 @@ function SlimeClient.new(
 		rotation = (rotation + ROTATION_SPEED * deltaTime) % (2 * math.pi)
 		model:PivotTo(basePivot * CFrame.Angles(0, rotation, 0))
 	end)
+	self.mutationEffect = SlimeMutationEffects.apply(model, rootPart, slimeData.mutationId)
 
 	if self.isLocalPlayer then
 		local highlight = Instance.new("Highlight")
@@ -216,6 +221,7 @@ function SlimeClient.newPlaypenSlime(
 		sliceEntryId = sliceEntryId,
 		rotationConnection = nil,
 		activeMovement = nil,
+		mutationEffect = nil,
 		touchHandle = nil,
 		interactionHitbox = nil,
 		hoverHighlight = nil,
@@ -227,6 +233,7 @@ function SlimeClient.newPlaypenSlime(
 		addClickInteraction(self, onClicked)
 	end
 	self.activeMovement = SlimeMovement.play(model, playpenBase, statsAttachment)
+	self.mutationEffect = SlimeMutationEffects.apply(model, rootPart, slimeData.mutationId)
 	if onTouched then
 		self.touchHandle = SlimeTouchDetector.watch(model, onTouched)
 	end
@@ -277,6 +284,11 @@ function SlimeClient.destroy(self: SlimeClient)
 	if self.activeMovement then
 		self.activeMovement:cancel()
 		self.activeMovement = nil
+	end
+
+	if self.mutationEffect then
+		self.mutationEffect:destroy()
+		self.mutationEffect = nil
 	end
 
 	if self.touchHandle then

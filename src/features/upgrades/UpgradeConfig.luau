@@ -1,11 +1,11 @@
 local UpgradeConfig = {
 	BaseLuckMultiplier = 1,
 	LuckPerLevel = 0.1,
-	LuckUpgradeBaseCost = 1_000,
+	LuckUpgradeBaseCost = 250,
 	LuckUpgradeCostGrowth = 1.36,
 	BaseCashMultiplier = 1,
 	CashPerLevel = 0.1,
-	CashUpgradeBaseCost = 1_000,
+	CashUpgradeBaseCost = 250,
 	CashUpgradeCostGrowth = 1.36,
 	MaxBulkPurchaseLevels = 1_000,
 }

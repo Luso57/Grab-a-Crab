@@ -20,7 +20,7 @@ function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes
 			existingPlot:syncPlaypenSlimes(plotData.slimes)
 			existingPlot:setPlotLevel(plotData.plotLevel)
 			if plotData.currentSlimeId then
-				existingPlot:showSlime(plotData.currentSlimeId)
+				existingPlot:showSlime(plotData.currentSlimeId, plotData.currentMutationId)
 			end
 			return
 		end

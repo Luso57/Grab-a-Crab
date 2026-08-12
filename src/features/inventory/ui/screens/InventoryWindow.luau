@@ -17,6 +17,9 @@ export type Item = {
 	image: string?,
 	rarity: string?,
 	rarityColor: Color3?,
+	mutation: string?,
+	mutationColor: Color3?,
+	locked: boolean?,
 	quantity: number?,
 	onActivated: (() -> ())?,
 }
@@ -26,6 +29,7 @@ export type Props = {
 	Title: string?,
 	Items: { Item }?,
 	EmptyMessage: string?,
+	SideContent: React.ReactNode?,
 }
 
 local PLACEHOLDER_ITEMS = {
@@ -55,6 +59,9 @@ local function InventoryWindow(props: Props)
 			Image = item.image or "",
 			Rarity = item.rarity,
 			RarityColor = item.rarityColor,
+			Mutation = item.mutation,
+			MutationColor = item.mutationColor,
+			Locked = item.locked,
 			Quantity = item.quantity,
 			LayoutOrder = layoutOrder,
 			OnActivated = item.onActivated,
@@ -76,6 +83,7 @@ local function InventoryWindow(props: Props)
 			Size = UDim2.fromScale(0.59, 0.79),
 			ZIndex = 21,
 		}, {
+			SideContent = props.SideContent,
 			AspectRatio = React.createElement("UIAspectRatioConstraint", {
 				AspectRatio = 1.28,
 				DominantAxis = Enum.DominantAxis.Height,

@@ -9,7 +9,9 @@ local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
+local SlimeDiscovery = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeDiscovery)
 local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeTypes = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeTypes)
@@ -58,6 +60,7 @@ export type Plot = typeof(setmetatable(
 		plotLevel: number,
 		plotLevelPurchaseLocked: boolean,
 		currentSlimeId: string?,
+		currentMutationId: string?,
 		networker: Networker.Server,
 		activeRollSeed: number?,
 		random: Random,
@@ -76,6 +79,7 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		cf = plotSpawn.part.CFrame,
 		index = plotSpawn.index,
 		currentSlimeId = nil,
+		currentMutationId = nil,
 		networker = nil :: any,
 		activeRollSeed = nil,
 		random = Random.new(),
@@ -198,6 +202,8 @@ function PlotServer.migrateSlimeData(self: Plot)
 
 	local floorCounts = {}
 	local needsAssignment = {}
+	local discoveredSlimes = table.clone(playerData.discoveredSlimes() or {})
+	local discoveriesChanged = false
 
 	for index, slimeData in savedSlimes do
 		local slimeValue = playerData.slimes[index]
@@ -206,8 +212,16 @@ function PlotServer.migrateSlimeData(self: Plot)
 			slimeValue.instanceId(HttpService:GenerateGUID(false))
 		end
 
-		if slimeData.mutationId == nil then
-			slimeValue.mutationId("normal")
+		local safeMutationId = SlimeMutations.getId(slimeData.mutationId)
+		if slimeData.mutationId ~= safeMutationId then
+			slimeValue.mutationId(safeMutationId)
+		end
+		if Slimes.isValidSlimeId(slimeData.slimeId) then
+			local discoveryKey = SlimeDiscovery.getKey(slimeData.slimeId, safeMutationId)
+			if discoveredSlimes[discoveryKey] ~= true then
+				discoveredSlimes[discoveryKey] = true
+				discoveriesChanged = true
+			end
 		end
 
 		if slimeData.storedSlime == nil then
@@ -248,6 +262,10 @@ function PlotServer.migrateSlimeData(self: Plot)
 
 		floorCounts[assignedLevel] = (floorCounts[assignedLevel] or 0) + 1
 		playerData.slimes[index].playpenLevel(assignedLevel)
+	end
+
+	if discoveriesChanged then
+		playerData.discoveredSlimes(discoveredSlimes)
 	end
 end
 
@@ -302,6 +320,7 @@ function PlotServer.startProduction(self: Plot)
 
 				local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
 				local income = SlimeEconomy.getProduction(slimeInfo.income, slimeData.level)
+					* SlimeMutations.getIncomeMultiplier(slimeData.mutationId)
 				local storedSlime = playerData.slimes[index].storedSlime(function(previous)
 					return previous + income
 				end)
@@ -326,6 +345,7 @@ function PlotServer.get(self: Plot): PlotTypes.PlotData
 		plotModel = self.plotModel,
 		cf = self.cf,
 		currentSlimeId = self.currentSlimeId,
+		currentMutationId = self.currentMutationId,
 		plotLevel = self.plotLevel,
 		slimes = savedSlimes,
 	}
@@ -404,10 +424,12 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 		slimeId = Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
 	end
 	local animationSeed = self.random:NextInteger(1, 2_147_483_647)
+	local mutationId = SlimeMutations.roll(self.random)
 	self.currentSlimeId = slimeId
+	self.currentMutationId = mutationId
 	self.activeRollSeed = animationSeed
 
-	self.networker:fireAll("playSlimeRoll", slimeId, animationSeed)
+	self.networker:fireAll("playSlimeRoll", slimeId, mutationId, animationSeed)
 
 	task.delay(ROLL_LOCK_DURATION, function()
 		if self.activeRollSeed == animationSeed then
@@ -424,6 +446,7 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	end
 
 	local slimeId = self.currentSlimeId
+	local mutationId = SlimeMutations.getId(self.currentMutationId)
 	if not slimeId or not Slimes.isValidSlimeId(slimeId) then
 		return false
 	end
@@ -436,6 +459,7 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	end
 	local playpenLevel = self:getAvailablePlaypenLevel()
 	if playpenLevel == nil then
+		self.networker:fire(player, "plotFull")
 		return false
 	end
 
@@ -450,7 +474,7 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	local slimeData: DataTemplate.SlimeData = {
 		instanceId = HttpService:GenerateGUID(false),
 		slimeId = slimeId,
-		mutationId = "normal",
+		mutationId = mutationId,
 		storedSlime = 0,
 		level = 1,
 		upgradeInvestment = 0,
@@ -459,8 +483,16 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 
 	playerData.currency(currency - cost)
 	playerData.slimes.Insert(slimeData)
+	local discoveryKey = SlimeDiscovery.getKey(slimeId, mutationId)
+	local discoveredSlimes = playerData.discoveredSlimes()
+	if discoveredSlimes[discoveryKey] ~= true then
+		local nextDiscoveredSlimes = table.clone(discoveredSlimes)
+		nextDiscoveredSlimes[discoveryKey] = true
+		playerData.discoveredSlimes(nextDiscoveredSlimes)
+	end
 
 	self.currentSlimeId = nil
+	self.currentMutationId = nil
 	self.networker:fireAll("slimeBought", slimeData)
 
 	return true
@@ -653,6 +685,7 @@ end
 function PlotServer.destroy(self: Plot)
 	self.destroyed = true
 	self.activeRollSeed = nil
+	self.currentMutationId = nil
 	self.plotLevelPurchaseLocked = false
 	if self.sellingHandle then
 		self.sellingHandle:destroy()

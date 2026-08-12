@@ -7,6 +7,7 @@ local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
 local PlotLevelSlice = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelSlice)
 local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
+local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local CashCollectionVFX = require(ReplicatedStorage.Source.Features.Selling.Modules.CashCollectionVFX)
 local DepositConfetti = require(ReplicatedStorage.Source.Features.Selling.Modules.DepositConfetti)
@@ -65,6 +66,65 @@ local function getUpperPlaypenBase(plotModel: Model, level: number): BasePart
 	local playpenArea = levelModel:WaitForChild("PlayPenArea")
 	assert(playpenArea:IsA("BasePart"), `PlayPenBaseLvl{level}.PlayPenArea must be a BasePart`)
 	return playpenArea
+end
+
+local function createRollSlimeBillboard(spawnerButton: BasePart)
+	local existing = spawnerButton:FindFirstChild("RollSlimeBillboard")
+	if existing then
+		existing:Destroy()
+	end
+	local existingAttachment = spawnerButton:FindFirstChild("RollSlimeBillboardAttachment")
+	if existingAttachment then
+		existingAttachment:Destroy()
+	end
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "RollSlimeBillboardAttachment"
+	attachment.Position = spawnerButton.CFrame:PointToObjectSpace(spawnerButton.Position + Vector3.new(0, 4, 0))
+	attachment.Parent = spawnerButton
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "RollSlimeBillboard"
+	billboard.Adornee = attachment
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 100
+	billboard.Size = UDim2.fromScale(2.4, 2.4)
+	billboard.Parent = spawnerButton
+
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.AnchorPoint = Vector2.new(0.5, 0)
+	icon.BackgroundTransparency = 1
+	icon.Image = "rbxthumb://type=Asset&id=125264363254178&w=420&h=420"
+	icon.Position = UDim2.fromScale(0.5, 0.32)
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Size = UDim2.fromScale(0.66, 0.66)
+	icon.Parent = billboard
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.Position = UDim2.fromScale(0.05, 0.02)
+	label.Size = UDim2.fromScale(0.9, 0.28)
+	label.Text = "ROLL"
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextScaled = true
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+
+	local textConstraint = Instance.new("UITextSizeConstraint")
+	textConstraint.MaxTextSize = 32
+	textConstraint.MinTextSize = 1
+	textConstraint.Parent = label
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Thickness = 3
+	stroke.Parent = label
 end
 
 local function createSlimeDepositAttachment(plotModel: Model): (Attachment, string)
@@ -259,7 +319,7 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	end
 
 	if plotData.currentSlimeId then
-		self:showSlime(plotData.currentSlimeId)
+		self:showSlime(plotData.currentSlimeId, plotData.currentMutationId)
 	end
 
 	self:syncPlaypenSlimes(plotData.slimes)
@@ -272,8 +332,10 @@ function PlotClient.initModel(self: PlotClient)
 	local spawnerButton = buttonModel:WaitForChild("SpawnerButton")
 	local proximityPrompt = spawnerButton:WaitForChild("ProximityPrompt")
 
+	assert(spawnerButton:IsA("BasePart"), "Plot roll button SpawnerButton must be a BasePart")
 	assert(proximityPrompt:IsA("ProximityPrompt"), "Plot roll button is missing its ProximityPrompt")
 
+	createRollSlimeBillboard(spawnerButton)
 	self.rollPrompt = proximityPrompt
 	self.promptConnection = proximityPrompt.Triggered:Connect(function()
 		self.networker:fire("rollSlime")
@@ -442,7 +504,15 @@ function PlotClient.cashCollected(self: PlotClient, amount: number)
 	CashCollectionVFX.play(amount)
 end
 
-function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, animationSeed: number)
+function PlotClient.plotFull(self: PlotClient)
+	if self.destroyed or self.player ~= Players.LocalPlayer then
+		return
+	end
+
+	NotificationSlice.actions.show("PLOT FULL! EXPAND OR SELL A SLIME")
+end
+
+function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, mutationId: string, animationSeed: number)
 	if self.destroyed or (self.activeRoll and self.activeRoll:isActive()) then
 		return
 	end
@@ -463,7 +533,7 @@ function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, animationS
 		end
 
 		self.activeRoll = nil
-		self:showSlime(winnerId, finalRotation)
+		self:showSlime(winnerId, mutationId, finalRotation)
 
 		if self.rollPrompt then
 			self.rollPrompt.Enabled = true
@@ -473,7 +543,7 @@ function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, animationS
 	self.activeRoll = rollHandle
 end
 
-function PlotClient.showSlime(self: PlotClient, slimeId: string, startingRotation: number?)
+function PlotClient.showSlime(self: PlotClient, slimeId: string, mutationId: string?, startingRotation: number?)
 	if self.currentSlime then
 		self.currentSlime:destroy()
 	end
@@ -481,10 +551,11 @@ function PlotClient.showSlime(self: PlotClient, slimeId: string, startingRotatio
 	local slime = SlimeClient.new({
 		instanceId = "preview",
 		slimeId = slimeId,
-		mutationId = "normal",
+		mutationId = mutationId or "normal",
 		storedSlime = 0,
 		level = 1,
 		upgradeInvestment = 0,
+		playpenLevel = 1,
 	}, self.spawner, self.player == Players.LocalPlayer, startingRotation)
 
 	if self.player == Players.LocalPlayer then

@@ -9,11 +9,11 @@ export type SlimeData = {
 }
 
 return {
-	currency = 100000000000000,
+	currency = 0,
 	slimeCurrency = 0,
 	slimeQueue = 0,
 	uncollectedCash = 0,
-	slimesPerSecond = 5,
+	slimesPerSecond = 10,
 	sellUpgradeLevel = 0,
 	slimeLuckLevel = 0,
 	cashMultiplierLevel = 0,
@@ -22,5 +22,6 @@ return {
 	timePlayedSeconds = 0,
 	robuxSpent = 0,
 	slimes = {} :: { SlimeData },
+	discoveredSlimes = {} :: { [string]: boolean },
 	inventory = {},
 }

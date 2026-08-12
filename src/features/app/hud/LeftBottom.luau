@@ -19,7 +19,7 @@ local function LeftBottom()
 		Font = Enum.Font.FredokaOne,
 		Position = UDim2.new(0, 24, 1, -24),
 		Size = UDim2.fromOffset(560, 54),
-		Text = CompactNumber.format(currency, 1),
+		Text = "$" .. CompactNumber.format(currency, 1),
 		TextColor3 = Color3.fromRGB(65, 255, 55),
 		TextScaled = true,
 		TextStrokeTransparency = 1,

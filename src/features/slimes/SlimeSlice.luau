@@ -7,6 +7,7 @@ export type SlimeEntry = {
 	billboardType: "purchase" | "playpen",
 	instanceId: string?,
 	slimeId: string,
+	mutationId: string,
 	storedSlime: number,
 	level: number,
 }
@@ -20,6 +21,7 @@ local actions = {
 	addSlime = function(
 		adornee: Attachment,
 		slimeId: string,
+		mutationId: string,
 		billboardType: "purchase" | "playpen",
 		instanceId: string?,
 		storedSlime: number?,
@@ -35,6 +37,7 @@ local actions = {
 				billboardType = billboardType,
 				instanceId = instanceId,
 				slimeId = slimeId,
+				mutationId = mutationId,
 				storedSlime = storedSlime or 0,
 				level = math.max(1, math.floor(level or 1)),
 			}

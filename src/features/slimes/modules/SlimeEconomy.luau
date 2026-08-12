@@ -20,11 +20,18 @@ end
 
 function SlimeEconomy.getUpgradeCost(baseCost: number, level: number?): number
 	local normalizedLevel = SlimeEconomy.getLevel(level)
-	local cost = math.max(0, baseCost) * SlimeEconomy.UpgradeCostGrowth ^ (normalizedLevel - 1)
+	local normalizedBaseCost = math.max(0, baseCost)
+	local effectiveBaseCost = math.max(1, normalizedBaseCost)
+	local cost = effectiveBaseCost * SlimeEconomy.UpgradeCostGrowth ^ (normalizedLevel - 1)
 	if cost == math.huge or cost ~= cost then
 		return math.huge
 	end
-	return math.max(1, math.floor(cost + 0.5))
+
+	local roundedCost = math.max(1, math.floor(cost + 0.5))
+	if normalizedBaseCost == 0 then
+		return math.max(normalizedLevel, roundedCost)
+	end
+	return roundedCost
 end
 
 function SlimeEconomy.getSellValue(baseCost: number, upgradeInvestment: number?): number

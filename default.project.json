@@ -10,6 +10,12 @@
           "$className": "Folder",
           "App": {
             "$className": "Folder",
+            "NotificationSlice": {
+              "$path": "src/features/app/NotificationSlice.luau"
+            },
+            "NotificationRoot": {
+              "$path": "src/features/app/ui/NotificationRoot.luau"
+            },
             "UISounds": {
               "$path": "src/features/app/UISounds.luau"
             },
@@ -32,6 +38,9 @@
               },
               "SideBar": {
                 "$path": "src/features/app/hud/SideBar.luau"
+              },
+              "SlimeCurrencyVFX": {
+                "$path": "src/features/app/hud/SlimeCurrencyVFX.luau"
               }
             },
             "root.story": {
@@ -200,6 +209,15 @@
               "$className": "Folder",
               "SlimeMovement": {
                 "$path": "src/features/slimes/modules/SlimeMovement.luau"
+              },
+              "SlimeDiscovery": {
+                "$path": "src/features/slimes/modules/SlimeDiscovery.luau"
+              },
+              "SlimeMutationEffects": {
+                "$path": "src/features/slimes/modules/SlimeMutationEffects.luau"
+              },
+              "SlimeMutations": {
+                "$path": "src/features/slimes/modules/SlimeMutations.luau"
               },
               "SlimeEconomy": {
                 "$path": "src/features/slimes/modules/SlimeEconomy.luau"

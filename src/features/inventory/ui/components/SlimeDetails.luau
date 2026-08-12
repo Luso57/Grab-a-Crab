@@ -9,6 +9,9 @@ export type Props = {
 	Image: string,
 	Rarity: string,
 	RarityColor: Color3,
+	Mutation: string?,
+	MutationColor: Color3?,
+	MutationMultiplier: number?,
 	Level: number,
 	Production: number,
 	NextProduction: number,
@@ -161,10 +164,20 @@ local function SlimeDetails(props: Props)
 					TextScaled = true,
 					TextStrokeTransparency = 0,
 				}),
-				Production = React.createElement("TextLabel", {
+				Mutation = props.Mutation and React.createElement("TextLabel", {
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
 					LayoutOrder = 4,
+					Size = UDim2.fromScale(0.82, 0.055),
+					Text = `{props.Mutation} • {props.MutationMultiplier or 1}x INCOME`,
+					TextColor3 = props.MutationColor or Color3.new(1, 1, 1),
+					TextScaled = true,
+					TextStrokeTransparency = 0,
+				}),
+				Production = React.createElement("TextLabel", {
+					BackgroundTransparency = 1,
+					Font = Enum.Font.FredokaOne,
+					LayoutOrder = 5,
 					Size = UDim2.fromScale(0.9, 0.07),
 					Text = `{CompactNumber.format(props.Production, 1)} Slime/s`,
 					TextColor3 = Color3.fromRGB(255, 221, 33),
@@ -174,7 +187,7 @@ local function SlimeDetails(props: Props)
 				Level = React.createElement("TextLabel", {
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
-					LayoutOrder = 5,
+					LayoutOrder = 6,
 					Size = UDim2.fromScale(0.9, 0.065),
 					Text = `Lvl {props.Level}  >  Lvl {props.Level + 1}   ({CompactNumber.format(props.NextProduction, 1)}/s)`,
 					TextColor3 = Color3.new(1, 1, 1),
@@ -185,7 +198,7 @@ local function SlimeDetails(props: Props)
 					`Upgrade  ${CompactNumber.format(props.UpgradeCost, 1)}`,
 					Color3.fromRGB(255, 205, 30),
 					props.CanAfford and not isDebounced,
-					6,
+					7,
 					function()
 						runDebounced(props.OnUpgrade)
 					end
@@ -194,7 +207,7 @@ local function SlimeDetails(props: Props)
 					`Sell for ${CompactNumber.format(props.SellValue, 1)}`,
 					Color3.fromRGB(244, 48, 67),
 					not isDebounced,
-					7,
+					8,
 					function()
 						runDebounced(props.OnSell)
 					end

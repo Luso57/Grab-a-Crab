@@ -1,5 +1,5 @@
 local RebirthConfig = {
-	BaseCost = 10_000,
+	BaseCost = 100_000,
 	CostGrowth = 10,
 }
 

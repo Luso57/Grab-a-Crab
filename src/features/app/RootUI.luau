@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local HudRoot = require(ReplicatedStorage.Source.Features.App.Hud.HudRoot)
+local NotificationRoot = require(ReplicatedStorage.Source.Features.App.NotificationRoot)
 local IndexRoot = require(ReplicatedStorage.Source.Features.Index.UI.IndexRoot)
 local InventoryRoot = require(ReplicatedStorage.Source.Features.Inventory.UI.InventoryRoot)
 local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
@@ -26,6 +27,7 @@ local function RootUI()
 	end, { isInventoryOpen })
 
 	return React.createElement(React.Fragment, nil, {
+		Notifications = React.createElement(NotificationRoot),
 		Hud = React.createElement(HudRoot, {
 			OnInventoryActivated = function()
 				setIndexOpen(false)
