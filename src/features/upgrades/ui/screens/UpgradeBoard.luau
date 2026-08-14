@@ -6,6 +6,7 @@ local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
+local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeSlice = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeSlice)
 
@@ -121,6 +122,11 @@ local function PurchaseButton(props: {
 	onActivated: (() -> ())?,
 })
 	local function onActivated()
+		if not props.enabled then
+			NotificationSlice.actions.showInsufficientMoney()
+			return
+		end
+
 		playPurchaseSound()
 		if props.onActivated then
 			props.onActivated()
@@ -143,7 +149,7 @@ local function PurchaseButton(props: {
 			TextStrokeTransparency = 1,
 		}, 2),
 		Button = e("TextButton", {
-			Active = props.enabled,
+			Active = props.onActivated ~= nil,
 			AutoButtonColor = props.enabled,
 			BackgroundColor3 = if props.enabled
 				then Color3.fromRGB(46, 255, 63)
@@ -155,7 +161,7 @@ local function PurchaseButton(props: {
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
-			[React.Event.Activated] = if props.enabled then onActivated else nil,
+			[React.Event.Activated] = if props.onActivated then onActivated else nil,
 		}, {
 			Corner = roundCorner(),
 			Stroke = e("UIStroke", {

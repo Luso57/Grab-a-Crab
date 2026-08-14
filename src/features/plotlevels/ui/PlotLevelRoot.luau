@@ -5,6 +5,7 @@ local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
+local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local PlotLevelSlice = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelSlice)
 
 local e = React.createElement
@@ -66,7 +67,7 @@ local function PlotLevelSign(props: {
 			}),
 		}),
 		PricePanel = e("TextButton", {
-			Active = canAfford,
+			Active = props.canPurchase and not isMaxLevel,
 			AutoButtonColor = canAfford,
 			BackgroundColor3 = if canAfford
 				then Color3.fromRGB(67, 214, 42)
@@ -76,7 +77,17 @@ local function PlotLevelSign(props: {
 			Size = UDim2.fromScale(0.76, 0.34),
 			Text = "",
 			ZIndex = 2,
-			[React.Event.Activated] = if canAfford then props.onPurchase else nil,
+			[React.Event.Activated] = if props.canPurchase and not isMaxLevel
+			then function()
+				if canAfford then
+					if props.onPurchase then
+						props.onPurchase()
+					end
+				else
+					NotificationSlice.actions.showInsufficientMoney()
+				end
+			end
+			else nil,
 		}, {
 			Corner = e("UICorner", { CornerRadius = UDim.new(0.08, 0) }),
 			Stroke = e("UIStroke", {

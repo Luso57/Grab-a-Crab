@@ -53,9 +53,11 @@ local function getNonNegativeInteger(value: number): number
 end
 
 local function getUpgradeOffer(level: number): (number, number)
-	local multiplier = SellingConfig.UpgradePerSecondGrowth ^ getNonNegativeInteger(level)
-	local cost = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseCost * multiplier + 0.5))
-	local gain = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseGain * multiplier + 0.5))
+	local normalizedLevel = getNonNegativeInteger(level)
+	local costMultiplier = SellingConfig.UpgradePerSecondCostGrowth ^ normalizedLevel
+	local gainMultiplier = SellingConfig.UpgradePerSecondGainGrowth ^ normalizedLevel
+	local cost = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseCost * costMultiplier + 0.5))
+	local gain = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseGain * gainMultiplier + 0.5))
 
 	return cost, gain
 end
@@ -176,7 +178,8 @@ function SellingServiceServer.attachPlot(
 	plotModel: Model,
 	onDeposited: (amount: number) -> (),
 	onCashCollected: (amount: number) -> (),
-	onUpgradeStepped: () -> ()
+	onUpgradeStepped: () -> (),
+	onInsufficientMoney: () -> ()
 ): SellingHandle
 	local slimeDeposit = plotModel:WaitForChild("SlimeDeposit")
 	assert(slimeDeposit:IsA("Model"), "Plot SlimeDeposit must be a Model")
@@ -267,6 +270,8 @@ function SellingServiceServer.attachPlot(
 
 		if purchasePerSecondUpgrade(player, plotModel) then
 			onUpgradeStepped()
+		else
+			onInsufficientMoney()
 		end
 	end
 

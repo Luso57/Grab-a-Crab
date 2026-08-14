@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
+local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
@@ -281,7 +282,7 @@ local function RebirthRoot(props: Props)
 					}, 3),
 				}),
 				RebirthButton = React.createElement("TextButton", {
-					Active = canRebirth,
+					Active = rebirthCost ~= math.huge,
 					AnchorPoint = Vector2.new(0.5, 0),
 					AutoButtonColor = canRebirth,
 					BackgroundColor3 = if canRebirth
@@ -299,6 +300,7 @@ local function RebirthRoot(props: Props)
 					ZIndex = 34,
 					[React.Event.Activated] = function()
 						if not canRebirth then
+							NotificationSlice.actions.showInsufficientMoney()
 							return
 						end
 						local plot = PlotServiceClient:getLocalPlayerPlot()

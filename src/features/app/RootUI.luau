@@ -10,6 +10,7 @@ local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.Inven
 local LeaderboardRoot = require(ReplicatedStorage.Source.Features.Leaderboards.UI.LeaderboardRoot)
 local PlotLevelRoot = require(ReplicatedStorage.Source.Features.PlotLevels.UI.PlotLevelRoot)
 local RebirthRoot = require(ReplicatedStorage.Source.Features.Rebirth.UI.RebirthRoot)
+local RobuxBoardRoot = require(ReplicatedStorage.Source.Features.RobuxBoard.UI.RobuxBoardRoot)
 local SellingRoot = require(ReplicatedStorage.Source.Features.Selling.UI.SellingRoot)
 local SlimeRoot = require(ReplicatedStorage.Source.Features.Slimes.UI.SlimeRoot)
 local UpgradeRoot = require(ReplicatedStorage.Source.Features.Upgrades.UI.UpgradeRoot)
@@ -69,6 +70,7 @@ local function RootUI()
 				setRebirthOpen(false)
 			end,
 		}),
+		RobuxBoard = React.createElement(RobuxBoardRoot),
 		Selling = React.createElement(SellingRoot),
 		Slimes = React.createElement(SlimeRoot),
 		Upgrades = React.createElement(UpgradeRoot),

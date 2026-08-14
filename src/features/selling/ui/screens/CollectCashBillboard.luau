@@ -31,15 +31,15 @@ local function getCash(plotModel: Model): number
 	return math.floor(baseCash * cashMultiplier)
 end
 
-local function createOutlinedLabel(props: { [string]: any })
+local function createOutlinedLabel(props: { [string]: any }, maxTextSize: number, strokeThickness: number)
 	return e("TextLabel", props, {
 		Stroke = e("UIStroke", {
 			Color = Color3.new(0, 0, 0),
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 3,
+			Thickness = strokeThickness,
 		}),
 		TextSizeConstraint = e("UITextSizeConstraint", {
-			MaxTextSize = 36,
+			MaxTextSize = maxTextSize,
 			MinTextSize = 1,
 		}),
 	})
@@ -70,28 +70,28 @@ local function CollectCashEntry(props: EntryProps)
 		AlwaysOnTop = true,
 		LightInfluence = 0,
 		MaxDistance = 100,
-		Size = UDim2.fromScale(6, 2.4),
+		Size = UDim2.fromScale(8, 3.2),
 	}, {
 		Title = createOutlinedLabel({
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,
 			Position = UDim2.fromScale(0, 0.05),
-			Size = UDim2.fromScale(1, 0.38),
-			Text = "Collect Cash",
-			TextColor3 = Color3.new(1, 1, 1),
+			Size = UDim2.fromScale(1, 0.34),
+			Text = "COLLECT CASH!",
+			TextColor3 = Color3.fromRGB(255, 224, 102),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
-		}),
+		}, 44, 4),
 		Amount = createOutlinedLabel({
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,
-			Position = UDim2.fromScale(0, 0.42),
-			Size = UDim2.fromScale(1, 0.5),
-			Text = CompactNumber.format(cash, 2),
-			TextColor3 = Color3.fromRGB(65, 255, 55),
+			Position = UDim2.fromScale(0, 0.36),
+			Size = UDim2.fromScale(1, 0.58),
+			Text = "$" .. CompactNumber.format(cash, 2),
+			TextColor3 = if cash > 0 then Color3.fromRGB(65, 255, 55) else Color3.fromRGB(130, 165, 130),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
-		}),
+		}, 64, 5),
 	})
 end
 

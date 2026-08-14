@@ -4,9 +4,10 @@ local SellingConfig = {
 	DepositTouchCooldown = 0.5,
 	CollectTouchCooldown = 0.5,
 	SellingInterval = 1,
-	UpgradePerSecondBaseCost = 1_000,
+	UpgradePerSecondBaseCost = 50,
 	UpgradePerSecondBaseGain = 20,
-	UpgradePerSecondGrowth = 1.12,
+	UpgradePerSecondCostGrowth = 1.5,
+	UpgradePerSecondGainGrowth = 1.12,
 	UpgradeTouchCooldown = 0.5,
 }
 

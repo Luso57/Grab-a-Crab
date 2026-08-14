@@ -72,14 +72,14 @@ end
 
 local purchasingPlayers: { [Player]: boolean } = {}
 
-local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): boolean
+local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): UpgradeTypes.PurchaseResult
 	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "max") then
-		return false
+		return "rejected"
 	end
 
 	local playerData = Data[player]
 	if not playerData then
-		return false
+		return "rejected"
 	end
 
 	purchasingPlayers[player] = true
@@ -94,13 +94,13 @@ local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.Pur
 		totalCost = UpgradeConfig.getLuckUpgradeCost(level)
 		if totalCost > currency then
 			purchasingPlayers[player] = nil
-			return false
+			return "insufficientMoney"
 		end
 	else
 		quantity, totalCost = UpgradeConfig.getMaxAffordableLuckUpgrades(level, currency)
 		if quantity <= 0 then
 			purchasingPlayers[player] = nil
-			return false
+			return "insufficientMoney"
 		end
 	end
 
@@ -118,17 +118,17 @@ local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.Pur
 	plotModel:SetAttribute(MAX_QUANTITY_ATTRIBUTE, maxQuantity)
 	plotModel:SetAttribute(MAX_COST_ATTRIBUTE, maxCost)
 
-	return true
+	return "success"
 end
 
-local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): boolean
+local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): UpgradeTypes.PurchaseResult
 	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "max") then
-		return false
+		return "rejected"
 	end
 
 	local playerData = Data[player]
 	if not playerData then
-		return false
+		return "rejected"
 	end
 
 	purchasingPlayers[player] = true
@@ -143,13 +143,13 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 		totalCost = UpgradeConfig.getCashUpgradeCost(level)
 		if totalCost > currency then
 			purchasingPlayers[player] = nil
-			return false
+			return "insufficientMoney"
 		end
 	else
 		quantity, totalCost = UpgradeConfig.getMaxAffordableCashUpgrades(level, currency)
 		if quantity <= 0 then
 			purchasingPlayers[player] = nil
-			return false
+			return "insufficientMoney"
 		end
 	end
 
@@ -171,7 +171,7 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 	plotModel:SetAttribute(CASH_MAX_QUANTITY_ATTRIBUTE, maxQuantity)
 	plotModel:SetAttribute(CASH_MAX_COST_ATTRIBUTE, maxCost)
 
-	return true
+	return "success"
 end
 
 function UpgradeHandle.destroy(self: UpgradeHandle)

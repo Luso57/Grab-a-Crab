@@ -15,6 +15,7 @@ local SellingSlice = require(ReplicatedStorage.Source.Features.Selling.SellingSl
 local SlimeClient = require(ReplicatedStorage.Source.Features.Slimes.Classes.SlimeClient)
 local SlimeRollVFX = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeRollVFX)
 local UpgradeSlice = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeSlice)
+local RobuxBoardSlice = require(ReplicatedStorage.Source.Features.RobuxBoard.RobuxBoardSlice)
 
 local PlotClient = {}
 PlotClient.__index = PlotClient
@@ -39,6 +40,7 @@ export type PlotClient = typeof(setmetatable(
 		upgradePadAttachment: Attachment,
 		upgradePadEntryId: string,
 		upgradeBoardEntryId: string?,
+		robuxBoardEntryId: string?,
 		levelSignEntryId: string,
 		currentSlime: SlimeClient.SlimeClient?,
 		playpenSlimes: { SlimeClient.SlimeClient },
@@ -237,6 +239,17 @@ local function registerUpgradeBoard(
 	)
 end
 
+local function registerRobuxBoard(plotModel: Model): string
+	local gamePassesBoard = plotModel:WaitForChild("GamePassesBoard")
+	assert(gamePassesBoard:IsA("Model"), "Plot GamePassesBoard must be a Model")
+
+	local title = gamePassesBoard:WaitForChild("Title")
+	assert(title:IsA("BasePart"), "Plot GamePassesBoard.Title must be a BasePart")
+	local board = gamePassesBoard:WaitForChild("Board")
+	assert(board:IsA("BasePart"), "Plot GamePassesBoard.Board must be a BasePart")
+
+	return RobuxBoardSlice.actions.addBoard(title, board)
+end
 function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	local slimeSpawner = plotData.plotModel:WaitForChild("SlimeSpawner")
 	local spawner = slimeSpawner:WaitForChild("Spawner")
@@ -265,6 +278,7 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 		upgradePadAttachment = upgradePadAttachment,
 		upgradePadEntryId = upgradePadEntryId,
 		upgradeBoardEntryId = nil :: string?,
+		robuxBoardEntryId = nil :: string?,
 		currentSlime = nil,
 		playpenSlimes = {},
 		rollPrompt = nil,
@@ -289,6 +303,7 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 			end
 			else nil
 	)
+	self.robuxBoardEntryId = registerRobuxBoard(self.plotModel)
 	self.upgradeBoardEntryId = registerUpgradeBoard(
 		self.plotModel,
 		canPurchaseUpgrades,
@@ -512,6 +527,14 @@ function PlotClient.plotFull(self: PlotClient)
 	NotificationSlice.actions.show("PLOT FULL! EXPAND OR SELL A SLIME")
 end
 
+function PlotClient.insufficientMoney(self: PlotClient)
+	if self.destroyed or self.player ~= Players.LocalPlayer then
+		return
+	end
+
+	NotificationSlice.actions.showInsufficientMoney()
+end
+
 function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, mutationId: string, animationSeed: number)
 	if self.destroyed or (self.activeRoll and self.activeRoll:isActive()) then
 		return
@@ -585,6 +608,10 @@ function PlotClient.destroy(self: PlotClient)
 		self.upgradeBoardEntryId = nil
 	end
 
+	if self.robuxBoardEntryId then
+		RobuxBoardSlice.actions.removeBoard(self.robuxBoardEntryId)
+		self.robuxBoardEntryId = nil
+	end
 	if self.activeRoll then
 		self.activeRoll:cancel()
 		self.activeRoll = nil

@@ -127,6 +127,8 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		self.networker:fire(player, "cashCollected", amount)
 	end, function()
 		self.networker:fire(player, "upgradePerSecondStepped")
+	end, function()
+		self.networker:fire(player, "insufficientMoney")
 	end)
 	self:startProduction()
 
@@ -369,6 +371,7 @@ function PlotServer.purchasePlotLevel(self: Plot, player: Player): boolean
 
 	local currency = getSafeCurrency(playerData.currency())
 	if currency < cost then
+		self.networker:fire(player, "insufficientMoney")
 		return false
 	end
 
@@ -465,9 +468,8 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 
 	local currency = getSafeCurrency(playerData.currency())
 
-	print(`{player.Name} has {currency} currency; {slimeInfo.name} costs {cost}`)
-
 	if currency < cost then
+		self.networker:fire(player, "insufficientMoney")
 		return false
 	end
 
@@ -503,7 +505,11 @@ function PlotServer.purchaseSlimeLuck(self: Plot, player: Player, mode: UpgradeT
 		return false
 	end
 
-	return UpgradeServiceServer.purchase(player, self.plotModel, mode)
+	local result = UpgradeServiceServer.purchase(player, self.plotModel, mode)
+	if result == "insufficientMoney" then
+		self.networker:fire(player, "insufficientMoney")
+	end
+	return result == "success"
 end
 
 function PlotServer.purchaseCashMultiplier(self: Plot, player: Player, mode: UpgradeTypes.PurchaseMode): boolean
@@ -511,7 +517,11 @@ function PlotServer.purchaseCashMultiplier(self: Plot, player: Player, mode: Upg
 		return false
 	end
 
-	return UpgradeServiceServer.purchaseCashMultiplier(player, self.plotModel, mode)
+	local result = UpgradeServiceServer.purchaseCashMultiplier(player, self.plotModel, mode)
+	if result == "insufficientMoney" then
+		self.networker:fire(player, "insufficientMoney")
+	end
+	return result == "success"
 end
 
 function PlotServer.upgradeSlime(self: Plot, player: Player, instanceId: string): boolean
@@ -538,6 +548,9 @@ function PlotServer.upgradeSlime(self: Plot, player: Player, instanceId: string)
 		local upgradeCost = SlimeEconomy.getUpgradeCost(slimeInfo.cost, level)
 		local currency = math.floor(math.max(0, playerData.currency()))
 		if upgradeCost == math.huge or currency < upgradeCost then
+			if upgradeCost ~= math.huge then
+				self.networker:fire(player, "insufficientMoney")
+			end
 			return false
 		end
 
@@ -611,6 +624,9 @@ function PlotServer.rebirth(self: Plot, player: Player): boolean
 	local rebirthCost = RebirthConfig.getCost(rebirthCount)
 	local currency = math.floor(math.max(0, playerData.currency()))
 	if rebirthCost == math.huge or currency < rebirthCost then
+		if rebirthCost ~= math.huge then
+			self.networker:fire(player, "insufficientMoney")
+		end
 		return false
 	end
 

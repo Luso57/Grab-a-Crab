@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
+local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 
 export type Props = {
@@ -31,7 +32,14 @@ local function createStroke(color: Color3, thickness: number)
 	})
 end
 
-local function createButton(text: string, color: Color3, enabled: boolean, layoutOrder: number, onActivated: () -> ())
+local function createButton(
+	text: string,
+	color: Color3,
+	enabled: boolean,
+	layoutOrder: number,
+	onActivated: () -> (),
+	onDisabled: (() -> ())?
+)
 	return React.createElement("TextButton", {
 		AutoButtonColor = enabled,
 		BackgroundColor3 = color,
@@ -49,6 +57,8 @@ local function createButton(text: string, color: Color3, enabled: boolean, layou
 			if enabled then
 				UISounds.playSelect()
 				onActivated()
+			elseif onDisabled then
+				onDisabled()
 			end
 		end,
 	}, {
@@ -201,7 +211,10 @@ local function SlimeDetails(props: Props)
 					7,
 					function()
 						runDebounced(props.OnUpgrade)
-					end
+					end,
+					if not props.CanAfford and not isDebounced
+					then NotificationSlice.actions.showInsufficientMoney
+					else nil
 				),
 				Sell = createButton(
 					`Sell for ${CompactNumber.format(props.SellValue, 1)}`,
@@ -210,7 +223,8 @@ local function SlimeDetails(props: Props)
 					8,
 					function()
 						runDebounced(props.OnSell)
-					end
+					end,
+					nil
 				),
 			}),
 		}),
