@@ -6,12 +6,16 @@ type Product = MonetizationTypes.Product
 type ProductKey = MonetizationTypes.ProductKey
 
 local products: { [ProductKey]: Product } = {
-	doubleRolls = { id = 3707932495 },
-	doubleRollSpeed = { id = 3707932442 },
-	doublePermanentLuck = { id = 3707932569 },
-	quadruplePermanentLuck = { id = 3707932633 },
-	autoCollect = { id = 3707932721 },
-	doubleCash = { id = 3707932744 },
+	doubleRolls = { id = 3707932495, permanent = true },
+	doubleRollSpeed = { id = 3707932442, permanent = true },
+	doublePermanentLuck = { id = 3707932569, permanent = true },
+	quadruplePermanentLuck = { id = 3707932633, permanent = true },
+	autoCollect = { id = 3707932721, permanent = true },
+	autoCollectSlime = { id = 3708134057, permanent = true },
+	doubleCash = { id = 3707932744, permanent = true },
+	doubleSlimeDeposit = { id = 3708103686, permanent = true },
+	buySlime = { id = 3708092210, permanent = false },
+	doubleOfflineSlime = { id = 3708096713, permanent = false },
 }
 
 return products

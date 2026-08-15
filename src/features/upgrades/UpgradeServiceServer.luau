@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeTypes = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeTypes)
@@ -63,6 +64,7 @@ function UpgradeHandle.updateAttributes(self: UpgradeHandle)
 	self.plotModel:SetAttribute(
 		CASH_PAYOUT_MULTIPLIER_ATTRIBUTE,
 		UpgradeConfig.getCashMultiplier(cashLevel) * RebirthConfig.getRewardMultiplier(playerData.rebirths())
+			* ProductEntitlements.getCashMultiplier(playerData)
 	)
 	self.plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel + 1))
 	self.plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(cashLevel))
@@ -165,6 +167,7 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 	plotModel:SetAttribute(
 		CASH_PAYOUT_MULTIPLIER_ATTRIBUTE,
 		UpgradeConfig.getCashMultiplier(levelAfterPurchase) * RebirthConfig.getRewardMultiplier(playerData.rebirths())
+			* ProductEntitlements.getCashMultiplier(playerData)
 	)
 	plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(levelAfterPurchase + 1))
 	plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(levelAfterPurchase))
@@ -209,6 +212,9 @@ function UpgradeServiceServer.attachPlot(player: Player, plotModel: Model): Upgr
 		handle:updateAttributes()
 	end))
 	table.insert(handle.cleanups, playerData.rebirths.Changed(function()
+		handle:updateAttributes()
+	end))
+	table.insert(handle.cleanups, playerData.ownedProducts.Changed(function()
 		handle:updateAttributes()
 	end))
 

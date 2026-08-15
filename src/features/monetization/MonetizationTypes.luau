@@ -4,9 +4,16 @@ export type ProductKey =
 	| "doublePermanentLuck"
 	| "quadruplePermanentLuck"
 	| "autoCollect"
+	| "autoCollectSlime"
 	| "doubleCash"
+	| "doubleSlimeDeposit"
+	| "buySlime"
+	| "doubleOfflineSlime"
 
-export type Product = { id: number }
+export type Product = {
+	id: number,
+	permanent: boolean,
+}
 
 export type ProductInfo = {
 	Name: string,

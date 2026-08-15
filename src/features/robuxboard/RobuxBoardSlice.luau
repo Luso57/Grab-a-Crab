@@ -14,6 +14,12 @@ local nextBoardEntryId = 0
 
 local actions = {
 	addBoard = function(title: BasePart, board: BasePart): string
+		for existingEntryId, entry in boards() do
+			if entry.board == board then
+				return existingEntryId
+			end
+		end
+
 		nextBoardEntryId += 1
 		local entryId = `robux-board-{nextBoardEntryId}`
 

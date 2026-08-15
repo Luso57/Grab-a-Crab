@@ -5,6 +5,9 @@ const BASE_PATH = path.join(__dirname, "../src");
 
 const BLACKLISTED_DIRS = [toPosix(path.join(BASE_PATH, "startup"))];
 const NON_SERVER_NAMES = ["ServerTime"];
+const PASCAL_CASE_OVERRIDES = {
+  robuxboard: "RobuxBoard",
+};
 
 // Tracks folders that are "claimed" by init.luau
 const initClaimedFolders = new Set();
@@ -15,6 +18,9 @@ function toPosix(p) {
 
 function toPascalCase(str) {
   if (str === "UI" || str === "ui") return "UI";
+  if (PASCAL_CASE_OVERRIDES[str.toLowerCase()]) {
+    return PASCAL_CASE_OVERRIDES[str.toLowerCase()];
+  }
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -69,10 +75,18 @@ const tree = {
         StartUp: {
           $className: "Folder",
           MountUI: { $path: "src/startup/MountUI.luau" },
-          Client: { $path: "src/startup/Client.client.luau" },
         },
       },
       Packages: { $path: "Packages" },
+    },
+
+    StarterPlayer: {
+      StarterPlayerScripts: {
+        StartUp: {
+          $className: "Folder",
+          Client: { $path: "src/startup/Client.client.luau" },
+        },
+      },
     },
 
     ServerScriptService: {

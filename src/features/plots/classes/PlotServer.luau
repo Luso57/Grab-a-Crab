@@ -8,6 +8,7 @@ local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
+local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local SlimeDiscovery = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeDiscovery)
 local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeEconomy)
@@ -30,6 +31,7 @@ local CHAR_SPAWN_OFFSET = CFrame.new(0, 10, 0) * CFrame.Angles(0, math.pi, 0)
 local ROLL_LOCK_DURATION = 6.25
 local PRODUCTION_INTERVAL = 1
 local COLLECTION_REQUEST_COOLDOWN = 0.25
+local HOME_TELEPORT_COOLDOWN = 1
 local COLLECTION_HORIZONTAL_MARGIN = 6
 local COLLECTION_VERTICAL_MARGIN = 10
 local SLIMES_PER_PLAYPEN = 7
@@ -61,11 +63,15 @@ export type Plot = typeof(setmetatable(
 		plotLevelPurchaseLocked: boolean,
 		currentSlimeId: string?,
 		currentMutationId: string?,
+
+		secondarySlimeId: string?,
+		secondaryMutationId: string?,
 		networker: Networker.Server,
 		activeRollSeed: number?,
 		random: Random,
 		destroyed: boolean,
 		lastCollectionAt: { [string]: number },
+		lastHomeTeleportAt: number,
 		slimeManagementLocked: boolean,
 		sellingHandle: SellingServiceServer.SellingHandle?,
 		upgradeHandle: UpgradeServiceServer.UpgradeHandle?,
@@ -80,11 +86,14 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		index = plotSpawn.index,
 		currentSlimeId = nil,
 		currentMutationId = nil,
+		secondarySlimeId = nil,
+		secondaryMutationId = nil,
 		networker = nil :: any,
 		activeRollSeed = nil,
 		random = Random.new(),
 		destroyed = false,
 		lastCollectionAt = {},
+		lastHomeTeleportAt = 0,
 		slimeManagementLocked = false,
 		plotLevel = PlotLevelConfig.StartingLevel,
 		plotLevelPurchaseLocked = false,
@@ -108,6 +117,7 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		self.purchaseSlimeLuck,
 		self.purchaseCashMultiplier,
 		self.purchasePlotLevel,
+		self.teleportHome,
 	})
 
 	Data.Service:waitForData(player)
@@ -116,6 +126,16 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 		self.plotLevel = PlotLevelConfig.getLevel(playerData.plotLevel())
 		playerData.plotLevel(self.plotLevel)
 		self:migrateSlimeData()
+		local pending = playerData.pendingBuySlime()
+		if pending.active and Slimes.isValidSlimeId(pending.slimeId) then
+			if pending.offerIndex == 2 then
+				self.secondarySlimeId = pending.slimeId
+				self.secondaryMutationId = SlimeMutations.getId(pending.mutationId)
+			else
+				self.currentSlimeId = pending.slimeId
+				self.currentMutationId = SlimeMutations.getId(pending.mutationId)
+			end
+		end
 		for level = PlotLevelConfig.StartingLevel + 1, self.plotLevel do
 			self:spawnPlotLevel(level)
 		end
@@ -278,7 +298,12 @@ function PlotServer.getAvailablePlaypenLevel(self: Plot): number?
 	end
 
 	local savedSlimes = playerData.slimes()
-	if #savedSlimes >= self.plotLevel * SLIMES_PER_PLAYPEN then
+	local pending = playerData.pendingBuySlime()
+	local hasReservation = pending.active
+		and type(pending.playpenLevel) == "number"
+		and pending.playpenLevel >= PlotLevelConfig.StartingLevel
+		and pending.playpenLevel <= self.plotLevel
+	if #savedSlimes + (if hasReservation then 1 else 0) >= self.plotLevel * SLIMES_PER_PLAYPEN then
 		return nil
 	end
 
@@ -288,6 +313,9 @@ function PlotServer.getAvailablePlaypenLevel(self: Plot): number?
 		if type(level) == "number" and level % 1 == 0 and level >= 1 and level <= self.plotLevel then
 			floorCounts[level] = (floorCounts[level] or 0) + 1
 		end
+	end
+	if hasReservation then
+		floorCounts[pending.playpenLevel] = (floorCounts[pending.playpenLevel] or 0) + 1
 	end
 
 	for level = PlotLevelConfig.StartingLevel, self.plotLevel do
@@ -314,6 +342,8 @@ function PlotServer.startProduction(self: Plot)
 			end
 
 			local productionUpdates = {}
+			local hasAutoCollectSlime = ProductEntitlements.owns(playerData, "autoCollectSlime")
+			local autoCollectedAmount = 0
 
 			for index, slimeData in playerData.slimes() do
 				if not Slimes.isValidSlimeId(slimeData.slimeId) then
@@ -323,11 +353,27 @@ function PlotServer.startProduction(self: Plot)
 				local slimeInfo = Slimes.getSlimeInfo(slimeData.slimeId)
 				local income = SlimeEconomy.getProduction(slimeInfo.income, slimeData.level)
 					* SlimeMutations.getIncomeMultiplier(slimeData.mutationId)
-				local storedSlime = playerData.slimes[index].storedSlime(function(previous)
-					return previous + income
-				end)
+				local storedSlime: number
+
+				if hasAutoCollectSlime then
+					local totalStored = math.max(0, slimeData.storedSlime) + income
+					local wholeSlime = math.floor(totalStored)
+					storedSlime = totalStored - wholeSlime
+					playerData.slimes[index].storedSlime(storedSlime)
+					autoCollectedAmount += wholeSlime
+				else
+					storedSlime = playerData.slimes[index].storedSlime(function(previous)
+						return previous + income
+					end)
+				end
 
 				productionUpdates[slimeData.instanceId] = storedSlime
+			end
+
+			if hasAutoCollectSlime and autoCollectedAmount > 0 then
+				playerData.slimeCurrency(function(previous)
+					return math.max(0, previous) + autoCollectedAmount
+				end)
 			end
 
 			if next(productionUpdates) then
@@ -348,6 +394,8 @@ function PlotServer.get(self: Plot): PlotTypes.PlotData
 		cf = self.cf,
 		currentSlimeId = self.currentSlimeId,
 		currentMutationId = self.currentMutationId,
+		secondarySlimeId = self.secondarySlimeId,
+		secondaryMutationId = self.secondaryMutationId,
 		plotLevel = self.plotLevel,
 		slimes = savedSlimes,
 	}
@@ -401,6 +449,40 @@ function PlotServer.charInit(self: Plot)
 	end)
 end
 
+local function clearPendingBuySlime(playerData)
+	playerData.pendingBuySlime({
+		active = false,
+		slimeId = "",
+		mutationId = "normal",
+		offerIndex = 1,
+		playpenLevel = 1,
+	})
+end
+
+function PlotServer.teleportHome(self: Plot, player: Player): boolean
+	if not self:isOwner(player) or self.destroyed then
+		return false
+	end
+
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	local rootPart = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not character or not humanoid or humanoid.Health <= 0 or not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+
+	local now = os.clock()
+	if now - self.lastHomeTeleportAt < HOME_TELEPORT_COOLDOWN then
+		return false
+	end
+	self.lastHomeTeleportAt = now
+
+	character:PivotTo(self.plotModel:GetPivot() * CHAR_SPAWN_OFFSET)
+	rootPart.AssemblyLinearVelocity = Vector3.zero
+	rootPart.AssemblyAngularVelocity = Vector3.zero
+	return true
+end
+
 function PlotServer.isOwner(self: Plot, player: Player): boolean
 	return self.player == player
 end
@@ -414,27 +496,51 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	if not playerData then
 		return false
 	end
-	local currency = getSafeCurrency(playerData.currency())
 
+	local currency = getSafeCurrency(playerData.currency())
 	local ownedSlimes = playerData.slimes()
 	local needsFreeStarter = currency == 0 and #ownedSlimes == 0
-	local slimeId: string
-	if needsFreeStarter then
-		slimeId = Slimes.getRandomFreeSlimeId(self.random)
-	else
-		local luckMultiplier = UpgradeConfig.getLuckMultiplier(playerData.slimeLuckLevel())
-			* RebirthConfig.getRewardMultiplier(playerData.rebirths())
-		slimeId = Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
+	local luckMultiplier = UpgradeConfig.getLuckMultiplier(playerData.slimeLuckLevel())
+		* RebirthConfig.getRewardMultiplier(playerData.rebirths())
+		* ProductEntitlements.getLuckMultiplier(playerData)
+
+	local function rollOffer(): (string, string, number)
+		local slimeId = if needsFreeStarter
+			then Slimes.getRandomFreeSlimeId(self.random)
+			else Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
+		local mutationId = SlimeMutations.roll(self.random)
+		local animationSeed = self.random:NextInteger(1, 2_147_483_647)
+		return slimeId, mutationId, animationSeed
 	end
-	local animationSeed = self.random:NextInteger(1, 2_147_483_647)
-	local mutationId = SlimeMutations.roll(self.random)
+
+	local slimeId, mutationId, animationSeed = rollOffer()
+	local hasDoubleRolls = ProductEntitlements.owns(playerData, "doubleRolls")
+	local secondarySlimeId: string? = nil
+	local secondaryMutationId: string? = nil
+	local secondaryAnimationSeed: number? = nil
+	if hasDoubleRolls then
+		secondarySlimeId, secondaryMutationId, secondaryAnimationSeed = rollOffer()
+	end
+
+	local durationScale = if ProductEntitlements.owns(playerData, "doubleRollSpeed") then 0.5 else 1
 	self.currentSlimeId = slimeId
 	self.currentMutationId = mutationId
+	self.secondarySlimeId = secondarySlimeId
+	self.secondaryMutationId = secondaryMutationId
 	self.activeRollSeed = animationSeed
 
-	self.networker:fireAll("playSlimeRoll", slimeId, mutationId, animationSeed)
+	self.networker:fireAll(
+		"playSlimeRoll",
+		slimeId,
+		mutationId,
+		animationSeed,
+		secondarySlimeId,
+		secondaryMutationId,
+		secondaryAnimationSeed,
+		durationScale
+	)
 
-	task.delay(ROLL_LOCK_DURATION, function()
+	task.delay(ROLL_LOCK_DURATION * durationScale, function()
 		if self.activeRollSeed == animationSeed then
 			self.activeRollSeed = nil
 		end
@@ -443,13 +549,16 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	return true
 end
 
-function PlotServer.buySlime(self: Plot, player: Player): boolean
+function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): boolean
 	if not self:isOwner(player) then
 		return false
 	end
 
-	local slimeId = self.currentSlimeId
-	local mutationId = SlimeMutations.getId(self.currentMutationId)
+	local normalizedOfferIndex = if offerIndex == 2 then 2 else 1
+	local slimeId = if normalizedOfferIndex == 2 then self.secondarySlimeId else self.currentSlimeId
+	local mutationId = SlimeMutations.getId(
+		if normalizedOfferIndex == 2 then self.secondaryMutationId else self.currentMutationId
+	)
 	if not slimeId or not Slimes.isValidSlimeId(slimeId) then
 		return false
 	end
@@ -460,6 +569,11 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	if not playerData then
 		return false
 	end
+	local existingPending = playerData.pendingBuySlime()
+	if existingPending.active then
+		self.networker:fire(player, "promptBuySlimePurchase")
+		return false
+	end
 	local playpenLevel = self:getAvailablePlaypenLevel()
 	if playpenLevel == nil then
 		self.networker:fire(player, "plotFull")
@@ -467,9 +581,16 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 	end
 
 	local currency = getSafeCurrency(playerData.currency())
-
 	if currency < cost then
 		self.networker:fire(player, "insufficientMoney")
+		playerData.pendingBuySlime({
+			active = true,
+			slimeId = slimeId,
+			mutationId = mutationId,
+			offerIndex = normalizedOfferIndex,
+			playpenLevel = playpenLevel,
+		})
+		self.networker:fire(player, "promptBuySlimePurchase")
 		return false
 	end
 
@@ -493,10 +614,123 @@ function PlotServer.buySlime(self: Plot, player: Player): boolean
 		playerData.discoveredSlimes(nextDiscoveredSlimes)
 	end
 
-	self.currentSlimeId = nil
-	self.currentMutationId = nil
-	self.networker:fireAll("slimeBought", slimeData)
+	if normalizedOfferIndex == 2 then
+		self.secondarySlimeId = nil
+		self.secondaryMutationId = nil
+	else
+		self.currentSlimeId = nil
+		self.currentMutationId = nil
+	end
+	self.networker:fireAll("slimeBought", slimeData, normalizedOfferIndex)
 
+	return true
+end
+
+function PlotServer.completeBuySlimeReceipt(self: Plot, purchaseId: string): boolean
+	if self.destroyed or purchaseId == "" then
+		return false
+	end
+
+	local playerData = Data[self.player]
+	if not playerData then
+		return false
+	end
+
+	local instanceId = `robux-buy-slime:{purchaseId}`
+	for _, slimeData in playerData.slimes() do
+		if slimeData.instanceId == instanceId then
+			local pending = playerData.pendingBuySlime()
+			if pending.active
+				and pending.slimeId == slimeData.slimeId
+				and SlimeMutations.getId(pending.mutationId) == slimeData.mutationId
+			then
+				clearPendingBuySlime(playerData)
+			end
+			self.networker:fireAll("slimeGranted", slimeData)
+			return true
+		end
+	end
+
+	local pending = playerData.pendingBuySlime()
+	if not pending.active or not Slimes.isValidSlimeId(pending.slimeId) then
+		return false
+	end
+	local playpenLevel = math.floor(pending.playpenLevel)
+	if playpenLevel < PlotLevelConfig.StartingLevel or playpenLevel > self.plotLevel then
+		return false
+	end
+
+	local mutationId = SlimeMutations.getId(pending.mutationId)
+	local slimeData: DataTemplate.SlimeData = {
+		instanceId = instanceId,
+		slimeId = pending.slimeId,
+		mutationId = mutationId,
+		storedSlime = 0,
+		level = 1,
+		upgradeInvestment = 0,
+		playpenLevel = playpenLevel,
+	}
+	playerData.slimes.Insert(slimeData)
+
+	local discoveryKey = SlimeDiscovery.getKey(pending.slimeId, mutationId)
+	local discoveredSlimes = playerData.discoveredSlimes()
+	if discoveredSlimes[discoveryKey] ~= true then
+		local nextDiscoveredSlimes = table.clone(discoveredSlimes)
+		nextDiscoveredSlimes[discoveryKey] = true
+		playerData.discoveredSlimes(nextDiscoveredSlimes)
+	end
+
+	local offerIndex = if pending.offerIndex == 2 then 2 else 1
+	local offerStillMatches = if offerIndex == 2
+		then self.secondarySlimeId == pending.slimeId
+		else self.currentSlimeId == pending.slimeId
+	if offerStillMatches then
+		if offerIndex == 2 then
+			self.secondarySlimeId = nil
+			self.secondaryMutationId = nil
+		else
+			self.currentSlimeId = nil
+			self.currentMutationId = nil
+		end
+	end
+
+	clearPendingBuySlime(playerData)
+	if offerStillMatches then
+		self.networker:fireAll("slimeBought", slimeData, offerIndex)
+	else
+		self.networker:fireAll("slimeGranted", slimeData)
+	end
+	return true
+end
+
+function PlotServer.grantSlime(self: Plot, slimeId: string, mutationId: string): boolean
+	if self.destroyed or not Slimes.isValidSlimeId(slimeId) then return false end
+	local playerData = Data[self.player]
+	if not playerData then return false end
+	local playpenLevel = self:getAvailablePlaypenLevel()
+	if playpenLevel == nil then return false end
+
+	local safeMutationId = SlimeMutations.getId(mutationId)
+	local slimeData: DataTemplate.SlimeData = {
+		instanceId = HttpService:GenerateGUID(false),
+		slimeId = slimeId,
+		mutationId = safeMutationId,
+		storedSlime = 0,
+		level = 1,
+		upgradeInvestment = 0,
+		playpenLevel = playpenLevel,
+	}
+	playerData.slimes.Insert(slimeData)
+
+	local discoveryKey = SlimeDiscovery.getKey(slimeId, safeMutationId)
+	local discoveredSlimes = playerData.discoveredSlimes()
+	if discoveredSlimes[discoveryKey] ~= true then
+		local nextDiscoveredSlimes = table.clone(discoveredSlimes)
+		nextDiscoveredSlimes[discoveryKey] = true
+		playerData.discoveredSlimes(nextDiscoveredSlimes)
+	end
+
+	self.networker:fireAll("slimeGranted", slimeData)
 	return true
 end
 
@@ -702,6 +936,9 @@ function PlotServer.destroy(self: Plot)
 	self.destroyed = true
 	self.activeRollSeed = nil
 	self.currentMutationId = nil
+	self.currentSlimeId = nil
+	self.secondarySlimeId = nil
+	self.secondaryMutationId = nil
 	self.plotLevelPurchaseLocked = false
 	if self.sellingHandle then
 		self.sellingHandle:destroy()

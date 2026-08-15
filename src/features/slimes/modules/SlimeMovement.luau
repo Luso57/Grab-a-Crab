@@ -1,4 +1,5 @@
 local RunService = game:GetService("RunService")
+local movementStep = if RunService:IsClient() then RunService.RenderStepped else RunService.PreSimulation
 
 local PLAYPEN_MIN_PAUSE = 0.5
 local PLAYPEN_MAX_PAUSE = 2
@@ -194,7 +195,7 @@ function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment
 		state = "turning"
 	end
 
-	handle.connection = RunService.RenderStepped:Connect(function(deltaTime)
+	handle.connection = movementStep:Connect(function(deltaTime)
 		local displayedPivot = logicalPivot
 		local horizontalScale = 1
 		local verticalScale = 1

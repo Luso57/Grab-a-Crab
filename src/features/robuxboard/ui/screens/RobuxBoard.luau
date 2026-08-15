@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
@@ -6,10 +7,20 @@ local MonetizationServiceClient = require(
 	ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient
 )
 local MonetizationTypes = require(ReplicatedStorage.Source.Features.Monetization.MonetizationTypes)
+local useOwnsProduct = require(ReplicatedStorage.Source.Features.Monetization.Hooks.useOwnsProduct)
 local RobuxBoardSlice = require(ReplicatedStorage.Source.Features.RobuxBoard.RobuxBoardSlice)
 
 local e = React.createElement
 type ProductKey = MonetizationTypes.ProductKey
+
+local CARD_HEIGHT = 145
+local CARD_SPACING = 12
+local CONTENT_PADDING = 8
+local BOARD_VIEWPORT_HEIGHT = 654
+local SNAP_DELAY = 0.18
+local SNAP_TWEEN_INFO = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BOARD_GUI_NAME = "RobuxPassesBoard"
+local mountedBoardGuis: { [BasePart]: SurfaceGui } = {}
 
 local PASSES = {
 	{
@@ -25,6 +36,12 @@ local PASSES = {
 		image = "rbxassetid://97947083217374",
 	},
 	{
+		productKey = "autoCollectSlime",
+		name = "AUTO COLLECT SLIME",
+		description = "Automatically collect slime for you!",
+		image = "rbxassetid://139635723208368",
+	},
+	{
 		productKey = "doublePermanentLuck",
 		name = "2X PERMANENT LUCK",
 		description = "Permanent 2x Luck",
@@ -38,7 +55,7 @@ local PASSES = {
 	},
 	{
 		productKey = "autoCollect",
-		name = "AUTO COLLECT",
+		name = "AUTO COLLECT CASH",
 		description = "Automatically collect your earnings!",
 		image = "rbxassetid://124299228503480",
 	},
@@ -67,6 +84,7 @@ local function PassCard(props: {
 	image: string,
 })
 	local priceText, setPriceText = React.useState("R$ ...")
+	local isOwned = useOwnsProduct(props.productKey)
 
 	React.useEffect(function()
 		local cancelled = false
@@ -87,7 +105,7 @@ local function PassCard(props: {
 		BackgroundColor3 = Color3.fromRGB(24, 20, 16),
 		BackgroundTransparency = 0.16,
 		LayoutOrder = props.layoutOrder,
-		Size = UDim2.new(1, -16, 0, 145),
+		Size = UDim2.new(1, -16, 0, CARD_HEIGHT),
 	}, {
 		Corner = e("UICorner", { CornerRadius = UDim.new(0, 24) }),
 		Border = e("UIStroke", { Color = Color3.new(1, 1, 1), Thickness = 4 }),
@@ -143,20 +161,22 @@ local function PassCard(props: {
 				TextStrokeTransparency = 1,
 			}, 2),
 			Button = e("TextButton", {
-				Active = true,
-				AutoButtonColor = true,
+				Active = not isOwned,
+				AutoButtonColor = not isOwned,
 				BackgroundColor3 = Color3.fromRGB(46, 255, 63),
 				Font = Enum.Font.FredokaOne,
 				Position = UDim2.fromScale(0, 0.4),
-				Selectable = true,
+				Selectable = not isOwned,
 				Size = UDim2.fromScale(1, 0.6),
-				Text = "GET",
+				Text = if isOwned then "OWNED" else "GET",
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
 				TextStrokeTransparency = 1,
-				[React.Event.Activated] = function()
-					MonetizationServiceClient:promptProduct(props.productKey)
-				end,
+				[React.Event.Activated] = if not isOwned
+					then function()
+						MonetizationServiceClient:promptProduct(props.productKey)
+					end
+					else nil,
 			}, {
 				Corner = e("UICorner", { CornerRadius = UDim.new(0.15, 0) }),
 				Border = e("UIStroke", { Color = Color3.fromRGB(0, 115, 14), Thickness = 4 }),
@@ -171,16 +191,74 @@ local function PassCard(props: {
 end
 
 local function RobuxBoardEntry(props: { title: BasePart, board: BasePart })
+	local boardGuiRef = React.useRef(nil)
+	local scrollingFrameRef = React.useRef(nil)
+	local snapGenerationRef = React.useRef(0)
+	local snapTweenRef = React.useRef(nil)
+	local cardStep = CARD_HEIGHT + CARD_SPACING
+	local naturalCanvasHeight = #PASSES * CARD_HEIGHT
+		+ math.max(0, #PASSES - 1) * CARD_SPACING
+		+ CONTENT_PADDING * 2
+	local maxNaturalScroll = math.max(0, naturalCanvasHeight - BOARD_VIEWPORT_HEIGHT)
+	local maxSnapPosition = math.ceil(maxNaturalScroll / cardStep) * cardStep
+	local canvasHeight = BOARD_VIEWPORT_HEIGHT + maxSnapPosition
+
+	React.useEffect(function()
+		local current = boardGuiRef.current :: SurfaceGui?
+		if not current then return end
+
+		local previous = mountedBoardGuis[props.board]
+		if previous and previous ~= current then
+			previous:Destroy()
+		end
+		mountedBoardGuis[props.board] = current
+
+		return function()
+			if mountedBoardGuis[props.board] == current then
+				mountedBoardGuis[props.board] = nil
+			end
+		end
+	end, { props.board })
+
+	React.useEffect(function()
+		return function()
+			local tween = snapTweenRef.current
+			if tween then tween:Cancel() end
+		end
+	end, {})
+
+	local function scheduleSnap(scrollingFrame: ScrollingFrame)
+		snapGenerationRef.current += 1
+		local generation = snapGenerationRef.current
+
+		task.delay(SNAP_DELAY, function()
+			if snapGenerationRef.current ~= generation or scrollingFrameRef.current ~= scrollingFrame then
+				return
+			end
+
+			local targetY = math.clamp(math.round(scrollingFrame.CanvasPosition.Y / cardStep) * cardStep, 0, maxSnapPosition)
+			if math.abs(scrollingFrame.CanvasPosition.Y - targetY) < 0.5 then return end
+
+			local previousTween = snapTweenRef.current
+			if previousTween then previousTween:Cancel() end
+			local tween = TweenService:Create(scrollingFrame, SNAP_TWEEN_INFO, {
+				CanvasPosition = Vector2.new(0, targetY),
+			})
+			snapTweenRef.current = tween
+			tween:Play()
+		end)
+	end
+
 	local cards = {
 		Padding = e("UIPadding", {
-			PaddingBottom = UDim.new(0, 8),
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-			PaddingTop = UDim.new(0, 8),
+			PaddingBottom = UDim.new(0, CONTENT_PADDING),
+			PaddingLeft = UDim.new(0, CONTENT_PADDING),
+			PaddingRight = UDim.new(0, CONTENT_PADDING),
+			PaddingTop = UDim.new(0, CONTENT_PADDING),
 		}),
 		Layout = e("UIListLayout", {
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-			Padding = UDim.new(0, 12),
+			Padding = UDim.new(0, CARD_SPACING),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	}
@@ -223,17 +301,25 @@ local function RobuxBoardEntry(props: { title: BasePart, board: BasePart })
 			CanvasSize = Vector2.new(1240, 654),
 			Face = Enum.NormalId.Right,
 			LightInfluence = 0,
+			Name = BOARD_GUI_NAME,
+			ref = boardGuiRef,
 		}, {
 			Content = e("ScrollingFrame", {
 				Active = true,
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				AutomaticCanvasSize = Enum.AutomaticSize.None,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				CanvasSize = UDim2.fromOffset(0, 0),
+				CanvasSize = UDim2.fromOffset(0, canvasHeight),
+				ClipsDescendants = true,
 				ScrollBarImageColor3 = Color3.new(1, 1, 1),
-				ScrollBarThickness = 10,
+				ScrollBarImageTransparency = 0,
+				ScrollBarThickness = 14,
+				ScrollingEnabled = true,
 				ScrollingDirection = Enum.ScrollingDirection.Y,
 				Size = UDim2.fromScale(1, 1),
+				VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+				ref = scrollingFrameRef,
+				[React.Change.CanvasPosition] = scheduleSnap,
 			}, cards),
 		}),
 	})
@@ -242,9 +328,13 @@ end
 local function RobuxBoard()
 	local boards = ReactCharm.useAtom(RobuxBoardSlice.state.boards)
 	local elements = {}
+	local renderedBoards: { [BasePart]: boolean } = {}
 
 	for entryId, entry in boards do
-		elements[entryId] = e(RobuxBoardEntry, entry)
+		if not renderedBoards[entry.board] then
+			renderedBoards[entry.board] = true
+			elements[entryId] = e(RobuxBoardEntry, entry)
+		end
 	end
 
 	return e(React.Fragment, nil, elements)

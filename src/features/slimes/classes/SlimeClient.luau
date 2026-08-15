@@ -38,13 +38,15 @@ export type SlimeClient = typeof(setmetatable(
 	SlimeClient
 ))
 
-local function getSpawnPivot(spawner: BasePart, slimeModel: Model): CFrame
+local function getSpawnPivot(spawner: BasePart, slimeModel: Model, lateralOffset: number): CFrame
 	local modelPivot = slimeModel:GetPivot()
 	local boundingBoxCFrame, boundingBoxSize = slimeModel:GetBoundingBox()
 	local boundingBoxToPivot = boundingBoxCFrame:ToObjectSpace(modelPivot)
 
 	local surfaceOffset = spawner.Size.X / 2 + boundingBoxSize.Y / 2
-	local position = spawner.Position + spawner.CFrame.RightVector * surfaceOffset
+	local position = spawner.Position
+		+ spawner.CFrame.RightVector * surfaceOffset
+		+ spawner.CFrame.LookVector * lateralOffset
 	local targetBoundingBox = CFrame.new(position) * boundingBoxCFrame.Rotation
 
 	return targetBoundingBox * boundingBoxToPivot
@@ -139,11 +141,12 @@ function SlimeClient.new(
 	slimeData: SlimeData,
 	spawner: BasePart,
 	isLocalPlayer: boolean,
-	startingRotation: number?
+	startingRotation: number?,
+	lateralOffset: number?
 ): SlimeClient
 	local model, rootPart = prepareModel(slimeData)
 
-	model:PivotTo(getSpawnPivot(spawner, model))
+	model:PivotTo(getSpawnPivot(spawner, model, lateralOffset or 0))
 	model.Parent = spawner.Parent
 	local sliceEntryId = addStatsAttachment(rootPart, model, slimeData, "purchase")
 

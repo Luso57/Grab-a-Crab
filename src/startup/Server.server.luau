@@ -1,9 +1,13 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local LeaderboardServiceServer = require(ServerScriptService.Features.Leaderboards.LeaderboardServiceServer)
-local MonetizationServiceServer = require(ServerScriptService.Features.Monetization.MonetizationServiceServer)
+local OfflineRewardsServiceServer = require(ServerScriptService.Features.Offlinerewards.OfflineRewardsServiceServer)
 local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
+local SlimeEventServiceServer = require(ServerScriptService.Features.Slimeevent.SlimeEventServiceServer)
+local SettingsServiceServer = require(ServerScriptService.Features.Settings.SettingsServiceServer)
 
-MonetizationServiceServer:init()
 LeaderboardServiceServer:init()
+OfflineRewardsServiceServer:init()
 PlotServiceServer:init()
+SlimeEventServiceServer:init()
+SettingsServiceServer:init()

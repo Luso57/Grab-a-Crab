@@ -20,6 +20,8 @@ export type PlotData = {
 	plotModel: Model,
 	currentSlimeId: string?,
 	currentMutationId: string?,
+	secondarySlimeId: string?,
+	secondaryMutationId: string?,
 	plotLevel: number,
 	slimes: { DataTemplate.SlimeData },
 }

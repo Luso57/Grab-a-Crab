@@ -103,6 +103,28 @@ local function createPlaypenStats(
 	}, PLAYPEN_BILLBOARD_SCALE)
 end
 
+local function createEventStats(slimeInfo: Slimes.SlimeInfo, mutationId: string)
+	local mutation = SlimeMutations.get(mutationId)
+	local isMutated = mutation.id ~= "normal"
+	local production = SlimeEconomy.getProduction(slimeInfo.income, 1) * mutation.incomeMultiplier
+
+	return createStatsFrame(if isMutated then 100 else 68, {
+		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
+		Mutation = if isMutated
+			then createStatLabel(
+				`{string.upper(mutation.name)} • {mutation.incomeMultiplier}x`,
+				mutation.color,
+				2
+			)
+			else nil,
+		Production = createStatLabel(
+			`+{CompactNumber.format(production, 1)} Slime/s`,
+			Color3.fromRGB(255, 221, 33),
+			3
+		),
+	})
+end
+
 local function SlimeBillboards()
 	local activeSlimes = ReactCharm.useAtom(SlimeSlice.state.slimes)
 	local billboards = {}
@@ -118,10 +140,12 @@ local function SlimeBillboards()
 			MaxDistance = 100,
 			Size = if entry.billboardType == "playpen"
 				then UDim2.fromOffset(119, 144)
+				elseif entry.billboardType == "event" then UDim2.fromOffset(190, 180)
 				else UDim2.fromOffset(190, 288),
 		}, {
 			Stats = if entry.billboardType == "playpen"
 				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level, entry.mutationId)
+				elseif entry.billboardType == "event" then createEventStats(slimeInfo, entry.mutationId)
 				else createPurchaseStats(slimeInfo, formattedOdds, entry.mutationId),
 		})
 	end

@@ -25,13 +25,15 @@ export type RollHandle = typeof(setmetatable(
 	RollHandle
 ))
 
-local function getSpawnPivot(spawner: BasePart, slimeModel: Model): CFrame
+local function getSpawnPivot(spawner: BasePart, slimeModel: Model, lateralOffset: number): CFrame
 	local modelPivot = slimeModel:GetPivot()
 	local boundingBoxCFrame, boundingBoxSize = slimeModel:GetBoundingBox()
 	local boundingBoxToPivot = boundingBoxCFrame:ToObjectSpace(modelPivot)
 
 	local surfaceOffset = spawner.Size.X / 2 + boundingBoxSize.Y / 2
-	local position = spawner.Position + spawner.CFrame.RightVector * surfaceOffset
+	local position = spawner.Position
+		+ spawner.CFrame.RightVector * surfaceOffset
+		+ spawner.CFrame.LookVector * lateralOffset
 	local targetBoundingBox = CFrame.new(position) * boundingBoxCFrame.Rotation
 
 	return targetBoundingBox * boundingBoxToPivot
@@ -156,7 +158,7 @@ local function destroyRollSounds(handle: RollHandle)
 	end
 end
 
-local function createDisplay(spawner: BasePart, slimeId: string)
+local function createDisplay(spawner: BasePart, slimeId: string, lateralOffset: number)
 	local model = Slimes.getSlimeModel(slimeId)
 	local rootPart = model:FindFirstChildWhichIsA("BasePart", true)
 	assert(rootPart, `Slime model has no BaseParts: {slimeId}`)
@@ -168,7 +170,7 @@ local function createDisplay(spawner: BasePart, slimeId: string)
 		end
 	end
 
-	model:PivotTo(getSpawnPivot(spawner, model))
+	model:PivotTo(getSpawnPivot(spawner, model, lateralOffset))
 	model.Parent = spawner.Parent
 
 	local silhouette = Instance.new("Highlight")
@@ -239,10 +241,17 @@ function SlimeRollVFX.play(
 	spawner: BasePart,
 	winnerId: string,
 	animationSeed: number,
-	onFinished: ((finalRotation: number) -> ())?
+	onFinished: ((finalRotation: number) -> ())?,
+	durationScale: number?,
+	lateralOffset: number?
 ): RollHandle
 	Slimes.getSlimeInfo(winnerId)
 	assert(#Slimes.slimeIds > 0, "Cannot play slime roll VFX because the slime catalog is empty")
+
+	local safeDurationScale = math.clamp(durationScale or 1, 0.1, 2)
+	local safeLateralOffset = lateralOffset or 0
+	local rollDuration = ROLL_DURATION * safeDurationScale
+	local revealDuration = REVEAL_DURATION * safeDurationScale
 
 	local handle = setmetatable({
 		active = true,
@@ -263,7 +272,7 @@ function SlimeRollVFX.play(
 
 			while not handle.cancelled do
 				local elapsed = os.clock() - startedAt
-				if elapsed >= ROLL_DURATION then
+				if elapsed >= rollDuration then
 					break
 				end
 
@@ -273,12 +282,12 @@ function SlimeRollVFX.play(
 				end
 
 				local previewId = Slimes.slimeIds[catalogIndex]
-				local display = createDisplay(spawner, previewId)
+				local display = createDisplay(spawner, previewId, safeLateralOffset)
 				handle.currentModel = display.model
 				applyMysteryAppearance(display.model)
 				showMystery(display, previewId)
 
-				local progress = math.clamp(elapsed / ROLL_DURATION, 0, 1)
+				local progress = math.clamp(elapsed / rollDuration, 0, 1)
 				if handle.tickSound then
 					handle.tickSound.PlaybackSpeed = 1.08 - 0.2 * progress
 					handle.tickSound.TimePosition = 0
@@ -288,8 +297,8 @@ function SlimeRollVFX.play(
 				catalogIndex = catalogIndex % #Slimes.slimeIds + 1
 
 				local easedProgress = progress ^ 3
-				local interval = FAST_INTERVAL + (SLOW_INTERVAL - FAST_INTERVAL) * easedProgress
-				local remainingTime = ROLL_DURATION - (os.clock() - startedAt)
+				local interval = (FAST_INTERVAL + (SLOW_INTERVAL - FAST_INTERVAL) * easedProgress) * safeDurationScale
+				local remainingTime = rollDuration - (os.clock() - startedAt)
 
 				task.wait(math.max(0, math.min(interval, remainingTime)))
 			end
@@ -303,7 +312,7 @@ function SlimeRollVFX.play(
 				handle.currentModel = nil
 			end
 
-			local winnerDisplay = createDisplay(spawner, winnerId)
+			local winnerDisplay = createDisplay(spawner, winnerId, safeLateralOffset)
 			handle.currentModel = winnerDisplay.model
 			showMystery(winnerDisplay, winnerId)
 			revealWinner(winnerDisplay, winnerId)
@@ -317,7 +326,7 @@ function SlimeRollVFX.play(
 
 			while not handle.cancelled do
 				local revealElapsed = os.clock() - revealStartedAt
-				if revealElapsed >= REVEAL_DURATION then
+				if revealElapsed >= revealDuration then
 					break
 				end
 
@@ -327,7 +336,7 @@ function SlimeRollVFX.play(
 			end
 
 			if not handle.cancelled then
-				finalRotation = REVEAL_DURATION * WINNER_ROTATION_SPEED
+				finalRotation = revealDuration * WINNER_ROTATION_SPEED
 				winnerDisplay.model:PivotTo(winnerBasePivot * CFrame.Angles(0, finalRotation, 0))
 				completed = true
 			end

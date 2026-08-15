@@ -4,7 +4,7 @@ local Charm = require(ReplicatedStorage.Packages.Charm)
 
 export type SlimeEntry = {
 	adornee: Attachment,
-	billboardType: "purchase" | "playpen",
+	billboardType: "purchase" | "playpen" | "event",
 	instanceId: string?,
 	slimeId: string,
 	mutationId: string,
@@ -22,7 +22,7 @@ local actions = {
 		adornee: Attachment,
 		slimeId: string,
 		mutationId: string,
-		billboardType: "purchase" | "playpen",
+		billboardType: "purchase" | "playpen" | "event",
 		instanceId: string?,
 		storedSlime: number?,
 		level: number?

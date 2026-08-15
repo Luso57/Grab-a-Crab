@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
+local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 
@@ -63,22 +64,29 @@ local function MultiplierBadges()
 	local luckLevel, setLuckLevel = React.useState(PlayerData.slimeLuckLevel())
 	local cashLevel, setCashLevel = React.useState(PlayerData.cashMultiplierLevel())
 	local rebirths, setRebirths = React.useState(PlayerData.rebirths())
+	local ownedProducts, setOwnedProducts = React.useState(PlayerData.ownedProducts())
 
 	React.useEffect(function()
 		local luckConnection = PlayerData.slimeLuckLevel.Changed(setLuckLevel)
 		local cashConnection = PlayerData.cashMultiplierLevel.Changed(setCashLevel)
 		local rebirthConnection = PlayerData.rebirths.Changed(setRebirths)
+		local ownedProductsConnection = PlayerData.ownedProducts.Changed(setOwnedProducts)
 
 		return function()
 			luckConnection()
 			cashConnection()
 			rebirthConnection()
+			ownedProductsConnection()
 		end
 	end, {})
 
 	local rebirthMultiplier = RebirthConfig.getRewardMultiplier(rebirths)
-	local luckMultiplier = UpgradeConfig.getLuckMultiplier(luckLevel) * rebirthMultiplier
-	local cashMultiplier = UpgradeConfig.getCashMultiplier(cashLevel) * rebirthMultiplier
+	local luckMultiplier = UpgradeConfig.getLuckMultiplier(luckLevel)
+		* rebirthMultiplier
+		* ProductEntitlements.getLuckMultiplierFromOwnedProducts(ownedProducts)
+	local cashMultiplier = UpgradeConfig.getCashMultiplier(cashLevel)
+		* rebirthMultiplier
+		* ProductEntitlements.getCashMultiplierFromOwnedProducts(ownedProducts)
 
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0, 1),

@@ -8,6 +8,8 @@ local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.Plo
 local PlotLevelSlice = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelSlice)
 local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
 local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
+local MonetizationServiceClient = require(ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient)
+local MonetizationPadBillboards = require(ReplicatedStorage.Source.Features.Monetization.Modules.MonetizationPadBillboards)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local CashCollectionVFX = require(ReplicatedStorage.Source.Features.Selling.Modules.CashCollectionVFX)
 local DepositConfetti = require(ReplicatedStorage.Source.Features.Selling.Modules.DepositConfetti)
@@ -41,11 +43,14 @@ export type PlotClient = typeof(setmetatable(
 		upgradePadEntryId: string,
 		upgradeBoardEntryId: string?,
 		robuxBoardEntryId: string?,
+		monetizationBillboardCleanup: (() -> ())?,
 		levelSignEntryId: string,
 		currentSlime: SlimeClient.SlimeClient?,
+		secondarySlime: SlimeClient.SlimeClient?,
 		playpenSlimes: { SlimeClient.SlimeClient },
 		rollPrompt: ProximityPrompt?,
 		activeRoll: SlimeRollVFX.RollHandle?,
+		secondaryActiveRoll: SlimeRollVFX.RollHandle?,
 		promptConnection: RBXScriptConnection?,
 		destroyed: boolean,
 	},
@@ -68,6 +73,10 @@ local function getUpperPlaypenBase(plotModel: Model, level: number): BasePart
 	local playpenArea = levelModel:WaitForChild("PlayPenArea")
 	assert(playpenArea:IsA("BasePart"), `PlayPenBaseLvl{level}.PlayPenArea must be a BasePart`)
 	return playpenArea
+end
+
+function PlotClient.teleportHome(self: PlotClient)
+	self.networker:fire("teleportHome")
 end
 
 local function createRollSlimeBillboard(spawnerButton: BasePart)
@@ -145,7 +154,7 @@ local function createSlimeDepositAttachment(plotModel: Model): (Attachment, stri
 	attachment.Position = adorneePart.CFrame:PointToObjectSpace(topPosition)
 	attachment.Parent = adorneePart
 
-	return attachment, SellingSlice.actions.addDeposit(attachment)
+	return attachment, SellingSlice.actions.addDeposit(attachment, plotModel)
 end
 
 local function createCollectCashAttachment(plotModel: Model): (Attachment, string)
@@ -259,6 +268,10 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	local slimeDepositAttachment, slimeDepositEntryId = createSlimeDepositAttachment(plotData.plotModel)
 	local slimeSignEntryId = registerSlimeSign(plotData.plotModel)
 	local upgradePadAttachment, upgradePadEntryId = createUpgradePadAttachment(plotData.plotModel)
+	local monetizationBillboardCleanup = MonetizationPadBillboards.attach(
+		plotData.plotModel,
+		plotData.player == Players.LocalPlayer
+	)
 
 	local self = setmetatable({
 		cf = plotData.cf,
@@ -279,10 +292,13 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 		upgradePadEntryId = upgradePadEntryId,
 		upgradeBoardEntryId = nil :: string?,
 		robuxBoardEntryId = nil :: string?,
+		monetizationBillboardCleanup = monetizationBillboardCleanup,
 		currentSlime = nil,
+		secondarySlime = nil,
 		playpenSlimes = {},
 		rollPrompt = nil,
 		activeRoll = nil,
+		secondaryActiveRoll = nil,
 		promptConnection = nil,
 		destroyed = false,
 	}, PlotClient)
@@ -336,6 +352,9 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 	if plotData.currentSlimeId then
 		self:showSlime(plotData.currentSlimeId, plotData.currentMutationId)
 	end
+	if plotData.secondarySlimeId then
+		self:showSlime(plotData.secondarySlimeId, plotData.secondaryMutationId, nil, 2, 4)
+	end
 
 	self:syncPlaypenSlimes(plotData.slimes)
 
@@ -357,9 +376,15 @@ function PlotClient.initModel(self: PlotClient)
 	end)
 end
 
-function PlotClient.slimeBought(self: PlotClient, slimeData: SlimeData)
-	if self.currentSlime then
-		self.currentSlime:destroy()
+function PlotClient.slimeBought(self: PlotClient, slimeData: SlimeData, offerIndex: number?)
+	local normalizedOfferIndex = if offerIndex == 2 then 2 else 1
+	local preview = if normalizedOfferIndex == 2 then self.secondarySlime else self.currentSlime
+	if preview then
+		preview:destroy()
+	end
+	if normalizedOfferIndex == 2 then
+		self.secondarySlime = nil
+	else
 		self.currentSlime = nil
 	end
 
@@ -369,6 +394,11 @@ end
 function PlotClient.addPlaypenSlime(self: PlotClient, slimeData: SlimeData)
 	if self.destroyed then
 		return
+	end
+	for _, slime in self.playpenSlimes do
+		if slime.slimeData.instanceId == slimeData.instanceId then
+			return
+		end
 	end
 
 	local onTouched = if self.player == Players.LocalPlayer
@@ -391,6 +421,7 @@ function PlotClient.addPlaypenSlime(self: PlotClient, slimeData: SlimeData)
 end
 
 function PlotClient.syncPlaypenSlimes(self: PlotClient, slimes: { SlimeData })
+	if self.destroyed then return end
 	for _, slime in self.playpenSlimes do
 		slime:destroy()
 	end
@@ -535,8 +566,20 @@ function PlotClient.insufficientMoney(self: PlotClient)
 	NotificationSlice.actions.showInsufficientMoney()
 end
 
-function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, mutationId: string, animationSeed: number)
-	if self.destroyed or (self.activeRoll and self.activeRoll:isActive()) then
+function PlotClient.playSlimeRoll(
+	self: PlotClient,
+	winnerId: string,
+	mutationId: string,
+	animationSeed: number,
+	secondaryWinnerId: string?,
+	secondaryMutationId: string?,
+	secondaryAnimationSeed: number?,
+	durationScale: number?
+)
+	if self.destroyed
+		or (self.activeRoll and self.activeRoll:isActive())
+		or (self.secondaryActiveRoll and self.secondaryActiveRoll:isActive())
+	then
 		return
 	end
 
@@ -544,31 +587,108 @@ function PlotClient.playSlimeRoll(self: PlotClient, winnerId: string, mutationId
 		self.currentSlime:destroy()
 		self.currentSlime = nil
 	end
+	if self.secondarySlime then
+		self.secondarySlime:destroy()
+		self.secondarySlime = nil
+	end
 
 	if self.rollPrompt then
 		self.rollPrompt.Enabled = false
 	end
 
-	local rollHandle: SlimeRollVFX.RollHandle
-	rollHandle = SlimeRollVFX.play(self.spawner, winnerId, animationSeed, function(finalRotation)
-		if self.destroyed or self.activeRoll ~= rollHandle then
-			return
-		end
-
-		self.activeRoll = nil
-		self:showSlime(winnerId, mutationId, finalRotation)
-
-		if self.rollPrompt then
+	local hasSecondary = secondaryWinnerId ~= nil and secondaryAnimationSeed ~= nil
+	local remainingRolls = if hasSecondary then 2 else 1
+	local function finishRoll()
+		remainingRolls -= 1
+		if remainingRolls == 0 and self.rollPrompt then
 			self.rollPrompt.Enabled = true
 		end
-	end)
+	end
 
-	self.activeRoll = rollHandle
+	local primaryOffset = if hasSecondary then -4 else 0
+	local primaryHandle: SlimeRollVFX.RollHandle
+	primaryHandle = SlimeRollVFX.play(self.spawner, winnerId, animationSeed, function(finalRotation)
+		if self.destroyed or self.activeRoll ~= primaryHandle then
+			return
+		end
+		self.activeRoll = nil
+		self:showSlime(winnerId, mutationId, finalRotation, 1, primaryOffset)
+		finishRoll()
+	end, durationScale, primaryOffset)
+	self.activeRoll = primaryHandle
+
+	if hasSecondary then
+		local secondaryHandle: SlimeRollVFX.RollHandle
+		secondaryHandle = SlimeRollVFX.play(
+			self.spawner,
+			secondaryWinnerId :: string,
+			secondaryAnimationSeed :: number,
+			function(finalRotation)
+				if self.destroyed or self.secondaryActiveRoll ~= secondaryHandle then
+					return
+				end
+				self.secondaryActiveRoll = nil
+				self:showSlime(secondaryWinnerId :: string, secondaryMutationId, finalRotation, 2, 4)
+				finishRoll()
+			end,
+			durationScale,
+			4
+		)
+		self.secondaryActiveRoll = secondaryHandle
+	end
 end
 
-function PlotClient.showSlime(self: PlotClient, slimeId: string, mutationId: string?, startingRotation: number?)
+function PlotClient.syncOffers(
+	self: PlotClient,
+	currentSlimeId: string?,
+	currentMutationId: string?,
+	secondarySlimeId: string?,
+	secondaryMutationId: string?
+)
+	if self.destroyed then return end
 	if self.currentSlime then
 		self.currentSlime:destroy()
+		self.currentSlime = nil
+	end
+	if self.secondarySlime then
+		self.secondarySlime:destroy()
+		self.secondarySlime = nil
+	end
+	if currentSlimeId then
+		self:showSlime(currentSlimeId, currentMutationId, nil, 1, if secondarySlimeId then -4 else 0)
+	end
+	if secondarySlimeId then
+		self:showSlime(secondarySlimeId, secondaryMutationId, nil, 2, 4)
+	end
+end
+
+function PlotClient.promptBuySlimePurchase(self: PlotClient)
+	if self.destroyed or self.player ~= Players.LocalPlayer then
+		return
+	end
+
+	local prompted, message = MonetizationServiceClient:promptProduct("buySlime")
+	if not prompted and message then
+		warn(message)
+	end
+end
+
+function PlotClient.slimeGranted(self: PlotClient, slimeData: SlimeData)
+	self:addPlaypenSlime(slimeData)
+end
+
+function PlotClient.showSlime(
+	self: PlotClient,
+	slimeId: string,
+	mutationId: string?,
+	startingRotation: number?,
+	offerIndex: number?,
+	lateralOffset: number?
+)
+	local normalizedOfferIndex = if offerIndex == 2 then 2 else 1
+	local currentPreview = if normalizedOfferIndex == 2 then self.secondarySlime else self.currentSlime
+	if currentPreview then
+		currentPreview:destroy()
 	end
 
 	local slime = SlimeClient.new({
@@ -579,19 +699,27 @@ function PlotClient.showSlime(self: PlotClient, slimeId: string, mutationId: str
 		level = 1,
 		upgradeInvestment = 0,
 		playpenLevel = 1,
-	}, self.spawner, self.player == Players.LocalPlayer, startingRotation)
+	}, self.spawner, self.player == Players.LocalPlayer, startingRotation, lateralOffset)
 
 	if self.player == Players.LocalPlayer then
 		slime.onBought = function()
-			self.networker:fire("buySlime")
+			self.networker:fire("buySlime", normalizedOfferIndex)
 		end
 	end
 
-	self.currentSlime = slime
+	if normalizedOfferIndex == 2 then
+		self.secondarySlime = slime
+	else
+		self.currentSlime = slime
+	end
 end
 
 function PlotClient.destroy(self: PlotClient)
 	self.destroyed = true
+	if self.monetizationBillboardCleanup then
+		self.monetizationBillboardCleanup()
+		self.monetizationBillboardCleanup = nil
+	end
 	SellingSlice.actions.removeCashCollector(self.collectCashEntryId)
 	self.collectCashAttachment:Destroy()
 	SellingSlice.actions.removeDeposit(self.slimeDepositEntryId)
@@ -616,6 +744,10 @@ function PlotClient.destroy(self: PlotClient)
 		self.activeRoll:cancel()
 		self.activeRoll = nil
 	end
+	if self.secondaryActiveRoll then
+		self.secondaryActiveRoll:cancel()
+		self.secondaryActiveRoll = nil
+	end
 
 	if self.promptConnection then
 		self.promptConnection:Disconnect()
@@ -627,6 +759,10 @@ function PlotClient.destroy(self: PlotClient)
 	if self.currentSlime then
 		self.currentSlime:destroy()
 		self.currentSlime = nil
+	end
+	if self.secondarySlime then
+		self.secondarySlime:destroy()
+		self.secondarySlime = nil
 	end
 
 	for _, slime in self.playpenSlimes do

@@ -1,410 +1,569 @@
 {
-    "emitLegacyScripts":  false,
-    "name":  "RNG",
-    "tree":  {
-                 "$className":  "DataModel",
-                 "ReplicatedStorage":  {
-                                           "Source":  {
-                                                          "$className":  "Folder",
-                                                          "Features":  {
-                                                                           "$className":  "Folder",
-                                                                           "App":  {
-                                                                                       "$className":  "Folder",
-                                                                                       "NotificationSlice":  {
-                                                                                                                 "$path":  "src/features/app/NotificationSlice.luau"
-                                                                                                             },
-                                                                                       "NotificationRoot":  {
-                                                                                                                "$path":  "src/features/app/ui/NotificationRoot.luau"
-                                                                                                            },
-                                                                                       "UISounds":  {
-                                                                                                        "$path":  "src/features/app/UISounds.luau"
-                                                                                                    },
-                                                                                       "Hud":  {
-                                                                                                   "$className":  "Folder",
-                                                                                                   "BottomBar":  {
-                                                                                                                     "$path":  "src/features/app/hud/BottomBar.luau"
-                                                                                                                 },
-                                                                                                   "HudRoot":  {
-                                                                                                                   "$path":  "src/features/app/hud/HudRoot.luau"
-                                                                                                               },
-                                                                                                   "LeftBottom":  {
-                                                                                                                      "$path":  "src/features/app/hud/LeftBottom.luau"
-                                                                                                                  },
-                                                                                                   "MultiplierBadges":  {
-                                                                                                                            "$path":  "src/features/app/hud/MultiplierBadges.luau"
-                                                                                                                        },
-                                                                                                   "MenuButton":  {
-                                                                                                                      "$path":  "src/features/app/hud/MenuButton.luau"
-                                                                                                                  },
-                                                                                                   "SideBar":  {
-                                                                                                                   "$path":  "src/features/app/hud/SideBar.luau"
-                                                                                                               },
-                                                                                                   "SlimeCurrencyVFX":  {
-                                                                                                                            "$path":  "src/features/app/hud/SlimeCurrencyVFX.luau"
-                                                                                                                        }
-                                                                                               },
-                                                                                       "root.story":  {
-                                                                                                          "$path":  "src/features/app/root.story.luau"
-                                                                                                      },
-                                                                                       "RootUI":  {
-                                                                                                      "$path":  "src/features/app/RootUI.luau"
-                                                                                                  }
-                                                                                   },
-                                                                           "Inventory":  {
-                                                                                             "$className":  "Folder",
-                                                                                             "InventorySlice":  {
-                                                                                                                    "$path":  "src/features/inventory/InventorySlice.luau"
-                                                                                                                },
-                                                                                             "UI":  {
-                                                                                                        "$className":  "Folder",
-                                                                                                        "Components":  {
-                                                                                                                           "$className":  "Folder",
-                                                                                                                           "InventorySlot":  {
-                                                                                                                                                 "$path":  "src/features/inventory/ui/components/InventorySlot.luau"
-                                                                                                                                             },
-                                                                                                                           "SlimeDetails":  {
-                                                                                                                                                "$path":  "src/features/inventory/ui/components/SlimeDetails.luau"
-                                                                                                                                            }
-                                                                                                                       },
-                                                                                                        "InventoryRoot":  {
-                                                                                                                              "$path":  "src/features/inventory/ui/InventoryRoot.luau"
-                                                                                                                          },
-                                                                                                        "Screens":  {
-                                                                                                                        "$className":  "Folder",
-                                                                                                                        "InventoryWindow":  {
-                                                                                                                                                "$path":  "src/features/inventory/ui/screens/InventoryWindow.luau"
-                                                                                                                                            }
-                                                                                                                    }
-                                                                                                    }
-                                                                                         },
-                                                                           "Leaderboards":  {
-                                                                                                "$className":  "Folder",
-                                                                                                "LeaderboardConfig":  {
-                                                                                                                          "$path":  "src/features/leaderboards/LeaderboardConfig.luau"
-                                                                                                                      },
-                                                                                                "LeaderboardServiceClient":  {
-                                                                                                                                 "$path":  "src/features/leaderboards/LeaderboardServiceClient.luau"
-                                                                                                                             },
-                                                                                                "LeaderboardSlice":  {
-                                                                                                                         "$path":  "src/features/leaderboards/LeaderboardSlice.luau"
-                                                                                                                     },
-                                                                                                "LeaderboardTypes":  {
-                                                                                                                         "$path":  "src/features/leaderboards/LeaderboardTypes.luau"
-                                                                                                                     },
-                                                                                                "UI":  {
-                                                                                                           "$className":  "Folder",
-                                                                                                           "LeaderboardRoot":  {
-                                                                                                                                   "$path":  "src/features/leaderboards/ui/LeaderboardRoot.luau"
-                                                                                                                               }
-                                                                                                       }
-                                                                                            },
-                                                                           "Index":  {
-                                                                                         "$className":  "Folder",
-                                                                                         "UI":  {
-                                                                                                    "$className":  "Folder",
-                                                                                                    "IndexRoot":  {
-                                                                                                                      "$path":  "src/features/index/ui/IndexRoot.luau"
-                                                                                                                  }
-                                                                                                }
-                                                                                     },
-                                                                           "Plots":  {
-                                                                                         "$className":  "Folder",
-                                                                                         "Classes":  {
-                                                                                                         "$className":  "Folder",
-                                                                                                         "PlotClient":  {
-                                                                                                                            "$path":  "src/features/plots/classes/PlotClient.luau"
-                                                                                                                        }
-                                                                                                     },
-                                                                                         "PlotServiceClient":  {
-                                                                                                                   "$path":  "src/features/plots/PlotServiceClient.luau"
-                                                                                                               },
-                                                                                         "PlotTypes":  {
-                                                                                                           "$path":  "src/features/plots/PlotTypes.luau"
-                                                                                                       }
-                                                                                     },
-                                                                           "Monetization":  {
-                                                                                                "$className":  "Folder",
-                                                                                                "Modules":  {
-                                                                                                                "$className":  "Folder",
-                                                                                                                "Products":  {
-                                                                                                                                 "$path":  "src/features/monetization/modules/Products.luau"
-                                                                                                                             }
-                                                                                                            },
-                                                                                                "MonetizationTypes":  {
-                                                                                                                          "$path":  "src/features/monetization/MonetizationTypes.luau"
-                                                                                                                      },
-                                                                                                "MonetizationServiceClient":  {
-                                                                                                                                  "$path":  "src/features/monetization/MonetizationServiceClient.luau"
-                                                                                                                              }
-                                                                                            },
-                                                                           "PlotLevels":  {
-                                                                                              "$className":  "Folder",
-                                                                                              "PlotLevelConfig":  {
-                                                                                                                      "$path":  "src/features/plotlevels/PlotLevelConfig.luau"
-                                                                                                                  },
-                                                                                              "PlotLevelSlice":  {
-                                                                                                                     "$path":  "src/features/plotlevels/PlotLevelSlice.luau"
-                                                                                                                 },
-                                                                                              "UI":  {
-                                                                                                         "$className":  "Folder",
-                                                                                                         "PlotLevelRoot":  {
-                                                                                                                               "$path":  "src/features/plotlevels/ui/PlotLevelRoot.luau"
-                                                                                                                           }
-                                                                                                     }
-                                                                                          },
-                                                                           "Rebirth":  {
-                                                                                           "$className":  "Folder",
-                                                                                           "RebirthConfig":  {
-                                                                                                                 "$path":  "src/features/rebirth/RebirthConfig.luau"
-                                                                                                             },
-                                                                                           "UI":  {
-                                                                                                      "$className":  "Folder",
-                                                                                                      "RebirthRoot":  {
-                                                                                                                          "$path":  "src/features/rebirth/ui/RebirthRoot.luau"
-                                                                                                                      }
-                                                                                                  }
-                                                                                       },
-                                                                           "RobuxBoard":  {
-                                                                                              "$className":  "Folder",
-                                                                                              "RobuxBoardSlice":  {
-                                                                                                                      "$path":  "src/features/robuxboard/RobuxBoardSlice.luau"
-                                                                                                                  },
-                                                                                              "UI":  {
-                                                                                                         "$className":  "Folder",
-                                                                                                         "RobuxBoardRoot":  {
-                                                                                                                                "$path":  "src/features/robuxboard/ui/RobuxBoardRoot.luau"
-                                                                                                                            },
-                                                                                                         "Screens":  {
-                                                                                                                         "$className":  "Folder",
-                                                                                                                         "RobuxBoard":  {
-                                                                                                                                            "$path":  "src/features/robuxboard/ui/screens/RobuxBoard.luau"
-                                                                                                                                        }
-                                                                                                                     }
-                                                                                                     }
-                                                                                          },
-                                                                           "Selling":  {
-                                                                                           "$className":  "Folder",
-                                                                                           "Modules":  {
-                                                                                                           "$className":  "Folder",
-                                                                                                           "CashCollectionVFX":  {
-                                                                                                                                     "$path":  "src/features/selling/modules/CashCollectionVFX.luau"
-                                                                                                                                 },
-                                                                                                           "DepositConfetti":  {
-                                                                                                                                   "$path":  "src/features/selling/modules/DepositConfetti.luau"
-                                                                                                                               }
-                                                                                                       },
-                                                                                           "SellingConfig":  {
-                                                                                                                 "$path":  "src/features/selling/SellingConfig.luau"
-                                                                                                             },
-                                                                                           "SellingServiceClient":  {
-                                                                                                                        "$path":  "src/features/selling/SellingServiceClient.luau"
-                                                                                                                    },
-                                                                                           "SellingSlice":  {
-                                                                                                                "$path":  "src/features/selling/SellingSlice.luau"
-                                                                                                            },
-                                                                                           "SellingTypes":  {
-                                                                                                                "$path":  "src/features/selling/SellingTypes.luau"
-                                                                                                            },
-                                                                                           "UI":  {
-                                                                                                      "$className":  "Folder",
-                                                                                                      "Screens":  {
-                                                                                                                      "$className":  "Folder",
-                                                                                                                      "CollectCashBillboard":  {
-                                                                                                                                                   "$path":  "src/features/selling/ui/screens/CollectCashBillboard.luau"
-                                                                                                                                               },
-                                                                                                                      "SlimeDepositBillboard":  {
-                                                                                                                                                    "$path":  "src/features/selling/ui/screens/SlimeDepositBillboard.luau"
-                                                                                                                                                },
-                                                                                                                      "SlimeQueueSign":  {
-                                                                                                                                             "$path":  "src/features/selling/ui/screens/SlimeQueueSign.luau"
-                                                                                                                                         },
-                                                                                                                      "UncollectedCashBillboard":  {
-                                                                                                                                                       "$path":  "src/features/selling/ui/screens/UncollectedCashBillboard.luau"
-                                                                                                                                                   },
-                                                                                                                      "UpgradePerSecondBillboard":  {
-                                                                                                                                                        "$path":  "src/features/selling/ui/screens/UpgradePerSecondBillboard.luau"
-                                                                                                                                                    }
-                                                                                                                  },
-                                                                                                      "SellingRoot":  {
-                                                                                                                          "$path":  "src/features/selling/ui/SellingRoot.luau"
-                                                                                                                      }
-                                                                                                  }
-                                                                                       },
-                                                                           "Slimes":  {
-                                                                                          "$className":  "Folder",
-                                                                                          "Classes":  {
-                                                                                                          "$className":  "Folder",
-                                                                                                          "SlimeClient":  {
-                                                                                                                              "$path":  "src/features/slimes/classes/SlimeClient.luau"
-                                                                                                                          }
-                                                                                                      },
-                                                                                          "Modules":  {
-                                                                                                          "$className":  "Folder",
-                                                                                                          "SlimeMovement":  {
-                                                                                                                                "$path":  "src/features/slimes/modules/SlimeMovement.luau"
-                                                                                                                            },
-                                                                                                          "SlimeDiscovery":  {
-                                                                                                                                 "$path":  "src/features/slimes/modules/SlimeDiscovery.luau"
-                                                                                                                             },
-                                                                                                          "SlimeMutationEffects":  {
-                                                                                                                                       "$path":  "src/features/slimes/modules/SlimeMutationEffects.luau"
-                                                                                                                                   },
-                                                                                                          "SlimeMutations":  {
-                                                                                                                                 "$path":  "src/features/slimes/modules/SlimeMutations.luau"
-                                                                                                                             },
-                                                                                                          "SlimeEconomy":  {
-                                                                                                                               "$path":  "src/features/slimes/modules/SlimeEconomy.luau"
-                                                                                                                           },
-                                                                                                          "SlimeRollVFX":  {
-                                                                                                                               "$path":  "src/features/slimes/modules/SlimeRollVFX.luau"
-                                                                                                                           },
-                                                                                                          "Slimes":  {
-                                                                                                                         "$path":  "src/features/slimes/modules/Slimes.luau"
-                                                                                                                     },
-                                                                                                          "SlimeTouchDetector":  {
-                                                                                                                                     "$path":  "src/features/slimes/modules/SlimeTouchDetector.luau"
-                                                                                                                                 }
-                                                                                                      },
-                                                                                          "SlimeSlice":  {
-                                                                                                             "$path":  "src/features/slimes/SlimeSlice.luau"
-                                                                                                         },
-                                                                                          "UI":  {
-                                                                                                     "$className":  "Folder",
-                                                                                                     "Screens":  {
-                                                                                                                     "$className":  "Folder",
-                                                                                                                     "SlimeBillboards":  {
-                                                                                                                                             "$path":  "src/features/slimes/ui/screens/SlimeBillboards.luau"
-                                                                                                                                         }
-                                                                                                                 },
-                                                                                                     "SlimeRoot":  {
-                                                                                                                       "$path":  "src/features/slimes/ui/SlimeRoot.luau"
-                                                                                                                   }
-                                                                                                 }
-                                                                                      },
-                                                                           "Upgrades":  {
-                                                                                            "$className":  "Folder",
-                                                                                            "UI":  {
-                                                                                                       "$className":  "Folder",
-                                                                                                       "Screens":  {
-                                                                                                                       "$className":  "Folder",
-                                                                                                                       "UpgradeBoard":  {
-                                                                                                                                            "$path":  "src/features/upgrades/ui/screens/UpgradeBoard.luau"
-                                                                                                                                        }
-                                                                                                                   },
-                                                                                                       "UpgradeRoot":  {
-                                                                                                                           "$path":  "src/features/upgrades/ui/UpgradeRoot.luau"
-                                                                                                                       }
-                                                                                                   },
-                                                                                            "UpgradeConfig":  {
-                                                                                                                  "$path":  "src/features/upgrades/UpgradeConfig.luau"
-                                                                                                              },
-                                                                                            "UpgradeServiceClient":  {
-                                                                                                                         "$path":  "src/features/upgrades/UpgradeServiceClient.luau"
-                                                                                                                     },
-                                                                                            "UpgradeSlice":  {
-                                                                                                                 "$path":  "src/features/upgrades/UpgradeSlice.luau"
-                                                                                                             },
-                                                                                            "UpgradeTypes":  {
-                                                                                                                 "$path":  "src/features/upgrades/UpgradeTypes.luau"
-                                                                                                             }
-                                                                                        }
-                                                                       },
-                                                          "Core":  {
-                                                                       "$className":  "Folder"
-                                                                   },
-                                                          "Game":  {
-                                                                       "$className":  "Folder",
-                                                                       "CompactNumber":  {
-                                                                                             "$path":  "src/game/CompactNumber.luau"
-                                                                                         },
-                                                                       "Data":  {
-                                                                                    "$path":  "src/game/Data.luau"
-                                                                                },
-                                                                       "Fruits":  {
-                                                                                      "$path":  "src/game/Fruits.luau"
-                                                                                  },
-                                                                       "Items":  {
-                                                                                     "$className":  "Folder",
-                                                                                     "DataTemplate":  {
-                                                                                                          "$path":  "src/game/items/DataTemplate.luau"
-                                                                                                      }
-                                                                                 }
-                                                                   },
-                                                          "StartUp":  {
-                                                                          "$className":  "Folder",
-                                                                          "MountUI":  {
-                                                                                          "$path":  "src/startup/MountUI.luau"
-                                                                                      },
-                                                                          "Client":  {
-                                                                                         "$path":  "src/startup/Client.client.luau"
-                                                                                     }
-                                                                      }
-                                                      },
-                                           "Packages":  {
-                                                            "$path":  "Packages"
-                                                        }
-                                       },
-                 "ServerScriptService":  {
-                                             "Features":  {
-                                                              "$className":  "Folder",
-                                                              "Leaderboards":  {
-                                                                                   "$className":  "Folder",
-                                                                                   "LeaderboardServiceServer":  {
-                                                                                                                    "$path":  "src/features/leaderboards/LeaderboardServiceServer.luau"
-                                                                                                                }
-                                                                               },
-                                                              "Inventory":  {
-                                                                                "$className":  "Folder",
-                                                                                "InventoryServiceServer":  {
-                                                                                                               "$path":  "src/features/inventory/InventoryServiceServer.luau"
-                                                                                                           }
-                                                                            },
-                                                              "Plots":  {
-                                                                            "$className":  "Folder",
-                                                                            "Classes":  {
-                                                                                            "$className":  "Folder",
-                                                                                            "PlotServer":  {
-                                                                                                               "$path":  "src/features/plots/classes/PlotServer.luau"
-                                                                                                           }
-                                                                                        },
-                                                                            "PlotServiceServer":  {
-                                                                                                      "$path":  "src/features/plots/PlotServiceServer.luau"
-                                                                                                  }
-                                                                        },
-                                                              "Selling":  {
-                                                                              "$className":  "Folder",
-                                                                              "SellingServiceServer":  {
-                                                                                                           "$path":  "src/features/selling/SellingServiceServer.luau"
-                                                                                                       }
-                                                                          },
-                                                              "Upgrades":  {
-                                                                               "$className":  "Folder",
-                                                                               "UpgradeServiceServer":  {
-                                                                                                            "$path":  "src/features/upgrades/UpgradeServiceServer.luau"
-                                                                                                        }
-                                                                           },
-                                                              "Monetization":  {
-                                                                                   "$className":  "Folder",
-                                                                                   "MonetizationServiceServer":  {
-                                                                                                                     "$path":  "src/features/monetization/MonetizationServiceServer.luau"
-                                                                                                                 },
-                                                                                   "Handlers":  {
-                                                                                                    "$className":  "Folder"
-                                                                                                }
-                                                                               }
-                                                          },
-                                             "Core":  {
-                                                          "$className":  "Folder"
-                                                      },
-                                             "Game":  {
-                                                          "$className":  "Folder"
-                                                      },
-                                             "StartUp":  {
-                                                             "$className":  "Folder",
-                                                             "Server":  {
-                                                                            "$path":  "src/startup/Server.server.luau"
-                                                                        }
-                                                         }
-                                         }
-             }
+  "emitLegacyScripts": false,
+  "name": "RNG",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Source": {
+        "$className": "Folder",
+        "Features": {
+          "$className": "Folder",
+          "App": {
+            "$className": "Folder",
+            "Hud": {
+              "$className": "Folder",
+              "BottomBar": {
+                "$path": "src/features/app/hud/BottomBar.luau"
+              },
+              "HomeButton": {
+                "$path": "src/features/app/hud/HomeButton.luau"
+              },
+              "HudRoot": {
+                "$path": "src/features/app/hud/HudRoot.luau"
+              },
+              "LeftBottom": {
+                "$path": "src/features/app/hud/LeftBottom.luau"
+              },
+              "MenuButton": {
+                "$path": "src/features/app/hud/MenuButton.luau"
+              },
+              "MultiplierBadges": {
+                "$path": "src/features/app/hud/MultiplierBadges.luau"
+              },
+              "SideBar": {
+                "$path": "src/features/app/hud/SideBar.luau"
+              },
+              "SlimeCurrencyVFX": {
+                "$path": "src/features/app/hud/SlimeCurrencyVFX.luau"
+              }
+            },
+            "MusicController": {
+              "$path": "src/features/app/MusicController.luau"
+            },
+            "NotificationSlice": {
+              "$path": "src/features/app/NotificationSlice.luau"
+            },
+            "root.story": {
+              "$path": "src/features/app/root.story.luau"
+            },
+            "RootUI": {
+              "$path": "src/features/app/RootUI.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "NotificationRoot": {
+                "$path": "src/features/app/ui/NotificationRoot.luau"
+              }
+            },
+            "UISounds": {
+              "$path": "src/features/app/UISounds.luau"
+            }
+          },
+          "Index": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "IndexRoot": {
+                "$path": "src/features/index/ui/IndexRoot.luau"
+              }
+            }
+          },
+          "Inventory": {
+            "$className": "Folder",
+            "InventorySlice": {
+              "$path": "src/features/inventory/InventorySlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "Components": {
+                "$className": "Folder",
+                "InventorySlot": {
+                  "$path": "src/features/inventory/ui/components/InventorySlot.luau"
+                },
+                "SlimeDetails": {
+                  "$path": "src/features/inventory/ui/components/SlimeDetails.luau"
+                }
+              },
+              "InventoryRoot": {
+                "$path": "src/features/inventory/ui/InventoryRoot.luau"
+              },
+              "Screens": {
+                "$className": "Folder",
+                "InventoryWindow": {
+                  "$path": "src/features/inventory/ui/screens/InventoryWindow.luau"
+                }
+              }
+            }
+          },
+          "Leaderboards": {
+            "$className": "Folder",
+            "LeaderboardConfig": {
+              "$path": "src/features/leaderboards/LeaderboardConfig.luau"
+            },
+            "LeaderboardServiceClient": {
+              "$path": "src/features/leaderboards/LeaderboardServiceClient.luau"
+            },
+            "LeaderboardSlice": {
+              "$path": "src/features/leaderboards/LeaderboardSlice.luau"
+            },
+            "LeaderboardTypes": {
+              "$path": "src/features/leaderboards/LeaderboardTypes.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "LeaderboardRoot": {
+                "$path": "src/features/leaderboards/ui/LeaderboardRoot.luau"
+              }
+            }
+          },
+          "Monetization": {
+            "$className": "Folder",
+            "Handlers": {
+              "$className": "Folder",
+              "AutoCollect": {
+                "$path": "src/features/monetization/handlers/AutoCollect.luau"
+              },
+              "BuySlime": {
+                "$path": "src/features/monetization/handlers/BuySlime.luau"
+              },
+              "DoubleOfflineSlime": {
+                "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
+              },
+              "DoubleCash": {
+                "$path": "src/features/monetization/handlers/DoubleCash.luau"
+              },
+              "DoubleSlimeDeposit": {
+                "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
+              },
+              "DoublePermanentLuck": {
+                "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau"
+              },
+              "DoubleRolls": {
+                "$path": "src/features/monetization/handlers/DoubleRolls.luau"
+              },
+              "DoubleRollSpeed": {
+                "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau"
+              },
+              "GrantPermanentProduct": {
+                "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau"
+              },
+              "QuadruplePermanentLuck": {
+                "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau"
+              },
+              "Registry": {
+                "$path": "src/features/monetization/handlers/Registry.luau"
+              }
+            },
+            "Hooks": {
+              "$className": "Folder",
+              "useOwnsProduct": {
+                "$path": "src/features/monetization/hooks/useOwnsProduct.luau"
+              }
+            },
+            "Modules": {
+              "$className": "Folder",
+              "MonetizationPadBillboards": {
+                "$path": "src/features/monetization/modules/MonetizationPadBillboards.luau"
+              },
+              "ProductEntitlements": {
+                "$path": "src/features/monetization/modules/ProductEntitlements.luau"
+              },
+              "Products": {
+                "$path": "src/features/monetization/modules/Products.luau"
+              }
+            },
+            "MonetizationServiceClient": {
+              "$path": "src/features/monetization/MonetizationServiceClient.luau"
+            },
+            "MonetizationTypes": {
+              "$path": "src/features/monetization/MonetizationTypes.luau"
+            }
+          },
+          "Offlinerewards": {
+            "$className": "Folder",
+            "OfflineRewardsConfig": {
+              "$path": "src/features/offlinerewards/OfflineRewardsConfig.luau"
+            },
+            "OfflineRewardsServiceClient": {
+              "$path": "src/features/offlinerewards/OfflineRewardsServiceClient.luau"
+            },
+            "OfflineRewardsSlice": {
+              "$path": "src/features/offlinerewards/OfflineRewardsSlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "OfflineRewardsRoot": {
+                "$path": "src/features/offlinerewards/ui/OfflineRewardsRoot.luau"
+              }
+            }
+          },
+          "Plotlevels": {
+            "$className": "Folder",
+            "PlotLevelConfig": {
+              "$path": "src/features/plotlevels/PlotLevelConfig.luau"
+            },
+            "PlotLevelSlice": {
+              "$path": "src/features/plotlevels/PlotLevelSlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "PlotLevelRoot": {
+                "$path": "src/features/plotlevels/ui/PlotLevelRoot.luau"
+              }
+            }
+          },
+          "Plots": {
+            "$className": "Folder",
+            "Classes": {
+              "$className": "Folder",
+              "PlotClient": {
+                "$path": "src/features/plots/classes/PlotClient.luau"
+              }
+            },
+            "PlotServiceClient": {
+              "$path": "src/features/plots/PlotServiceClient.luau"
+            },
+            "PlotTypes": {
+              "$path": "src/features/plots/PlotTypes.luau"
+            }
+          },
+          "Rebirth": {
+            "$className": "Folder",
+            "RebirthConfig": {
+              "$path": "src/features/rebirth/RebirthConfig.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "RebirthRoot": {
+                "$path": "src/features/rebirth/ui/RebirthRoot.luau"
+              }
+            }
+          },
+          "RobuxBoard": {
+            "$className": "Folder",
+            "RobuxBoardSlice": {
+              "$path": "src/features/robuxboard/RobuxBoardSlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "RobuxBoardRoot": {
+                "$path": "src/features/robuxboard/ui/RobuxBoardRoot.luau"
+              },
+              "Screens": {
+                "$className": "Folder",
+                "RobuxBoard": {
+                  "$path": "src/features/robuxboard/ui/screens/RobuxBoard.luau"
+                }
+              }
+            }
+          },
+          "Selling": {
+            "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "CashCollectionVFX": {
+                "$path": "src/features/selling/modules/CashCollectionVFX.luau"
+              },
+              "DepositConfetti": {
+                "$path": "src/features/selling/modules/DepositConfetti.luau"
+              }
+            },
+            "SellingConfig": {
+              "$path": "src/features/selling/SellingConfig.luau"
+            },
+            "SellingServiceClient": {
+              "$path": "src/features/selling/SellingServiceClient.luau"
+            },
+            "SellingSlice": {
+              "$path": "src/features/selling/SellingSlice.luau"
+            },
+            "SellingTypes": {
+              "$path": "src/features/selling/SellingTypes.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "Screens": {
+                "$className": "Folder",
+                "CollectCashBillboard": {
+                  "$path": "src/features/selling/ui/screens/CollectCashBillboard.luau"
+                },
+                "SlimeDepositBillboard": {
+                  "$path": "src/features/selling/ui/screens/SlimeDepositBillboard.luau"
+                },
+                "SlimeQueueSign": {
+                  "$path": "src/features/selling/ui/screens/SlimeQueueSign.luau"
+                },
+                "UncollectedCashBillboard": {
+                  "$path": "src/features/selling/ui/screens/UncollectedCashBillboard.luau"
+                },
+                "UpgradePerSecondBillboard": {
+                  "$path": "src/features/selling/ui/screens/UpgradePerSecondBillboard.luau"
+                }
+              },
+              "SellingRoot": {
+                "$path": "src/features/selling/ui/SellingRoot.luau"
+              }
+            }
+          },
+          "Settings": {
+            "$className": "Folder",
+            "SettingsServiceClient": {
+              "$path": "src/features/settings/SettingsServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "SettingsRoot": {
+                "$path": "src/features/settings/ui/SettingsRoot.luau"
+              }
+            }
+          },
+          "Slimeevent": {
+            "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "EventBillboard": {
+                "$path": "src/features/slimeevent/modules/EventBillboard.luau"
+              },
+              "EventSlimeSpawner": {
+                "$path": "src/features/slimeevent/modules/EventSlimeSpawner.luau"
+              },
+              "SlapSwing": {
+                "$path": "src/features/slimeevent/modules/SlapSwing.luau"
+              },
+              "SlapToolClient": {
+                "$path": "src/features/slimeevent/modules/SlapToolClient.luau"
+              },
+              "SlimeCarryClient": {
+                "$path": "src/features/slimeevent/modules/SlimeCarryClient.luau"
+              }
+            },
+            "SlimeEventConfig": {
+              "$path": "src/features/slimeevent/SlimeEventConfig.luau"
+            },
+            "SlimeEventServiceClient": {
+              "$path": "src/features/slimeevent/SlimeEventServiceClient.luau"
+            }
+          },
+          "Slimes": {
+            "$className": "Folder",
+            "Classes": {
+              "$className": "Folder",
+              "SlimeClient": {
+                "$path": "src/features/slimes/classes/SlimeClient.luau"
+              }
+            },
+            "Modules": {
+              "$className": "Folder",
+              "SlimeDiscovery": {
+                "$path": "src/features/slimes/modules/SlimeDiscovery.luau"
+              },
+              "SlimeEconomy": {
+                "$path": "src/features/slimes/modules/SlimeEconomy.luau"
+              },
+              "SlimeMovement": {
+                "$path": "src/features/slimes/modules/SlimeMovement.luau"
+              },
+              "SlimeMutationEffects": {
+                "$path": "src/features/slimes/modules/SlimeMutationEffects.luau"
+              },
+              "SlimeMutations": {
+                "$path": "src/features/slimes/modules/SlimeMutations.luau"
+              },
+              "SlimeRollVFX": {
+                "$path": "src/features/slimes/modules/SlimeRollVFX.luau"
+              },
+              "Slimes": {
+                "$path": "src/features/slimes/modules/Slimes.luau"
+              },
+              "SlimeTouchDetector": {
+                "$path": "src/features/slimes/modules/SlimeTouchDetector.luau"
+              }
+            },
+            "SlimeSlice": {
+              "$path": "src/features/slimes/SlimeSlice.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "Screens": {
+                "$className": "Folder",
+                "SlimeBillboards": {
+                  "$path": "src/features/slimes/ui/screens/SlimeBillboards.luau"
+                }
+              },
+              "SlimeRoot": {
+                "$path": "src/features/slimes/ui/SlimeRoot.luau"
+              }
+            }
+          },
+          "Upgrades": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "Screens": {
+                "$className": "Folder",
+                "UpgradeBoard": {
+                  "$path": "src/features/upgrades/ui/screens/UpgradeBoard.luau"
+                }
+              },
+              "UpgradeRoot": {
+                "$path": "src/features/upgrades/ui/UpgradeRoot.luau"
+              }
+            },
+            "UpgradeConfig": {
+              "$path": "src/features/upgrades/UpgradeConfig.luau"
+            },
+            "UpgradeServiceClient": {
+              "$path": "src/features/upgrades/UpgradeServiceClient.luau"
+            },
+            "UpgradeSlice": {
+              "$path": "src/features/upgrades/UpgradeSlice.luau"
+            },
+            "UpgradeTypes": {
+              "$path": "src/features/upgrades/UpgradeTypes.luau"
+            }
+          }
+        },
+        "Core": {
+          "$className": "Folder"
+        },
+        "Game": {
+          "$className": "Folder",
+          "CompactNumber": {
+            "$path": "src/game/CompactNumber.luau"
+          },
+          "Data": {
+            "$path": "src/game/Data.luau"
+          },
+          "Fruits": {
+            "$path": "src/game/Fruits.luau"
+          },
+          "Items": {
+            "$className": "Folder",
+            "DataTemplate": {
+              "$path": "src/game/items/DataTemplate.luau"
+            }
+          }
+        },
+        "StartUp": {
+          "$className": "Folder",
+          "MountUI": {
+            "$path": "src/startup/MountUI.luau"
+          }
+        }
+      },
+      "Packages": {
+        "$path": "Packages"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "StartUp": {
+          "$className": "Folder",
+          "Client": {
+            "$path": "src/startup/Client.client.luau"
+          }
+        }
+      }
+    },
+    "ServerScriptService": {
+      "Features": {
+        "$className": "Folder",
+        "Inventory": {
+          "$className": "Folder",
+          "InventoryServiceServer": {
+            "$path": "src/features/inventory/InventoryServiceServer.luau"
+          }
+        },
+        "Leaderboards": {
+          "$className": "Folder",
+          "LeaderboardServiceServer": {
+            "$path": "src/features/leaderboards/LeaderboardServiceServer.luau"
+          }
+        },
+        "Monetization": {
+          "$className": "Folder",
+          "Handlers": {
+            "$className": "Folder",
+            "AutoCollect": { "$path": "src/features/monetization/handlers/AutoCollect.luau" },
+            "BuySlime": { "$path": "src/features/monetization/handlers/BuySlime.luau" },
+            "DoubleOfflineSlime": { "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau" },
+            "DoubleCash": { "$path": "src/features/monetization/handlers/DoubleCash.luau" },
+            "DoubleSlimeDeposit": { "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau" },
+            "DoublePermanentLuck": { "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau" },
+            "DoubleRolls": { "$path": "src/features/monetization/handlers/DoubleRolls.luau" },
+            "DoubleRollSpeed": { "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau" },
+            "GrantPermanentProduct": { "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau" },
+            "QuadruplePermanentLuck": { "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau" },
+            "Registry": { "$path": "src/features/monetization/handlers/Registry.luau" }
+          },
+          "MonetizationBootstrap.server": {
+            "$path": "src/features/monetization/MonetizationBootstrap.server.luau"
+          },
+          "MonetizationServiceServer": {
+            "$path": "src/features/monetization/MonetizationServiceServer.luau"
+          }
+        },
+        "Offlinerewards": {
+          "$className": "Folder",
+          "OfflineRewardsServiceServer": {
+            "$path": "src/features/offlinerewards/OfflineRewardsServiceServer.luau"
+          }
+        },
+        "Plots": {
+          "$className": "Folder",
+          "Classes": {
+            "$className": "Folder",
+            "PlotServer": {
+              "$path": "src/features/plots/classes/PlotServer.luau"
+            }
+          },
+          "PlotServiceServer": {
+            "$path": "src/features/plots/PlotServiceServer.luau"
+          }
+        },
+        "Selling": {
+          "$className": "Folder",
+          "SellingServiceServer": {
+            "$path": "src/features/selling/SellingServiceServer.luau"
+          }
+        },
+        "Settings": {
+          "$className": "Folder",
+          "SettingsServiceServer": {
+            "$path": "src/features/settings/SettingsServiceServer.luau"
+          }
+        },
+        "Slimeevent": {
+          "$className": "Folder",
+          "Modules": {
+            "$className": "Folder",
+            "RagdollServer": {
+              "$path": "src/features/slimeevent/modules/RagdollServer.luau"
+            }
+          },
+          "SlimeEventServiceServer": {
+            "$path": "src/features/slimeevent/SlimeEventServiceServer.luau"
+          }
+        },
+        "Upgrades": {
+          "$className": "Folder",
+          "UpgradeServiceServer": {
+            "$path": "src/features/upgrades/UpgradeServiceServer.luau"
+          }
+        }
+      },
+      "Core": {
+        "$className": "Folder"
+      },
+      "Game": {
+        "$className": "Folder"
+      },
+      "StartUp": {
+        "$className": "Folder",
+        "Server": {
+          "$path": "src/startup/Server.server.luau"
+        }
+      }
+    }
+  }
 }

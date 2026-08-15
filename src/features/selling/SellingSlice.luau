@@ -4,6 +4,7 @@ local Charm = require(ReplicatedStorage.Packages.Charm)
 
 export type DepositEntry = {
 	adornee: Attachment,
+	plotModel: Model,
 }
 
 export type CashCollectorEntry = {
@@ -33,7 +34,7 @@ local nextSlimeSignEntryId = 0
 local nextUpgradePadEntryId = 0
 
 local actions = {
-	addDeposit = function(adornee: Attachment): string
+	addDeposit = function(adornee: Attachment, plotModel: Model): string
 		nextDepositEntryId += 1
 		local entryId = `deposit-{nextDepositEntryId}`
 
@@ -41,6 +42,7 @@ local actions = {
 			local nextDeposits = table.clone(previousDeposits)
 			nextDeposits[entryId] = {
 				adornee = adornee,
+				plotModel = plotModel,
 			}
 
 			return nextDeposits

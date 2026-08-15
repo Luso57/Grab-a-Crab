@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local SellingConfig = require(ReplicatedStorage.Source.Features.Selling.SellingConfig)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
@@ -9,6 +10,7 @@ local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.Upgrade
 local QUEUE_ATTRIBUTE = "SlimeQueue"
 local RATE_ATTRIBUTE = "SlimesPerSecond"
 local CASH_ATTRIBUTE = "UncollectedCash"
+local DOUBLE_SLIME_DEPOSIT_ATTRIBUTE = "HasDoubleSlimeDeposit"
 local UPGRADE_COST_ATTRIBUTE = "UpgradePerSecondCost"
 local UPGRADE_GAIN_ATTRIBUTE = "UpgradePerSecondGain"
 local UPGRADE_CAN_AFFORD_ATTRIBUTE = "UpgradePerSecondCanAfford"
@@ -71,6 +73,10 @@ local function updatePlotAttributes(player: Player, plotModel: Model)
 	plotModel:SetAttribute(QUEUE_ATTRIBUTE, getNonNegativeInteger(playerData.slimeQueue()))
 	plotModel:SetAttribute(RATE_ATTRIBUTE, getNonNegativeInteger(playerData.slimesPerSecond()))
 	plotModel:SetAttribute(CASH_ATTRIBUTE, getNonNegativeInteger(playerData.uncollectedCash()))
+	plotModel:SetAttribute(
+		DOUBLE_SLIME_DEPOSIT_ATTRIBUTE,
+		ProductEntitlements.owns(playerData, "doubleSlimeDeposit")
+	)
 	local upgradeCost, upgradeGain = getUpgradeOffer(playerData.sellUpgradeLevel())
 	local canAffordUpgrade = getNonNegativeInteger(playerData.currency()) >= upgradeCost
 	plotModel:SetAttribute(UPGRADE_COST_ATTRIBUTE, upgradeCost)
@@ -90,18 +96,19 @@ local function depositSlime(player: Player, plotModel: Model): number
 		return 0
 	end
 
-	local amount = getNonNegativeInteger(playerData.slimeCurrency())
-	if amount <= 0 then
+	local carriedAmount = getNonNegativeInteger(playerData.slimeCurrency())
+	if carriedAmount <= 0 then
 		return 0
 	end
+	local depositedAmount = carriedAmount * ProductEntitlements.getSlimeDepositMultiplier(playerData)
 
 	playerData.slimeCurrency(0)
 	playerData.slimeQueue(function(previous)
-		return getNonNegativeInteger(previous) + amount
+		return getNonNegativeInteger(previous) + depositedAmount
 	end)
 	updatePlotAttributes(player, plotModel)
 
-	return amount
+	return depositedAmount
 end
 
 local function sellQueuedSlime(player: Player, plotModel: Model): boolean
@@ -140,6 +147,7 @@ local function collectCash(player: Player, plotModel: Model): number
 
 	local multiplier = UpgradeConfig.getCashMultiplier(playerData.cashMultiplierLevel())
 		* RebirthConfig.getRewardMultiplier(playerData.rebirths())
+		* ProductEntitlements.getCashMultiplier(playerData)
 	local payout = math.floor(amount * multiplier)
 	playerData.uncollectedCash(0)
 	playerData.currency(function(previous)
@@ -295,6 +303,9 @@ function SellingServiceServer.attachPlot(
 		table.insert(handle.cleanups, playerData.sellUpgradeLevel.Changed(function()
 			updatePlotAttributes(player, plotModel)
 		end))
+		table.insert(handle.cleanups, playerData.ownedProducts.Changed(function()
+			updatePlotAttributes(player, plotModel)
+		end))
 	end
 
 	updatePlotAttributes(player, plotModel)
@@ -305,7 +316,13 @@ function SellingServiceServer.attachPlot(
 				break
 			end
 
-			sellQueuedSlime(player, plotModel)
+			local soldSlime = sellQueuedSlime(player, plotModel)
+			if soldSlime then
+				local playerData = Data[player]
+				if playerData and ProductEntitlements.owns(playerData, "autoCollect") then
+					collectCash(player, plotModel)
+				end
+			end
 		end
 	end)
 

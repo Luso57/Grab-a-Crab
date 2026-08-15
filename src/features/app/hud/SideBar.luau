@@ -14,6 +14,7 @@ export type Props = {
 	OnInventoryActivated: () -> (),
 	OnIndexActivated: () -> (),
 	OnRebirthActivated: () -> (),
+	OnSettingsActivated: () -> (),
 }
 
 local BUTTONS = {
@@ -54,6 +55,8 @@ local function SideBar(props: Props)
 					props.OnIndexActivated()
 				elseif buttonInfo.Text == "Rebirth" then
 					props.OnRebirthActivated()
+				elseif buttonInfo.Text == "Settings" then
+					props.OnSettingsActivated()
 				end
 			end,
 		})
