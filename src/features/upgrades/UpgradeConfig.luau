@@ -7,7 +7,7 @@ local UpgradeConfig = {
 	CashPerLevel = 0.1,
 	CashUpgradeBaseCost = 250,
 	CashUpgradeCostGrowth = 1.36,
-	MaxBulkPurchaseLevels = 1_000,
+	BulkPurchaseQuantity = 10,
 }
 
 function UpgradeConfig.getLevel(value: number): number
@@ -26,24 +26,14 @@ function UpgradeConfig.getLuckUpgradeCost(level: number): number
 	)
 end
 
-function UpgradeConfig.getMaxAffordableLuckUpgrades(level: number, currency: number): (number, number)
+function UpgradeConfig.getLuckUpgradeCostForQuantity(level: number, quantity: number): number
 	local normalizedLevel = UpgradeConfig.getLevel(level)
-	local remaining = math.floor(math.max(0, currency))
-	local quantity = 0
+	local normalizedQuantity = math.floor(math.max(0, quantity))
 	local totalCost = 0
-
-	while quantity < UpgradeConfig.MaxBulkPurchaseLevels do
-		local cost = UpgradeConfig.getLuckUpgradeCost(normalizedLevel + quantity)
-		if cost > remaining then
-			break
-		end
-
-		remaining -= cost
-		totalCost += cost
-		quantity += 1
+	for offset = 0, normalizedQuantity - 1 do
+		totalCost += UpgradeConfig.getLuckUpgradeCost(normalizedLevel + offset)
 	end
-
-	return quantity, totalCost
+	return totalCost
 end
 
 function UpgradeConfig.getCashMultiplier(level: number): number
@@ -58,24 +48,14 @@ function UpgradeConfig.getCashUpgradeCost(level: number): number
 	)
 end
 
-function UpgradeConfig.getMaxAffordableCashUpgrades(level: number, currency: number): (number, number)
+function UpgradeConfig.getCashUpgradeCostForQuantity(level: number, quantity: number): number
 	local normalizedLevel = UpgradeConfig.getLevel(level)
-	local remaining = math.floor(math.max(0, currency))
-	local quantity = 0
+	local normalizedQuantity = math.floor(math.max(0, quantity))
 	local totalCost = 0
-
-	while quantity < UpgradeConfig.MaxBulkPurchaseLevels do
-		local cost = UpgradeConfig.getCashUpgradeCost(normalizedLevel + quantity)
-		if cost > remaining then
-			break
-		end
-
-		remaining -= cost
-		totalCost += cost
-		quantity += 1
+	for offset = 0, normalizedQuantity - 1 do
+		totalCost += UpgradeConfig.getCashUpgradeCost(normalizedLevel + offset)
 	end
-
-	return quantity, totalCost
+	return totalCost
 end
 
 return UpgradeConfig

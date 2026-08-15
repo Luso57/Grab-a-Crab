@@ -8,9 +8,9 @@ export type BoardEntry = {
 	plotModel: Model,
 	canPurchase: boolean,
 	onBuyLuckOne: (() -> ())?,
-	onBuyLuckMax: (() -> ())?,
+	onBuyLuckTen: (() -> ())?,
 	onBuyCashOne: (() -> ())?,
-	onBuyCashMax: (() -> ())?,
+	onBuyCashTen: (() -> ())?,
 }
 
 type Atom<T> = Charm.Atom<T>
@@ -25,9 +25,9 @@ local actions = {
 		plotModel: Model,
 		canPurchase: boolean,
 		onBuyLuckOne: (() -> ())?,
-		onBuyLuckMax: (() -> ())?,
+		onBuyLuckTen: (() -> ())?,
 		onBuyCashOne: (() -> ())?,
-		onBuyCashMax: (() -> ())?
+		onBuyCashTen: (() -> ())?
 	): string
 		nextBoardEntryId += 1
 		local entryId = `upgrade-board-{nextBoardEntryId}`
@@ -40,9 +40,9 @@ local actions = {
 				plotModel = plotModel,
 				canPurchase = canPurchase,
 				onBuyLuckOne = onBuyLuckOne,
-				onBuyLuckMax = onBuyLuckMax,
+				onBuyLuckTen = onBuyLuckTen,
 				onBuyCashOne = onBuyCashOne,
-				onBuyCashMax = onBuyCashMax,
+				onBuyCashTen = onBuyCashTen,
 			}
 
 			return nextBoards

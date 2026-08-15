@@ -11,12 +11,67 @@ local OfflineRewardsRoot = require(ReplicatedStorage.Source.Features.Offlinerewa
 local OfflineRewardsSlice = require(ReplicatedStorage.Source.Features.Offlinerewards.OfflineRewardsSlice)
 local LeaderboardRoot = require(ReplicatedStorage.Source.Features.Leaderboards.UI.LeaderboardRoot)
 local PlotLevelRoot = require(ReplicatedStorage.Source.Features.PlotLevels.UI.PlotLevelRoot)
+local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
 local RebirthRoot = require(ReplicatedStorage.Source.Features.Rebirth.UI.RebirthRoot)
 local RobuxBoardRoot = require(ReplicatedStorage.Source.Features.RobuxBoard.UI.RobuxBoardRoot)
 local SellingRoot = require(ReplicatedStorage.Source.Features.Selling.UI.SellingRoot)
 local SettingsRoot = require(ReplicatedStorage.Source.Features.Settings.UI.SettingsRoot)
 local SlimeRoot = require(ReplicatedStorage.Source.Features.Slimes.UI.SlimeRoot)
 local UpgradeRoot = require(ReplicatedStorage.Source.Features.Upgrades.UI.UpgradeRoot)
+
+local function createPlotOwnerBillboard(entry: PlotServiceClient.PlotOwnerEntry)
+	return React.createElement("BillboardGui", {
+		Adornee = entry.adornee,
+		AlwaysOnTop = true,
+		LightInfluence = 0,
+		MaxDistance = 1000,
+		Size = UDim2.fromOffset(320, 125),
+	}, {
+		Avatar = React.createElement("ImageLabel", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", entry.userId),
+			Position = UDim2.fromOffset(160, 0),
+			Size = UDim2.fromOffset(72, 72),
+		}, {
+			Corner = React.createElement("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+			Stroke = React.createElement("UIStroke", {
+				Color = Color3.new(0, 0, 0),
+				Thickness = 3,
+			}),
+		}),
+		Name = React.createElement("TextLabel", {
+			BackgroundTransparency = 1,
+			Font = Enum.Font.FredokaOne,
+			Position = UDim2.fromOffset(0, 77),
+			Size = UDim2.fromOffset(320, 43),
+			Text = entry.playerName .. "'s Plot",
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextStrokeColor3 = Color3.new(0, 0, 0),
+			TextStrokeTransparency = 0,
+		}, {
+			TextSize = React.createElement("UITextSizeConstraint", {
+				MaxTextSize = 34,
+				MinTextSize = 16,
+			}),
+		}),
+	})
+end
+
+local function PlotOwnerBillboards()
+	local plotOwners = ReactCharm.useAtom(PlotServiceClient.state.plotOwners)
+	local billboards = {}
+
+	for plotIndex, entry in plotOwners do
+		billboards[tostring(plotIndex)] = createPlotOwnerBillboard(entry)
+	end
+
+	return React.createElement(React.Fragment, nil, billboards)
+end
 
 local function RootUI()
 	local isInventoryOpen = ReactCharm.useAtom(InventorySlice.state.isOpen)
@@ -94,6 +149,7 @@ local function RootUI()
 		}),
 		Leaderboards = React.createElement(LeaderboardRoot),
 		PlotLevels = React.createElement(PlotLevelRoot),
+		PlotOwners = React.createElement(PlotOwnerBillboards),
 		Rebirth = React.createElement(RebirthRoot, {
 			IsOpen = isRebirthOpen,
 			OnClose = function()

@@ -8,6 +8,10 @@ export type ProductKey =
 	| "doubleCash"
 	| "doubleSlimeDeposit"
 	| "buySlime"
+	| "buyUpgradeOne"
+	| "buyUpgradeTen"
+	| "luck99Spin"
+	| "finishNow"
 	| "doubleOfflineSlime"
 
 export type Product = {

@@ -16,6 +16,12 @@ export type PendingBuySlime = {
 	playpenLevel: number,
 }
 
+export type PendingUpgradePurchase = {
+	active: boolean,
+	upgradeType: string,
+	quantity: number,
+}
+
 export type PendingOfflineReward = {
 	active: boolean,
 	amount: number,
@@ -42,6 +48,7 @@ return {
 	soundEffectsVolume = -1,
 	ownedProducts = {} :: { [string]: boolean },
 	processedPurchaseIds = {} :: { [string]: boolean },
+	pending99xLuckSpins = 0,
 	pendingBuySlime = {
 		active = false,
 		slimeId = "",
@@ -49,6 +56,11 @@ return {
 		offerIndex = 1,
 		playpenLevel = 1,
 	} :: PendingBuySlime,
+	pendingUpgradePurchase = {
+		active = false,
+		upgradeType = "",
+		quantity = 0,
+	} :: PendingUpgradePurchase,
 	lastActiveUnix = 0,
 	pendingOfflineReward = {
 		active = false,

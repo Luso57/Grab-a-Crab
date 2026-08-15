@@ -1,4 +1,36 @@
 local grantPermanentProduct = require(script.Parent.GrantPermanentProduct)
+local ServerScriptService = game:GetService("ServerScriptService")
+local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
+
+local function grantUpgrade(player: Player, quantity: number): boolean
+	local plot = PlotServiceServer:getPlayerPlot(player)
+	if not plot then
+		return false
+	end
+	return plot:completeUpgradeReceipt(quantity)
+end
+
+local function grantUpgradeOne(player: Player): boolean
+	return grantUpgrade(player, 1)
+end
+
+local function grantUpgradeTen(player: Player): boolean
+	return grantUpgrade(player, 10)
+end
+local function grant99xLuckSpin(player: Player): boolean
+	local plot = PlotServiceServer:getPlayerPlot(player)
+	if not plot then
+		return false
+	end
+	return plot:complete99xLuckSpinReceipt()
+end
+local function grantFinishNow(player: Player): boolean
+	local plot = PlotServiceServer:getPlayerPlot(player)
+	if not plot then
+		return false
+	end
+	return plot:completeFinishNowReceipt()
+end
 
 local function grantAutoCollectSlime(player: Player): boolean
 	return grantPermanentProduct(player, "autoCollectSlime")
@@ -14,6 +46,10 @@ local handlers = {
 	doubleCash = require(script.Parent.DoubleCash),
 	doubleSlimeDeposit = require(script.Parent.DoubleSlimeDeposit),
 	buySlime = require(script.Parent.BuySlime),
+	buyUpgradeOne = grantUpgradeOne,
+	buyUpgradeTen = grantUpgradeTen,
+	luck99Spin = grant99xLuckSpin,
+	finishNow = grantFinishNow,
 	doubleOfflineSlime = require(script.Parent.DoubleOfflineSlime),
 }
 

@@ -224,9 +224,9 @@ local function registerUpgradeBoard(
 	plotModel: Model,
 	canPurchase: boolean,
 	onBuyLuckOne: (() -> ())?,
-	onBuyLuckMax: (() -> ())?,
+	onBuyLuckTen: (() -> ())?,
 	onBuyCashOne: (() -> ())?,
-	onBuyCashMax: (() -> ())?
+	onBuyCashTen: (() -> ())?
 ): string
 	local upgradeBoard = plotModel:WaitForChild("UpgradeBoard")
 	assert(upgradeBoard:IsA("Model"), "Plot UpgradeBoard must be a Model")
@@ -242,9 +242,9 @@ local function registerUpgradeBoard(
 		plotModel,
 		canPurchase,
 		onBuyLuckOne,
-		onBuyLuckMax,
+		onBuyLuckTen,
 		onBuyCashOne,
-		onBuyCashMax
+		onBuyCashTen
 	)
 end
 
@@ -330,7 +330,7 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 			else nil,
 		if canPurchaseUpgrades
 			then function()
-				self.networker:fire("purchaseSlimeLuck", "max")
+				self.networker:fire("purchaseSlimeLuck", "ten")
 			end
 			else nil,
 		if canPurchaseUpgrades
@@ -340,7 +340,7 @@ function PlotClient.new(plotData: PlotTypes.PlotData): PlotClient
 			else nil,
 		if canPurchaseUpgrades
 			then function()
-				self.networker:fire("purchaseCashMultiplier", "max")
+				self.networker:fire("purchaseCashMultiplier", "ten")
 			end
 			else nil
 	)
@@ -668,6 +668,17 @@ function PlotClient.promptBuySlimePurchase(self: PlotClient)
 	end
 
 	local prompted, message = MonetizationServiceClient:promptProduct("buySlime")
+	if not prompted and message then
+		warn(message)
+	end
+end
+function PlotClient.promptUpgradePurchase(self: PlotClient, quantity: number)
+	if self.destroyed or self.player ~= Players.LocalPlayer then
+		return
+	end
+
+	local productKey = if quantity == 10 then "buyUpgradeTen" else "buyUpgradeOne"
+	local prompted, message = MonetizationServiceClient:promptProduct(productKey)
 	if not prompted and message then
 		warn(message)
 	end

@@ -153,6 +153,11 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 	self:startProduction()
 
 	self.charInit(self)
+	if playerData and math.max(0, math.floor(playerData.pending99xLuckSpins())) > 0 then
+		task.defer(function()
+			self:tryStartPending99xLuckSpin()
+		end)
+	end
 
 	return self
 end
@@ -487,8 +492,8 @@ function PlotServer.isOwner(self: Plot, player: Player): boolean
 	return self.player == player
 end
 
-function PlotServer.rollSlime(self: Plot, player: Player): boolean
-	if not self:isOwner(player) or self.activeRollSeed then
+function PlotServer.performRoll(self: Plot, player: Player, is99xLuckSpin: boolean): boolean
+	if not self:isOwner(player) or self.activeRollSeed or self.destroyed then
 		return false
 	end
 
@@ -496,13 +501,22 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	if not playerData then
 		return false
 	end
+	if not is99xLuckSpin and math.max(0, math.floor(playerData.pending99xLuckSpins())) > 0 then
+		task.defer(function()
+			self:tryStartPending99xLuckSpin()
+		end)
+		return false
+	end
 
 	local currency = getSafeCurrency(playerData.currency())
 	local ownedSlimes = playerData.slimes()
-	local needsFreeStarter = currency == 0 and #ownedSlimes == 0
+	local needsFreeStarter = not is99xLuckSpin and currency == 0 and #ownedSlimes == 0
 	local luckMultiplier = UpgradeConfig.getLuckMultiplier(playerData.slimeLuckLevel())
 		* RebirthConfig.getRewardMultiplier(playerData.rebirths())
 		* ProductEntitlements.getLuckMultiplier(playerData)
+	if is99xLuckSpin then
+		luckMultiplier *= 99
+	end
 
 	local function rollOffer(): (string, string, number)
 		local slimeId = if needsFreeStarter
@@ -543,12 +557,60 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	task.delay(ROLL_LOCK_DURATION * durationScale, function()
 		if self.activeRollSeed == animationSeed then
 			self.activeRollSeed = nil
+			self:tryStartPending99xLuckSpin()
 		end
 	end)
 
 	return true
 end
 
+function PlotServer.tryStartPending99xLuckSpin(self: Plot): boolean
+	if self.destroyed or self.activeRollSeed then
+		return false
+	end
+
+	local playerData = Data[self.player]
+	if not playerData then
+		return false
+	end
+	local pending = math.max(0, math.floor(playerData.pending99xLuckSpins()))
+	if pending <= 0 then
+		return false
+	end
+
+	if not self:performRoll(self.player, true) then
+		return false
+	end
+	playerData.pending99xLuckSpins(pending - 1)
+	return true
+end
+
+function PlotServer.complete99xLuckSpinReceipt(self: Plot): boolean
+	local playerData = Data[self.player]
+	if not playerData or self.destroyed then
+		return false
+	end
+
+	playerData.pending99xLuckSpins(function(previous)
+		return math.max(0, math.floor(previous)) + 1
+	end)
+	task.defer(function()
+		self:tryStartPending99xLuckSpin()
+	end)
+	return true
+end
+
+function PlotServer.completeFinishNowReceipt(self: Plot): boolean
+	if self.destroyed then
+		return false
+	end
+
+	return SellingServiceServer.finishQueue(self.player, self.plotModel)
+end
+
+function PlotServer.rollSlime(self: Plot, player: Player): boolean
+	return self:performRoll(player, false)
+end
 function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): boolean
 	if not self:isOwner(player) then
 		return false
@@ -734,30 +796,83 @@ function PlotServer.grantSlime(self: Plot, slimeId: string, mutationId: string):
 	return true
 end
 
+local function promptUpgradePurchase(self: Plot, playerData, upgradeType: string, mode: UpgradeTypes.PurchaseMode)
+	local quantity = if mode == "single" then 1 else 10
+	local pending = playerData.pendingUpgradePurchase()
+	if pending.active then
+		self.networker:fire(self.player, "promptUpgradePurchase", pending.quantity)
+		return
+	end
+
+	playerData.pendingUpgradePurchase({
+		active = true,
+		upgradeType = upgradeType,
+		quantity = quantity,
+	})
+	self.networker:fire(self.player, "promptUpgradePurchase", quantity)
+end
+
 function PlotServer.purchaseSlimeLuck(self: Plot, player: Player, mode: UpgradeTypes.PurchaseMode): boolean
-	if not self:isOwner(player) or (mode ~= "single" and mode ~= "max") or not self.upgradeHandle then
+	if not self:isOwner(player) or (mode ~= "single" and mode ~= "ten") or not self.upgradeHandle then
 		return false
 	end
 
 	local result = UpgradeServiceServer.purchase(player, self.plotModel, mode)
 	if result == "insufficientMoney" then
-		self.networker:fire(player, "insufficientMoney")
+		local playerData = Data[player]
+		if playerData then
+			promptUpgradePurchase(self, playerData, "luck", mode)
+		end
 	end
 	return result == "success"
 end
 
 function PlotServer.purchaseCashMultiplier(self: Plot, player: Player, mode: UpgradeTypes.PurchaseMode): boolean
-	if not self:isOwner(player) or (mode ~= "single" and mode ~= "max") or not self.upgradeHandle then
+	if not self:isOwner(player) or (mode ~= "single" and mode ~= "ten") or not self.upgradeHandle then
 		return false
 	end
 
 	local result = UpgradeServiceServer.purchaseCashMultiplier(player, self.plotModel, mode)
 	if result == "insufficientMoney" then
-		self.networker:fire(player, "insufficientMoney")
+		local playerData = Data[player]
+		if playerData then
+			promptUpgradePurchase(self, playerData, "cash", mode)
+		end
 	end
 	return result == "success"
 end
 
+function PlotServer.completeUpgradeReceipt(self: Plot, quantity: number): boolean
+	local playerData = Data[self.player]
+	if not playerData then
+		return false
+	end
+
+	local pending = playerData.pendingUpgradePurchase()
+	if not pending.active or pending.quantity ~= quantity then
+		return false
+	end
+	if pending.upgradeType ~= "luck" and pending.upgradeType ~= "cash" then
+		return false
+	end
+
+	local granted = UpgradeServiceServer.grantDeveloperProduct(
+		self.player,
+		self.plotModel,
+		pending.upgradeType,
+		quantity
+	)
+	if not granted then
+		return false
+	end
+
+	playerData.pendingUpgradePurchase({
+		active = false,
+		upgradeType = "",
+		quantity = 0,
+	})
+	return true
+end
 function PlotServer.upgradeSlime(self: Plot, player: Player, instanceId: string): boolean
 	if not self:isOwner(player)
 		or self.slimeManagementLocked

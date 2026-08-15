@@ -15,6 +15,10 @@ local products: { [ProductKey]: Product } = {
 	doubleCash = { id = 3707932744, permanent = true },
 	doubleSlimeDeposit = { id = 3708103686, permanent = true },
 	buySlime = { id = 3708092210, permanent = false },
+	buyUpgradeOne = { id = 3708140961, permanent = false },
+	buyUpgradeTen = { id = 3708140981, permanent = false },
+	luck99Spin = { id = 3708143307, permanent = false },
+	finishNow = { id = 3708145865, permanent = false },
 	doubleOfflineSlime = { id = 3708096713, permanent = false },
 }
 

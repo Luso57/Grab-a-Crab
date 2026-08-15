@@ -6,7 +6,7 @@ local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
-local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
+local MonetizationServiceClient = require(ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 local UpgradeSlice = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeSlice)
 
@@ -18,14 +18,12 @@ local LUCK_MULTIPLIER_ATTRIBUTE = "SlimeLuckMultiplier"
 local LUCK_LEVEL_ATTRIBUTE = "SlimeLuckLevel"
 local LUCK_NEXT_MULTIPLIER_ATTRIBUTE = "SlimeLuckNextMultiplier"
 local LUCK_COST_ATTRIBUTE = "SlimeLuckCost"
-local LUCK_MAX_QUANTITY_ATTRIBUTE = "SlimeLuckMaxQuantity"
-local LUCK_MAX_COST_ATTRIBUTE = "SlimeLuckMaxCost"
+local LUCK_TEN_COST_ATTRIBUTE = "SlimeLuckTenCost"
 local CASH_MULTIPLIER_ATTRIBUTE = "CashMultiplier"
 local CASH_LEVEL_ATTRIBUTE = "CashMultiplierLevel"
 local CASH_NEXT_MULTIPLIER_ATTRIBUTE = "CashMultiplierNextMultiplier"
 local CASH_COST_ATTRIBUTE = "CashMultiplierCost"
-local CASH_MAX_QUANTITY_ATTRIBUTE = "CashMultiplierMaxQuantity"
-local CASH_MAX_COST_ATTRIBUTE = "CashMultiplierMaxCost"
+local CASH_TEN_COST_ATTRIBUTE = "CashMultiplierTenCost"
 
 type EntryProps = {
 	title: BasePart,
@@ -33,9 +31,9 @@ type EntryProps = {
 	plotModel: Model,
 	canPurchase: boolean,
 	onBuyLuckOne: (() -> ())?,
-	onBuyLuckMax: (() -> ())?,
+	onBuyLuckTen: (() -> ())?,
 	onBuyCashOne: (() -> ())?,
-	onBuyCashMax: (() -> ())?,
+	onBuyCashTen: (() -> ())?,
 }
 
 local function getNumberAttribute(instance: Instance, attributeName: string, fallback: number): number
@@ -72,6 +70,24 @@ local function usePlayerCurrency(): number
 	return currency
 end
 
+local function useProductPrice(productKey: any, fallback: number): number
+	local price, setPrice = React.useState(fallback)
+
+	React.useEffect(function()
+		local cancelled = false
+		task.spawn(function()
+			local productInfo = MonetizationServiceClient:getProductInfo(productKey)
+			if not cancelled and productInfo and type(productInfo.PriceInRobux) == "number" then
+				setPrice(productInfo.PriceInRobux)
+			end
+		end)
+		return function()
+			cancelled = true
+		end
+	end, { productKey, fallback })
+
+	return price
+end
 local function formatCurrency(amount: number): string
 	return "$" .. CompactNumber.format(amount, 2)
 end
@@ -117,13 +133,14 @@ end
 local function PurchaseButton(props: {
 	position: UDim2,
 	label: string,
-	cost: number,
+	cashCost: number,
+	canAfford: boolean,
+	robuxPrice: number,
 	enabled: boolean,
 	onActivated: (() -> ())?,
 })
 	local function onActivated()
 		if not props.enabled then
-			NotificationSlice.actions.showInsufficientMoney()
 			return
 		end
 
@@ -151,13 +168,15 @@ local function PurchaseButton(props: {
 		Button = e("TextButton", {
 			Active = props.onActivated ~= nil,
 			AutoButtonColor = props.enabled,
-			BackgroundColor3 = if props.enabled
+			BackgroundColor3 = if not props.enabled
+				then Color3.fromRGB(92, 115, 94)
+				elseif props.canAfford
 				then Color3.fromRGB(46, 255, 63)
-				else Color3.fromRGB(92, 115, 94),
+				else Color3.fromRGB(153, 68, 255),
 			Font = Enum.Font.FredokaOne,
 			Position = UDim2.fromScale(0, 0.32),
 			Size = UDim2.fromScale(1, 0.6),
-			Text = formatCurrency(props.cost),
+			Text = if props.canAfford then formatCurrency(props.cashCost) else `R$ {props.robuxPrice}`,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
@@ -184,11 +203,14 @@ local function UpgradeRow(props: {
 	currentMultiplier: number,
 	nextMultiplier: number,
 	singleCost: number,
-	maxCost: number,
+	tenCost: number,
+	singleRobuxPrice: number,
+	tenRobuxPrice: number,
+	enabled: boolean,
 	singleEnabled: boolean,
-	maxEnabled: boolean,
+	tenEnabled: boolean,
 	onBuyOne: (() -> ())?,
-	onBuyMax: (() -> ())?,
+	onBuyTen: (() -> ())?,
 })
 	return e("Frame", {
 		BackgroundColor3 = Color3.fromRGB(24, 20, 16),
@@ -229,16 +251,20 @@ local function UpgradeRow(props: {
 		BuyOne = e(PurchaseButton, {
 			position = UDim2.fromScale(0.57, 0.11),
 			label = "Buy 1",
-			cost = props.singleCost,
-			enabled = props.singleEnabled,
+			cashCost = props.singleCost,
+			canAfford = props.singleEnabled,
+			robuxPrice = props.singleRobuxPrice,
+			enabled = props.enabled,
 			onActivated = props.onBuyOne,
 		}),
-		BuyMax = e(PurchaseButton, {
+		BuyTen = e(PurchaseButton, {
 			position = UDim2.fromScale(0.78, 0.11),
-			label = "Buy Max",
-			cost = props.maxCost,
-			enabled = props.maxEnabled,
-			onActivated = props.onBuyMax,
+			label = "Buy 10",
+			cashCost = props.tenCost,
+			canAfford = props.tenEnabled,
+			robuxPrice = props.tenRobuxPrice,
+			enabled = props.enabled,
+			onActivated = props.onBuyTen,
 		}),
 	})
 end
@@ -260,14 +286,16 @@ local function UpgradeBoardEntry(props: EntryProps)
 		LUCK_COST_ATTRIBUTE,
 		UpgradeConfig.LuckUpgradeBaseCost
 	)
-	local maxLuckQuantity = useNumberAttribute(props.plotModel, LUCK_MAX_QUANTITY_ATTRIBUTE, 0)
-	local maxLuckCost = useNumberAttribute(props.plotModel, LUCK_MAX_COST_ATTRIBUTE, 0)
+	local tenLuckCost = useNumberAttribute(
+		props.plotModel,
+		LUCK_TEN_COST_ATTRIBUTE,
+		UpgradeConfig.getLuckUpgradeCostForQuantity(luckLevel, UpgradeConfig.BulkPurchaseQuantity)
+	)
 	local playerCurrency = usePlayerCurrency()
-	if props.canPurchase then
-		maxLuckQuantity, maxLuckCost = UpgradeConfig.getMaxAffordableLuckUpgrades(luckLevel, playerCurrency)
-	end
+	local buyOneRobuxPrice = useProductPrice("buyUpgradeOne", 9)
+	local buyTenRobuxPrice = useProductPrice("buyUpgradeTen", 49)
 	local canAffordSingleLuck = props.canPurchase and playerCurrency >= luckCost
-	local canAffordMaxLuck = props.canPurchase and maxLuckQuantity > 0
+	local canAffordTenLuck = props.canPurchase and playerCurrency >= tenLuckCost
 	local cashLevel = useNumberAttribute(props.plotModel, CASH_LEVEL_ATTRIBUTE, 0)
 	local currentCash = useNumberAttribute(
 		props.plotModel,
@@ -280,13 +308,13 @@ local function UpgradeBoardEntry(props: EntryProps)
 		UpgradeConfig.BaseCashMultiplier + UpgradeConfig.CashPerLevel
 	)
 	local cashCost = useNumberAttribute(props.plotModel, CASH_COST_ATTRIBUTE, UpgradeConfig.CashUpgradeBaseCost)
-	local maxCashQuantity = useNumberAttribute(props.plotModel, CASH_MAX_QUANTITY_ATTRIBUTE, 0)
-	local maxCashCost = useNumberAttribute(props.plotModel, CASH_MAX_COST_ATTRIBUTE, 0)
-	if props.canPurchase then
-		maxCashQuantity, maxCashCost = UpgradeConfig.getMaxAffordableCashUpgrades(cashLevel, playerCurrency)
-	end
+	local tenCashCost = useNumberAttribute(
+		props.plotModel,
+		CASH_TEN_COST_ATTRIBUTE,
+		UpgradeConfig.getCashUpgradeCostForQuantity(cashLevel, UpgradeConfig.BulkPurchaseQuantity)
+	)
 	local canAffordSingleCash = props.canPurchase and playerCurrency >= cashCost
-	local canAffordMaxCash = props.canPurchase and maxCashQuantity > 0
+	local canAffordTenCash = props.canPurchase and playerCurrency >= tenCashCost
 
 	return e(React.Fragment, nil, {
 		Title = e("SurfaceGui", {
@@ -324,11 +352,14 @@ local function UpgradeBoardEntry(props: EntryProps)
 				currentMultiplier = currentLuck,
 				nextMultiplier = nextLuck,
 				singleCost = luckCost,
-				maxCost = maxLuckCost,
+				tenCost = tenLuckCost,
+				singleRobuxPrice = buyOneRobuxPrice,
+				tenRobuxPrice = buyTenRobuxPrice,
+				enabled = props.canPurchase,
 				singleEnabled = canAffordSingleLuck,
-				maxEnabled = canAffordMaxLuck,
+				tenEnabled = canAffordTenLuck,
 				onBuyOne = props.onBuyLuckOne,
-				onBuyMax = props.onBuyLuckMax,
+				onBuyTen = props.onBuyLuckTen,
 			}),
 			CashMultiplier = e(UpgradeRow, {
 				name = "CASH MULTIPLIER",
@@ -337,11 +368,14 @@ local function UpgradeBoardEntry(props: EntryProps)
 				currentMultiplier = currentCash,
 				nextMultiplier = nextCash,
 				singleCost = cashCost,
-				maxCost = maxCashCost,
+				tenCost = tenCashCost,
+				singleRobuxPrice = buyOneRobuxPrice,
+				tenRobuxPrice = buyTenRobuxPrice,
+				enabled = props.canPurchase,
 				singleEnabled = canAffordSingleCash,
-				maxEnabled = canAffordMaxCash,
+				tenEnabled = canAffordTenCash,
 				onBuyOne = props.onBuyCashOne,
-				onBuyMax = props.onBuyCashMax,
+				onBuyTen = props.onBuyCashTen,
 			}),
 		}),
 	})
@@ -358,9 +392,9 @@ local function UpgradeBoard()
 			plotModel = entry.plotModel,
 			canPurchase = entry.canPurchase,
 			onBuyLuckOne = entry.onBuyLuckOne,
-			onBuyLuckMax = entry.onBuyLuckMax,
+			onBuyLuckTen = entry.onBuyLuckTen,
 			onBuyCashOne = entry.onBuyCashOne,
-			onBuyCashMax = entry.onBuyCashMax,
+			onBuyCashTen = entry.onBuyCashTen,
 		})
 	end
 

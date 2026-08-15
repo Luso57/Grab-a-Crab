@@ -36,6 +36,21 @@ local function clearPendingBuySlime(player: Player)
 	})
 end
 
+local function clearPendingUpgradePurchase(player: Player)
+	local playerData = Data[player]
+	if not playerData then
+		return
+	end
+
+	local pending = playerData.pendingUpgradePurchase()
+	if pending.active then
+		playerData.pendingUpgradePurchase({
+			active = false,
+			upgradeType = "",
+			quantity = 0,
+		})
+	end
+end
 function MonetizationServiceServer.registerHandler(self, productKey: ProductKey, handler: ReceiptHandler)
 	assert(Products[productKey] ~= nil, `Cannot register unknown product key: {tostring(productKey)}`)
 	assert(type(handler) == "function", "Monetization receipt handler must be a function")
@@ -101,14 +116,19 @@ function MonetizationServiceServer.init(self)
 		return self:processReceipt(receiptInfo :: ReceiptInfo)
 	end
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
-		local buySlime = Products.buySlime
-		if productId ~= buySlime.id or isPurchased then
+		if isPurchased then
 			return
 		end
 
 		local player = Players:GetPlayerByUserId(userId)
-		if player then
+		if not player then
+			return
+		end
+
+		if productId == Products.buySlime.id then
 			clearPendingBuySlime(player)
+		elseif productId == Products.buyUpgradeOne.id or productId == Products.buyUpgradeTen.id then
+			clearPendingUpgradePurchase(player)
 		end
 	end)
 	self.initialized = true

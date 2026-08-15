@@ -158,6 +158,29 @@ local function collectCash(player: Player, plotModel: Model): number
 	return payout
 end
 
+function SellingServiceServer.finishQueue(player: Player, plotModel: Model): boolean
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	local queuedSlime = getNonNegativeInteger(playerData.slimeQueue())
+	if queuedSlime > 0 then
+		playerData.slimeQueue(0)
+		playerData.uncollectedCash(function(previous)
+			return getNonNegativeInteger(previous) + queuedSlime * SellingConfig.SlimeValue
+		end)
+	end
+
+	if ProductEntitlements.owns(playerData, "autoCollect") then
+		collectCash(player, plotModel)
+	else
+		updatePlotAttributes(player, plotModel)
+	end
+
+	return true
+end
+
 local function purchasePerSecondUpgrade(player: Player, plotModel: Model): boolean
 	local playerData = Data[player]
 	if not playerData then

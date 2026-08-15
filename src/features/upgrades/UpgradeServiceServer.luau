@@ -10,15 +10,13 @@ local LEVEL_ATTRIBUTE = "SlimeLuckLevel"
 local MULTIPLIER_ATTRIBUTE = "SlimeLuckMultiplier"
 local NEXT_MULTIPLIER_ATTRIBUTE = "SlimeLuckNextMultiplier"
 local COST_ATTRIBUTE = "SlimeLuckCost"
-local MAX_QUANTITY_ATTRIBUTE = "SlimeLuckMaxQuantity"
-local MAX_COST_ATTRIBUTE = "SlimeLuckMaxCost"
+local TEN_COST_ATTRIBUTE = "SlimeLuckTenCost"
 local CASH_LEVEL_ATTRIBUTE = "CashMultiplierLevel"
 local CASH_MULTIPLIER_ATTRIBUTE = "CashMultiplier"
 local CASH_PAYOUT_MULTIPLIER_ATTRIBUTE = "CashPayoutMultiplier"
 local CASH_NEXT_MULTIPLIER_ATTRIBUTE = "CashMultiplierNextMultiplier"
 local CASH_COST_ATTRIBUTE = "CashMultiplierCost"
-local CASH_MAX_QUANTITY_ATTRIBUTE = "CashMultiplierMaxQuantity"
-local CASH_MAX_COST_ATTRIBUTE = "CashMultiplierMaxCost"
+local CASH_TEN_COST_ATTRIBUTE = "CashMultiplierTenCost"
 
 local UpgradeHandle = {}
 UpgradeHandle.__index = UpgradeHandle
@@ -48,17 +46,15 @@ function UpgradeHandle.updateAttributes(self: UpgradeHandle)
 	end
 
 	local level = UpgradeConfig.getLevel(playerData.slimeLuckLevel())
-	local currency = getCurrency(playerData.currency())
-	local maxQuantity, maxCost = UpgradeConfig.getMaxAffordableLuckUpgrades(level, currency)
+	local tenCost = UpgradeConfig.getLuckUpgradeCostForQuantity(level, UpgradeConfig.BulkPurchaseQuantity)
 	local cashLevel = UpgradeConfig.getLevel(playerData.cashMultiplierLevel())
-	local cashMaxQuantity, cashMaxCost = UpgradeConfig.getMaxAffordableCashUpgrades(cashLevel, currency)
+	local cashTenCost = UpgradeConfig.getCashUpgradeCostForQuantity(cashLevel, UpgradeConfig.BulkPurchaseQuantity)
 
 	self.plotModel:SetAttribute(LEVEL_ATTRIBUTE, level)
 	self.plotModel:SetAttribute(MULTIPLIER_ATTRIBUTE, UpgradeConfig.getLuckMultiplier(level))
 	self.plotModel:SetAttribute(NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getLuckMultiplier(level + 1))
 	self.plotModel:SetAttribute(COST_ATTRIBUTE, UpgradeConfig.getLuckUpgradeCost(level))
-	self.plotModel:SetAttribute(MAX_QUANTITY_ATTRIBUTE, maxQuantity)
-	self.plotModel:SetAttribute(MAX_COST_ATTRIBUTE, maxCost)
+	self.plotModel:SetAttribute(TEN_COST_ATTRIBUTE, tenCost)
 	self.plotModel:SetAttribute(CASH_LEVEL_ATTRIBUTE, cashLevel)
 	self.plotModel:SetAttribute(CASH_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel))
 	self.plotModel:SetAttribute(
@@ -68,14 +64,13 @@ function UpgradeHandle.updateAttributes(self: UpgradeHandle)
 	)
 	self.plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel + 1))
 	self.plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(cashLevel))
-	self.plotModel:SetAttribute(CASH_MAX_QUANTITY_ATTRIBUTE, cashMaxQuantity)
-	self.plotModel:SetAttribute(CASH_MAX_COST_ATTRIBUTE, cashMaxCost)
+	self.plotModel:SetAttribute(CASH_TEN_COST_ATTRIBUTE, cashTenCost)
 end
 
 local purchasingPlayers: { [Player]: boolean } = {}
 
 local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): UpgradeTypes.PurchaseResult
-	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "max") then
+	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "ten") then
 		return "rejected"
 	end
 
@@ -99,8 +94,9 @@ local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.Pur
 			return "insufficientMoney"
 		end
 	else
-		quantity, totalCost = UpgradeConfig.getMaxAffordableLuckUpgrades(level, currency)
-		if quantity <= 0 then
+		quantity = UpgradeConfig.BulkPurchaseQuantity
+		totalCost = UpgradeConfig.getLuckUpgradeCostForQuantity(level, quantity)
+		if totalCost > currency then
 			purchasingPlayers[player] = nil
 			return "insufficientMoney"
 		end
@@ -111,20 +107,22 @@ local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.Pur
 	purchasingPlayers[player] = nil
 
 	local levelAfterPurchase = level + quantity
-	local currencyAfterPurchase = currency - totalCost
-	local maxQuantity, maxCost = UpgradeConfig.getMaxAffordableLuckUpgrades(levelAfterPurchase, currencyAfterPurchase)
+
+	local tenCost = UpgradeConfig.getLuckUpgradeCostForQuantity(
+		levelAfterPurchase,
+		UpgradeConfig.BulkPurchaseQuantity
+	)
 	plotModel:SetAttribute(LEVEL_ATTRIBUTE, levelAfterPurchase)
 	plotModel:SetAttribute(MULTIPLIER_ATTRIBUTE, UpgradeConfig.getLuckMultiplier(levelAfterPurchase))
 	plotModel:SetAttribute(NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getLuckMultiplier(levelAfterPurchase + 1))
 	plotModel:SetAttribute(COST_ATTRIBUTE, UpgradeConfig.getLuckUpgradeCost(levelAfterPurchase))
-	plotModel:SetAttribute(MAX_QUANTITY_ATTRIBUTE, maxQuantity)
-	plotModel:SetAttribute(MAX_COST_ATTRIBUTE, maxCost)
+	plotModel:SetAttribute(TEN_COST_ATTRIBUTE, tenCost)
 
 	return "success"
 end
 
 local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: UpgradeTypes.PurchaseMode): UpgradeTypes.PurchaseResult
-	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "max") then
+	if purchasingPlayers[player] or (mode ~= "single" and mode ~= "ten") then
 		return "rejected"
 	end
 
@@ -148,8 +146,9 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 			return "insufficientMoney"
 		end
 	else
-		quantity, totalCost = UpgradeConfig.getMaxAffordableCashUpgrades(level, currency)
-		if quantity <= 0 then
+		quantity = UpgradeConfig.BulkPurchaseQuantity
+		totalCost = UpgradeConfig.getCashUpgradeCostForQuantity(level, quantity)
+		if totalCost > currency then
 			purchasingPlayers[player] = nil
 			return "insufficientMoney"
 		end
@@ -160,8 +159,11 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 	purchasingPlayers[player] = nil
 
 	local levelAfterPurchase = level + quantity
-	local currencyAfterPurchase = currency - totalCost
-	local maxQuantity, maxCost = UpgradeConfig.getMaxAffordableCashUpgrades(levelAfterPurchase, currencyAfterPurchase)
+
+	local tenCost = UpgradeConfig.getCashUpgradeCostForQuantity(
+		levelAfterPurchase,
+		UpgradeConfig.BulkPurchaseQuantity
+	)
 	plotModel:SetAttribute(CASH_LEVEL_ATTRIBUTE, levelAfterPurchase)
 	plotModel:SetAttribute(CASH_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(levelAfterPurchase))
 	plotModel:SetAttribute(
@@ -171,12 +173,41 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 	)
 	plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(levelAfterPurchase + 1))
 	plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(levelAfterPurchase))
-	plotModel:SetAttribute(CASH_MAX_QUANTITY_ATTRIBUTE, maxQuantity)
-	plotModel:SetAttribute(CASH_MAX_COST_ATTRIBUTE, maxCost)
+	plotModel:SetAttribute(CASH_TEN_COST_ATTRIBUTE, tenCost)
 
 	return "success"
 end
 
+local function grantDeveloperProduct(
+	player: Player,
+	plotModel: Model,
+	upgradeType: string,
+	quantity: number
+): boolean
+	if purchasingPlayers[player] or (upgradeType ~= "luck" and upgradeType ~= "cash") then
+		return false
+	end
+	if quantity ~= 1 and quantity ~= UpgradeConfig.BulkPurchaseQuantity then
+		return false
+	end
+
+	local playerData = Data[player]
+	if not playerData then
+		return false
+	end
+
+	purchasingPlayers[player] = true
+	if upgradeType == "luck" then
+		local level = UpgradeConfig.getLevel(playerData.slimeLuckLevel())
+		playerData.slimeLuckLevel(level + quantity)
+	else
+		local level = UpgradeConfig.getLevel(playerData.cashMultiplierLevel())
+		playerData.cashMultiplierLevel(level + quantity)
+	end
+	purchasingPlayers[player] = nil
+
+	return true
+end
 function UpgradeHandle.destroy(self: UpgradeHandle)
 	if self.destroyed then
 		return
@@ -224,5 +255,6 @@ end
 
 UpgradeServiceServer.purchase = purchase
 UpgradeServiceServer.purchaseCashMultiplier = purchaseCashMultiplier
+UpgradeServiceServer.grantDeveloperProduct = grantDeveloperProduct
 
 return UpgradeServiceServer
