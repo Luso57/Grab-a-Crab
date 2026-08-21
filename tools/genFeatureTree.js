@@ -81,6 +81,9 @@ const tree = {
     },
 
     StarterPlayer: {
+      $properties: {
+        CharacterWalkSpeed: 18,
+      },
       StarterPlayerScripts: {
         StartUp: {
           $className: "Folder",
@@ -146,6 +149,21 @@ walk(BASE_PATH, (filepath) => {
   }
 
   current[name] = { $path: file };
+});
+
+// Monetization handlers run on the server even though their filenames do not include "server".
+const monetizationHandlersPath = path.join(BASE_PATH, "features", "monetization", "handlers");
+const serverFeatures = serverRoot.Features;
+if (!serverFeatures.Monetization) serverFeatures.Monetization = { $className: "Folder" };
+serverFeatures.Monetization.Handlers = { $className: "Folder" };
+
+fs.readdirSync(monetizationHandlersPath, { withFileTypes: true }).forEach((entry) => {
+  if (!entry.isFile() || !entry.name.endsWith(".luau")) return;
+
+  const name = path.basename(entry.name, ".luau");
+  serverFeatures.Monetization.Handlers[name] = {
+    $path: toPosix(path.join("src", "features", "monetization", "handlers", entry.name)),
+  };
 });
 
 fs.writeFileSync("default.project.json", JSON.stringify(tree, null, 2));

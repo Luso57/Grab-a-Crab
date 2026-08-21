@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Data = require(ReplicatedStorage.Source.Game.Data).server
 local MonetizationTypes = require(ReplicatedStorage.Source.Features.Monetization.MonetizationTypes)
 local Products = require(ReplicatedStorage.Source.Features.Monetization.Modules.Products)
+local SlimePurchaseProducts =
+	require(ReplicatedStorage.Source.Features.Monetization.Modules.SlimePurchaseProducts)
 
 type ProductKey = MonetizationTypes.ProductKey
 type ReceiptHandler = MonetizationTypes.ReceiptHandler
@@ -33,6 +35,7 @@ local function clearPendingBuySlime(player: Player)
 		mutationId = "normal",
 		offerIndex = 1,
 		playpenLevel = 1,
+		productKey = "",
 	})
 end
 
@@ -125,7 +128,8 @@ function MonetizationServiceServer.init(self)
 			return
 		end
 
-		if productId == Products.buySlime.id then
+		local slimeProductKey = SlimePurchaseProducts.getProductKeyFromId(productId)
+		if slimeProductKey then
 			clearPendingBuySlime(player)
 		elseif productId == Products.buyUpgradeOne.id or productId == Products.buyUpgradeTen.id then
 			clearPendingUpgradePurchase(player)

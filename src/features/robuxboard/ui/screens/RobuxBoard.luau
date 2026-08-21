@@ -7,6 +7,7 @@ local MonetizationServiceClient = require(
 	ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient
 )
 local MonetizationTypes = require(ReplicatedStorage.Source.Features.Monetization.MonetizationTypes)
+local PassCatalog = require(ReplicatedStorage.Source.Features.Monetization.Modules.PassCatalog)
 local useOwnsProduct = require(ReplicatedStorage.Source.Features.Monetization.Hooks.useOwnsProduct)
 local RobuxBoardSlice = require(ReplicatedStorage.Source.Features.RobuxBoard.RobuxBoardSlice)
 
@@ -22,50 +23,6 @@ local SNAP_TWEEN_INFO = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDi
 local BOARD_GUI_NAME = "RobuxPassesBoard"
 local mountedBoardGuis: { [BasePart]: SurfaceGui } = {}
 
-local PASSES = {
-	{
-		productKey = "doubleRolls",
-		name = "DOUBLE ROLLS",
-		description = "Roll 2 slimes at ONCE!",
-		image = "rbxassetid://124008362874496",
-	},
-	{
-		productKey = "doubleRollSpeed",
-		name = "2X ROLL SPEED",
-		description = "Roll twice as fast!",
-		image = "rbxassetid://97947083217374",
-	},
-	{
-		productKey = "autoCollectSlime",
-		name = "AUTO COLLECT SLIME",
-		description = "Automatically collect slime for you!",
-		image = "rbxassetid://139635723208368",
-	},
-	{
-		productKey = "doublePermanentLuck",
-		name = "2X PERMANENT LUCK",
-		description = "Permanent 2x Luck",
-		image = "rbxassetid://100469640960520",
-	},
-	{
-		productKey = "quadruplePermanentLuck",
-		name = "4X PERMANENT LUCK",
-		description = "Permanent 4x Luck",
-		image = "rbxassetid://82906043483694",
-	},
-	{
-		productKey = "autoCollect",
-		name = "AUTO COLLECT CASH",
-		description = "Automatically collect your earnings!",
-		image = "rbxassetid://124299228503480",
-	},
-	{
-		productKey = "doubleCash",
-		name = "2X CASH",
-		description = "Earn twice as much cash!",
-		image = "rbxassetid://132439188223524",
-	},
-}
 local function outlinedText(props: { [string]: any }, thickness: number?)
 	return e("TextLabel", props, {
 		Stroke = e("UIStroke", {
@@ -196,8 +153,8 @@ local function RobuxBoardEntry(props: { title: BasePart, board: BasePart })
 	local snapGenerationRef = React.useRef(0)
 	local snapTweenRef = React.useRef(nil)
 	local cardStep = CARD_HEIGHT + CARD_SPACING
-	local naturalCanvasHeight = #PASSES * CARD_HEIGHT
-		+ math.max(0, #PASSES - 1) * CARD_SPACING
+	local naturalCanvasHeight = #PassCatalog * CARD_HEIGHT
+		+ math.max(0, #PassCatalog - 1) * CARD_SPACING
 		+ CONTENT_PADDING * 2
 	local maxNaturalScroll = math.max(0, naturalCanvasHeight - BOARD_VIEWPORT_HEIGHT)
 	local maxSnapPosition = math.ceil(maxNaturalScroll / cardStep) * cardStep
@@ -263,7 +220,7 @@ local function RobuxBoardEntry(props: { title: BasePart, board: BasePart })
 		}),
 	}
 
-	for index, pass in PASSES do
+	for index, pass in PassCatalog do
 		cards[`Pass{index}`] = e(PassCard, {
 			layoutOrder = index,
 			productKey = pass.productKey,

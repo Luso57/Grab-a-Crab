@@ -5,8 +5,9 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
+local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
 local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
-local EventBillboard = require(ServerScriptService.Features.Slimeevent.Modules.EventBillboard)
+local EventBillboard = require(ReplicatedStorage.Source.Features.Slimeevent.Modules.EventBillboard)
 local EventSlimeSpawner = require(ReplicatedStorage.Source.Features.Slimeevent.Modules.EventSlimeSpawner)
 local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
 local RagdollServer = require(ServerScriptService.Features.Slimeevent.Modules.RagdollServer)
@@ -43,6 +44,7 @@ function SlimeEventServiceServer.init(self: SlimeEventServiceServer)
 	self.carrier = nil
 	self.eventState = "countdown"
 	self.eventStartsAt = 0
+	self.eventEndsAt = 0
 	self.billboard = nil
 	self.timerUpdateElapsed = 0
 	self.deliveryCheckElapsed = 0
@@ -60,6 +62,16 @@ function SlimeEventServiceServer.init(self: SlimeEventServiceServer)
 				if self.billboard then self.billboard:setCountdown(remaining) end
 			end
 			return
+		end
+
+		self.timerUpdateElapsed += deltaTime
+		local remaining = self.eventEndsAt - os.clock()
+		if remaining <= 0 then
+			self:beginCountdown()
+			return
+		elseif self.timerUpdateElapsed >= 1 then
+			self.timerUpdateElapsed = 0
+			if self.billboard then self.billboard:setInProgress(remaining) end
 		end
 
 		if not self.carrier then self.deliveryCheckElapsed = 0 return end
@@ -110,6 +122,9 @@ end
 
 function SlimeEventServiceServer.beginCountdown(self: SlimeEventServiceServer)
 	local wasInProgress = self.eventState == "inProgress"
+	if self.carrier then
+		self.carrier:SetAttribute(Config.CarryingAttribute, false)
+	end
 	if self.eventSlime then
 		self.eventSlime:destroy()
 		self.eventSlime = nil
@@ -119,6 +134,7 @@ function SlimeEventServiceServer.beginCountdown(self: SlimeEventServiceServer)
 	self.plotFullNotified = false
 	self.eventState = "countdown"
 	self.eventStartsAt = os.clock() + Config.EventIntervalSeconds
+	self.eventEndsAt = 0
 	self.timerUpdateElapsed = 0
 	self:setCombatEnabled(false)
 	if self:ensureBillboard() and self.billboard then
@@ -134,7 +150,11 @@ function SlimeEventServiceServer.rollEventMutation(self: SlimeEventServiceServer
 	return "blackMatter"
 end
 
-function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer, mutationId: string): boolean
+function SlimeEventServiceServer.spawnEventSlime(
+	self: SlimeEventServiceServer,
+	mutationId: string,
+	spawnRules: Config.EventSpawnRules
+): boolean
 	local surface = getSpawnSurface()
 	if not surface then
 		warn("[SlimeEvent] Workspace.Hexagon.SpawnBoard.SpawnSlime is missing")
@@ -142,7 +162,14 @@ function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer, 
 	end
 
 	if self.eventSlime then self.eventSlime:destroy() end
-	local success, result = pcall(EventSlimeSpawner.spawn, surface, self.random, mutationId)
+	local success, result = pcall(
+		EventSlimeSpawner.spawn,
+		surface,
+		spawnRules.minimumRarity,
+		spawnRules.maximumRarity,
+		self.random,
+		mutationId
+	)
 	if success then
 		self.eventSlime = result
 		result.prompt.Triggered:Connect(function(player) self:toggleEventSlime(player) end)
@@ -156,14 +183,17 @@ end
 
 function SlimeEventServiceServer.startEvent(self: SlimeEventServiceServer)
 	if self.eventState ~= "countdown" then return end
-	local mutationId = self:rollEventMutation()
-	if not self:spawnEventSlime(mutationId) then
+	local spawnRules = Config.getEventSpawnRules(#Players:GetPlayers())
+	local mutationId = if spawnRules.allowMutations then self:rollEventMutation() else "normal"
+	if not self:spawnEventSlime(mutationId, spawnRules) then
 		self.eventStartsAt = os.clock() + Config.EventSpawnRetrySeconds
 		if self.billboard then self.billboard:setCountdown(Config.EventSpawnRetrySeconds) end
 		return
 	end
 	self.eventState = "inProgress"
-	if self:ensureBillboard() and self.billboard then self.billboard:setInProgress() end
+	self.eventEndsAt = os.clock() + Config.EventDurationSeconds
+	self.timerUpdateElapsed = 0
+	if self:ensureBillboard() and self.billboard then self.billboard:setInProgress(Config.EventDurationSeconds) end
 	self:setCombatEnabled(true)
 	self.networker:fireAll("eventStarted")
 end
@@ -247,11 +277,7 @@ function SlimeEventServiceServer.tryDeliverEventSlime(self: SlimeEventServiceSer
 	end
 	self.plotFullNotified = false
 
-	local playpenBase = plot:getPlaypenBase(playpenLevel)
-	local localPosition = playpenBase.CFrame:PointToObjectSpace(root.Position)
-	local horizontalDistance = Vector2.new(localPosition.X, localPosition.Z).Magnitude
-	local verticalLimit = playpenBase.Size.Y / 2 + Config.DeliveryVerticalTolerance
-	if horizontalDistance > Config.DeliveryRadius or math.abs(localPosition.Y) > verticalLimit then return end
+	if not plot:isPlayerNearPlaypen(player, PlotLevelConfig.StartingLevel) then return end
 
 	self.deliveryAttempting = true
 	local slimeId = eventSlime.model:GetAttribute("SlimeId")
@@ -374,6 +400,7 @@ type SlimeEventServiceServer = typeof(SlimeEventServiceServer) & {
 	deliveryAttempting: boolean,
 	deliveryCheckElapsed: number,
 	eventStartsAt: number,
+	eventEndsAt: number,
 	eventState: "countdown" | "inProgress",
 	plotFullNotified: boolean,
 	timerUpdateElapsed: number,

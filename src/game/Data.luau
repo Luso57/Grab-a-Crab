@@ -6,7 +6,7 @@ local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 
 return DataServiceTyped({
 	template = DataTemplate,
-	profileStoreIndex = "OFFICIAL",
+	profileStoreIndex = "RELEASE_1",
 	useMock = RunService:IsStudio(),
 	resetData = false,
 	dontSave = false,

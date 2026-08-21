@@ -17,6 +17,7 @@ local CASH_PAYOUT_MULTIPLIER_ATTRIBUTE = "CashPayoutMultiplier"
 local CASH_NEXT_MULTIPLIER_ATTRIBUTE = "CashMultiplierNextMultiplier"
 local CASH_COST_ATTRIBUTE = "CashMultiplierCost"
 local CASH_TEN_COST_ATTRIBUTE = "CashMultiplierTenCost"
+local CASH_UPGRADE_PURCHASED_ATTRIBUTE = "HasPurchasedBoardCashUpgrade"
 
 local UpgradeHandle = {}
 UpgradeHandle.__index = UpgradeHandle
@@ -65,6 +66,7 @@ function UpgradeHandle.updateAttributes(self: UpgradeHandle)
 	self.plotModel:SetAttribute(CASH_NEXT_MULTIPLIER_ATTRIBUTE, UpgradeConfig.getCashMultiplier(cashLevel + 1))
 	self.plotModel:SetAttribute(CASH_COST_ATTRIBUTE, UpgradeConfig.getCashUpgradeCost(cashLevel))
 	self.plotModel:SetAttribute(CASH_TEN_COST_ATTRIBUTE, cashTenCost)
+	self.plotModel:SetAttribute(CASH_UPGRADE_PURCHASED_ATTRIBUTE, playerData.hasPurchasedBoardCashUpgrade())
 end
 
 local purchasingPlayers: { [Player]: boolean } = {}
@@ -104,6 +106,8 @@ local function purchase(player: Player, plotModel: Model, mode: UpgradeTypes.Pur
 
 	playerData.currency(currency - totalCost)
 	playerData.slimeLuckLevel(level + quantity)
+	playerData.hasPurchasedBoardCashUpgrade(true)
+	plotModel:SetAttribute(CASH_UPGRADE_PURCHASED_ATTRIBUTE, true)
 	purchasingPlayers[player] = nil
 
 	local levelAfterPurchase = level + quantity
@@ -156,6 +160,8 @@ local function purchaseCashMultiplier(player: Player, plotModel: Model, mode: Up
 
 	playerData.currency(currency - totalCost)
 	playerData.cashMultiplierLevel(level + quantity)
+	playerData.hasPurchasedBoardCashUpgrade(true)
+	plotModel:SetAttribute(CASH_UPGRADE_PURCHASED_ATTRIBUTE, true)
 	purchasingPlayers[player] = nil
 
 	local levelAfterPurchase = level + quantity
@@ -232,6 +238,14 @@ function UpgradeServiceServer.attachPlot(player: Player, plotModel: Model): Upgr
 
 	local playerData = Data[player]
 	assert(playerData, `Cannot attach upgrades before data loads for {player.Name}`)
+	if
+		not playerData.hasPurchasedBoardCashUpgrade()
+		and (UpgradeConfig.getLevel(playerData.slimeLuckLevel()) > 0
+			or UpgradeConfig.getLevel(playerData.cashMultiplierLevel()) > 0
+			or playerData.rebirths() > 0)
+	then
+		playerData.hasPurchasedBoardCashUpgrade(true)
+	end
 
 	table.insert(handle.cleanups, playerData.currency.Changed(function()
 		handle:updateAttributes()
@@ -240,6 +254,9 @@ function UpgradeServiceServer.attachPlot(player: Player, plotModel: Model): Upgr
 		handle:updateAttributes()
 	end))
 	table.insert(handle.cleanups, playerData.cashMultiplierLevel.Changed(function()
+		handle:updateAttributes()
+	end))
+	table.insert(handle.cleanups, playerData.hasPurchasedBoardCashUpgrade.Changed(function()
 		handle:updateAttributes()
 	end))
 	table.insert(handle.cleanups, playerData.rebirths.Changed(function()

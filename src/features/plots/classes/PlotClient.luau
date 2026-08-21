@@ -9,12 +9,16 @@ local PlotLevelSlice = require(ReplicatedStorage.Source.Features.PlotLevels.Plot
 local InventorySlice = require(ReplicatedStorage.Source.Features.Inventory.InventorySlice)
 local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
 local MonetizationServiceClient = require(ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient)
+local MonetizationTypes = require(ReplicatedStorage.Source.Features.Monetization.MonetizationTypes)
+local SlimePurchaseProducts =
+	require(ReplicatedStorage.Source.Features.Monetization.Modules.SlimePurchaseProducts)
 local MonetizationPadBillboards = require(ReplicatedStorage.Source.Features.Monetization.Modules.MonetizationPadBillboards)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local CashCollectionVFX = require(ReplicatedStorage.Source.Features.Selling.Modules.CashCollectionVFX)
 local DepositConfetti = require(ReplicatedStorage.Source.Features.Selling.Modules.DepositConfetti)
 local SellingSlice = require(ReplicatedStorage.Source.Features.Selling.SellingSlice)
 local SlimeClient = require(ReplicatedStorage.Source.Features.Slimes.Classes.SlimeClient)
+local SlimeUpgradeTypes = require(ReplicatedStorage.Source.Features.Slimes.SlimeUpgradeTypes)
 local SlimeRollVFX = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeRollVFX)
 local UpgradeSlice = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeSlice)
 local RobuxBoardSlice = require(ReplicatedStorage.Source.Features.RobuxBoard.RobuxBoardSlice)
@@ -23,6 +27,8 @@ local PlotClient = {}
 PlotClient.__index = PlotClient
 
 type SlimeData = DataTemplate.SlimeData
+type ProductKey = MonetizationTypes.ProductKey
+
 
 export type PlotClient = typeof(setmetatable(
 	{} :: {
@@ -472,10 +478,14 @@ function PlotClient.slimeSold(self: PlotClient, instanceId: string)
 	end
 end
 
-function PlotClient.requestSlimeUpgrade(self: PlotClient, instanceId: string)
-	if not self.destroyed and self.player == Players.LocalPlayer then
-		self.networker:fire("upgradeSlime", instanceId)
+function PlotClient.requestSlimeUpgrade(
+	self: PlotClient,
+	instanceId: string
+): (SlimeUpgradeTypes.Result, number?, number?)
+	if self.destroyed or self.player ~= Players.LocalPlayer then
+		return "rejected"
 	end
+	return self.networker:fetch("upgradeSlime", instanceId)
 end
 
 function PlotClient.requestSlimeSale(self: PlotClient, instanceId: string)
@@ -490,11 +500,8 @@ function PlotClient.requestRebirth(self: PlotClient)
 	end
 end
 
-function PlotClient.rebirthed(self: PlotClient, _rebirthCount: number)
-	for _, slime in self.playpenSlimes do
-		slime:destroy()
-	end
-	table.clear(self.playpenSlimes)
+function PlotClient.rebirthed(self: PlotClient, _rebirthCount: number, preservedSlimes: { SlimeData }?)
+	self:syncPlaypenSlimes(preservedSlimes or {})
 end
 
 function PlotClient.plotLevelPurchased(self: PlotClient, level: number)
@@ -556,6 +563,11 @@ function PlotClient.plotFull(self: PlotClient)
 	end
 
 	NotificationSlice.actions.show("PLOT FULL! EXPAND OR SELL A SLIME")
+end
+
+function PlotClient.tutorialSlimeProtected(self: PlotClient)
+	if self.destroyed or self.player ~= Players.LocalPlayer then return end
+	NotificationSlice.actions.show("UPGRADE THIS SLIME TO FINISH THE TUTORIAL!")
 end
 
 function PlotClient.insufficientMoney(self: PlotClient)
@@ -646,6 +658,15 @@ function PlotClient.syncOffers(
 	secondaryMutationId: string?
 )
 	if self.destroyed then return end
+	if self.activeRoll then
+		self.activeRoll:cancel()
+		self.activeRoll = nil
+	end
+	if self.secondaryActiveRoll then
+		self.secondaryActiveRoll:cancel()
+		self.secondaryActiveRoll = nil
+	end
+	if self.rollPrompt then self.rollPrompt.Enabled = true end
 	if self.currentSlime then
 		self.currentSlime:destroy()
 		self.currentSlime = nil
@@ -662,12 +683,16 @@ function PlotClient.syncOffers(
 	end
 end
 
-function PlotClient.promptBuySlimePurchase(self: PlotClient)
+function PlotClient.promptBuySlimePurchase(self: PlotClient, productKey: ProductKey)
 	if self.destroyed or self.player ~= Players.LocalPlayer then
 		return
 	end
+	if not SlimePurchaseProducts.isProductKey(productKey) then
+		warn(string.format("Invalid slime purchase product key: %s", tostring(productKey)))
+		return
+	end
 
-	local prompted, message = MonetizationServiceClient:promptProduct("buySlime")
+	local prompted, message = MonetizationServiceClient:promptProduct(productKey)
 	if not prompted and message then
 		warn(message)
 	end
@@ -710,6 +735,7 @@ function PlotClient.showSlime(
 		level = 1,
 		upgradeInvestment = 0,
 		playpenLevel = 1,
+		purchasedWithRobux = false,
 	}, self.spawner, self.player == Players.LocalPlayer, startingRotation, lateralOffset)
 
 	if self.player == Players.LocalPlayer then

@@ -63,14 +63,7 @@ function OfflineRewardsServiceServer.init(self)
 		local now = os.time()
 		local pending = playerData.pendingOfflineReward()
 		local lastActive = math.max(0, math.floor(playerData.lastActiveUnix()))
-		if not pending.active and Config.TestingPopupOnJoin then
-			playerData.pendingOfflineReward({
-				active = true,
-				amount = Config.TestingRewardAmount,
-				offlineSeconds = Config.TestingOfflineSeconds,
-				awaitingDouble = false,
-			})
-		elseif not pending.active and lastActive > 0 then
+		if not pending.active and lastActive > 0 then
 			local elapsed = math.clamp(now - lastActive, 0, Config.MaximumOfflineSeconds)
 			if elapsed >= Config.MinimumOfflineSeconds then
 				local amount = math.floor(getProductionRate(playerData) * elapsed * Config.OfflineProductionRate)

@@ -1,9 +1,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local React = require(ReplicatedStorage.Packages.React)
 local ReactCharm = require(ReplicatedStorage.Packages.ReactCharm)
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local LeaderboardConfig = require(ReplicatedStorage.Source.Features.Leaderboards.LeaderboardConfig)
@@ -49,7 +51,12 @@ local function formatScore(kind: BoardKind, value: number): string
 	return CompactNumber.format(value, 2)
 end
 
-local function outlinedText(props: { [string]: any }, thickness: number?)
+local function outlinedText(props: { [string]: any }, thickness: number?, isPhone: boolean?)
+	if isPhone then
+		props.TextStrokeTransparency = 0
+		return e('TextLabel', props)
+	end
+
 	return e("TextLabel", props, {
 		Stroke = e("UIStroke", {
 			Color = Color3.new(0, 0, 0),
@@ -63,6 +70,7 @@ local function LeaderboardRow(props: {
 	entry: Entry,
 	rank: number,
 	kind: BoardKind,
+	isPhone: boolean,
 })
 	local color = RANK_COLORS[props.rank]
 	if not color then
@@ -83,7 +91,7 @@ local function LeaderboardRow(props: {
 			TextColor3 = color,
 			TextScaled = true,
 			TextStrokeTransparency = 1,
-		}, 5),
+		}, 5, props.isPhone),
 		Avatar = e("ImageLabel", {
 			BackgroundColor3 = Color3.fromRGB(45, 45, 45),
 			Image = `rbxthumb://type=AvatarHeadShot&id={props.entry.userId}&w=150&h=150`,
@@ -105,7 +113,7 @@ local function LeaderboardRow(props: {
 			TextScaled = true,
 			TextStrokeTransparency = 1,
 			TextXAlignment = Enum.TextXAlignment.Left,
-		}, 4),
+		}, 4, props.isPhone),
 		Score = outlinedText({
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,
@@ -116,7 +124,7 @@ local function LeaderboardRow(props: {
 			TextScaled = true,
 			TextStrokeTransparency = 1,
 			TextXAlignment = Enum.TextXAlignment.Right,
-		}, 4),
+		}, 4, props.isPhone),
 	})
 end
 
@@ -156,17 +164,66 @@ local function usePersonalScores(): { [BoardKind]: number }
 	}
 end
 
+local function isPositionOnPlot(position: Vector3, plotModel: Model?): boolean
+	if not plotModel then
+		return false
+	end
+	local plotCFrame, plotSize = plotModel:GetBoundingBox()
+	local localPosition = plotCFrame:PointToObjectSpace(position)
+	return math.abs(localPosition.X) <= plotSize.X * 0.5
+		and math.abs(localPosition.Z) <= plotSize.Z * 0.5
+end
+
+local function useIsOnPlot(record: BoardRecord, isPhone: boolean): boolean
+	local isOnPlot, setIsOnPlot = React.useState(false)
+
+	React.useEffect(function()
+		local elapsed = math.huge
+		local plotModel = if record.model.Parent and record.model.Parent:IsA("Model")
+			then record.model.Parent
+			else nil
+		local function update()
+			local character = Players.LocalPlayer.Character
+			local rootPart = if character then character:FindFirstChild("HumanoidRootPart") else nil
+			if rootPart and rootPart:IsA("BasePart") then
+				setIsOnPlot(isPositionOnPlot(rootPart.Position, plotModel))
+			else
+				setIsOnPlot(false)
+			end
+		end
+
+		update()
+		local connection = RunService.Heartbeat:Connect(function(deltaTime)
+			elapsed += deltaTime
+			if elapsed < (if isPhone then 0.35 else 0.1) then
+				return
+			end
+			elapsed = 0
+			update()
+		end)
+
+		return function()
+			connection:Disconnect()
+		end
+	end, { record, isPhone })
+
+	return isOnPlot
+end
+
 local function BoardSurface(props: {
 	record: BoardRecord,
 	entries: { Entry },
 	personalScore: number,
+	isPhone: boolean,
 })
+	local isOnPlot = useIsOnPlot(props.record, props.isPhone)
 	local children = {}
 	for rank, entry in props.entries do
 		children[`Row{rank}`] = e(LeaderboardRow, {
 			entry = entry,
 			rank = rank,
 			kind = props.record.kind,
+			isPhone = props.isPhone,
 		})
 	end
 
@@ -181,7 +238,7 @@ local function BoardSurface(props: {
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
-		}, 5)
+		}, 5, props.isPhone)
 	end
 
 	local localRank: number? = nil
@@ -203,13 +260,14 @@ local function BoardSurface(props: {
 		TextScaled = true,
 		TextStrokeTransparency = 1,
 		TextXAlignment = Enum.TextXAlignment.Left,
-	}, 4)
+	}, 4, props.isPhone)
 
 	return e(React.Fragment, nil, {
 		Title = e("SurfaceGui", {
 			Adornee = props.record.title,
 			AlwaysOnTop = false,
-			CanvasSize = Vector2.new(1000, 260),
+			CanvasSize = if props.isPhone then Vector2.new(650, 169) else Vector2.new(1000, 260),
+			Enabled = isOnPlot,
 			Face = Enum.NormalId.Right,
 			LightInfluence = 0,
 		}, {
@@ -221,12 +279,13 @@ local function BoardSurface(props: {
 				TextColor3 = Color3.fromRGB(71, 202, 255),
 				TextScaled = true,
 				TextStrokeTransparency = 1,
-			}, 7),
+			}, 7, props.isPhone),
 		}),
 		Board = e("SurfaceGui", {
 			Adornee = props.record.board,
 			AlwaysOnTop = false,
-			CanvasSize = Vector2.new(900, 980),
+			CanvasSize = if props.isPhone then Vector2.new(585, 637) else Vector2.new(900, 980),
+			Enabled = isOnPlot,
 			Face = Enum.NormalId.Right,
 			LightInfluence = 0,
 		}, children),
@@ -252,6 +311,7 @@ local function findBoardRecord(model: Model): BoardRecord?
 end
 
 local function LeaderboardRoot()
+	local isPhone = useIsPhoneViewport()
 	local snapshot = ReactCharm.useAtom(LeaderboardSlice.state.snapshot)
 	local personalScores = usePersonalScores()
 	local records, setRecords = React.useState({} :: { [Model]: BoardRecord })
@@ -316,6 +376,7 @@ local function LeaderboardRoot()
 				record = record,
 				entries = snapshot[record.kind],
 				personalScore = personalScores[record.kind],
+				isPhone = isPhone,
 			})
 		end
 	end

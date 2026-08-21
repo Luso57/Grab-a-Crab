@@ -4,6 +4,9 @@ local React = require(ReplicatedStorage.Packages.React)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local NotificationSlice = require(ReplicatedStorage.Source.Features.App.NotificationSlice)
+local MonetizationServiceClient = require(
+	ReplicatedStorage.Source.Features.Monetization.MonetizationServiceClient
+)
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
@@ -12,6 +15,7 @@ local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
 local REBIRTH_ICON = "rbxthumb://type=Asset&id=95323324259523&w=420&h=420"
 local CASH_REWARD_ICON = "rbxthumb://type=Asset&id=15040641396&w=420&h=420"
 local LUCK_REWARD_ICON = "rbxthumb://type=Asset&id=17009565443&w=420&h=420"
+local SELL_RATE_REWARD_ICON = "rbxthumb://type=Asset&id=137154481767301&w=420&h=420"
 
 export type Props = {
 	IsOpen: boolean,
@@ -48,6 +52,9 @@ local function RebirthRoot(props: Props)
 	local progress = if rebirthCost == math.huge then 0 else math.clamp(currency / rebirthCost, 0, 1)
 	local canRebirth = rebirthCost ~= math.huge and currency >= rebirthCost
 	local nextRewardMultiplier = RebirthConfig.getNextRewardMultiplier(rebirths)
+	local nextRebirth = RebirthConfig.getCount(rebirths) + 1
+	local hasSellRateReward = RebirthConfig.isSellRateMilestone(nextRebirth)
+	local rewardCardWidth = if hasSellRateReward then 0.25 else 0.27
 
 	return React.createElement("Frame", {
 		BackgroundColor3 = Color3.fromRGB(4, 6, 13),
@@ -172,8 +179,8 @@ local function RebirthRoot(props: Props)
 					AnchorPoint = Vector2.new(0.5, 0),
 					BackgroundColor3 = Color3.fromRGB(40, 113, 194),
 					BorderSizePixel = 0,
-					Position = UDim2.fromScale(0.34, 0.165),
-					Size = UDim2.fromScale(0.27, 0.22),
+					Position = UDim2.fromScale(if hasSellRateReward then 0.17 else 0.34, 0.165),
+					Size = UDim2.fromScale(rewardCardWidth, 0.22),
 					ZIndex = 33,
 				}, {
 					Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 9) }),
@@ -207,8 +214,8 @@ local function RebirthRoot(props: Props)
 					AnchorPoint = Vector2.new(0.5, 0),
 					BackgroundColor3 = Color3.fromRGB(82, 188, 36),
 					BorderSizePixel = 0,
-					Position = UDim2.fromScale(0.66, 0.165),
-					Size = UDim2.fromScale(0.27, 0.22),
+					Position = UDim2.fromScale(if hasSellRateReward then 0.5 else 0.66, 0.165),
+					Size = UDim2.fromScale(rewardCardWidth, 0.22),
 					ZIndex = 33,
 				}, {
 					Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 9) }),
@@ -238,6 +245,44 @@ local function RebirthRoot(props: Props)
 						ZIndex = 34,
 					}, 3),
 				}),
+				SellRateReward = if hasSellRateReward
+					then React.createElement("Frame", {
+						AnchorPoint = Vector2.new(0.5, 0),
+						BackgroundColor3 = Color3.fromRGB(194, 115, 40),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(0.83, 0.165),
+						Size = UDim2.fromScale(rewardCardWidth, 0.22),
+						ZIndex = 33,
+					}, {
+						Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 9) }),
+						Stroke = React.createElement("UIStroke", {
+							Color = Color3.fromRGB(82, 39, 8),
+							Thickness = 3,
+						}),
+						Icon = React.createElement("ImageLabel", {
+							AnchorPoint = Vector2.new(0.5, 0),
+							BackgroundTransparency = 1,
+							Image = SELL_RATE_REWARD_ICON,
+							Position = UDim2.fromScale(0.5, 0.03),
+							ScaleType = Enum.ScaleType.Fit,
+							Size = UDim2.fromScale(0.76, 0.66),
+							ZIndex = 34,
+						}),
+						Label = outlinedText({
+							AnchorPoint = Vector2.new(0.5, 1),
+							BackgroundTransparency = 1,
+							Font = Enum.Font.FredokaOne,
+							Position = UDim2.fromScale(0.5, 0.97),
+							Size = UDim2.fromScale(0.94, 0.3),
+							Text = "2x Sell Slime Per Sec",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextStrokeTransparency = 1,
+							TextWrapped = true,
+							ZIndex = 34,
+						}, 3),
+					})
+					else nil,
 				RequirementTitle = outlinedText({
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
@@ -291,8 +336,8 @@ local function RebirthRoot(props: Props)
 					BackgroundTransparency = if canRebirth then 0 else 0.22,
 					BorderSizePixel = 0,
 					Font = Enum.Font.FredokaOne,
-					Position = UDim2.fromScale(0.5, 0.665),
-					Size = UDim2.fromScale(0.68, 0.13),
+					Position = UDim2.fromScale(0.28, 0.665),
+					Size = UDim2.fromScale(0.4, 0.13),
 					Text = "REBIRTH",
 					TextColor3 = if canRebirth then Color3.new(1, 1, 1) else Color3.fromRGB(205, 205, 205),
 					TextScaled = true,
@@ -320,13 +365,41 @@ local function RebirthRoot(props: Props)
 						MinTextSize = 11,
 					}),
 				}),
+				SkipRebirthButton = React.createElement("TextButton", {
+					AnchorPoint = Vector2.new(0.5, 0),
+					AutoButtonColor = true,
+					BackgroundColor3 = Color3.fromRGB(55, 220, 70),
+					BorderSizePixel = 0,
+					Font = Enum.Font.FredokaOne,
+					Position = UDim2.fromScale(0.72, 0.665),
+					Size = UDim2.fromScale(0.4, 0.13),
+					Text = "SKIP REBIRTH",
+					TextColor3 = Color3.new(1, 1, 1),
+					TextScaled = true,
+					TextStrokeTransparency = 0,
+					ZIndex = 34,
+					[React.Event.Activated] = function()
+						UISounds.playSelect()
+						MonetizationServiceClient:promptProduct("skipRebirth")
+					end,
+				}, {
+					Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
+					Stroke = React.createElement("UIStroke", {
+						Color = Color3.fromRGB(17, 93, 25),
+						Thickness = 4,
+					}),
+					Constraint = React.createElement("UITextSizeConstraint", {
+						MaxTextSize = 24,
+						MinTextSize = 10,
+					}),
+				}),
 				Warning = outlinedText({
 					AnchorPoint = Vector2.new(0.5, 1),
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
 					Position = UDim2.fromScale(0.5, 0.965),
 					Size = UDim2.fromScale(0.94, 0.105),
-					Text = "WARNING: REBIRTH WILL RESET CASH, SLIME MONEY, SLIME PETS, AND UPGRADES",
+					Text = "WARNING: NORMAL REBIRTH WILL RESET CASH, SLIME MONEY, SLIME PETS, AND UPGRADES",
 					TextColor3 = Color3.fromRGB(255, 69, 75),
 					TextScaled = true,
 					TextStrokeTransparency = 1,

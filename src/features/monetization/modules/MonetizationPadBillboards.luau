@@ -113,7 +113,7 @@ local function createBillboard(model: Model, titleText: string, priceText: strin
 	return billboard, attachment
 end
 
-local function create99xLuckBillboard(model: Model, button: BasePart): (BillboardGui, Attachment)
+local function create5xLuckBillboard(model: Model, button: BasePart): (BillboardGui, Attachment)
 	local oldGui = button:FindFirstChild(BILLBOARD_NAME)
 	if oldGui then oldGui:Destroy() end
 	local oldAttachment = button:FindFirstChild(ATTACHMENT_NAME)
@@ -141,7 +141,7 @@ local function create99xLuckBillboard(model: Model, button: BasePart): (Billboar
 	title.Font = Enum.Font.FredokaOne
 	title.Position = UDim2.fromScale(0.04, 0.03)
 	title.Size = UDim2.fromScale(0.92, 0.46)
-	title.Text = "99x LUCK SPIN"
+	title.Text = "5x LUCK SPIN"
 	title.TextColor3 = Color3.fromRGB(255, 221, 45)
 	title.TextScaled = true
 	title.TextStrokeTransparency = 1
@@ -217,7 +217,7 @@ function MonetizationPadBillboards.attach(plotModel: Model, canPurchase: boolean
 	assert(luckSpinButton:IsA("BasePart"), "99Button.SpawnerButton must be a BasePart")
 	local luckSpinPrompt = luckSpinButton:WaitForChild("ProximityPrompt")
 	assert(luckSpinPrompt:IsA("ProximityPrompt"), "99Button.SpawnerButton.ProximityPrompt must be a ProximityPrompt")
-	local luckGui, luckAttachment = create99xLuckBillboard(luckSpinModel, luckSpinButton)
+	local luckGui, luckAttachment = create5xLuckBillboard(luckSpinModel, luckSpinButton)
 	table.insert(created, luckGui)
 	table.insert(created, luckAttachment)
 
@@ -225,14 +225,14 @@ function MonetizationPadBillboards.attach(plotModel: Model, canPurchase: boolean
 	local previousActionText = luckSpinPrompt.ActionText
 	local previousObjectText = luckSpinPrompt.ObjectText
 	luckSpinPrompt.Enabled = canPurchase
-	luckSpinPrompt.ActionText = "Buy 99x Luck Spin"
+	luckSpinPrompt.ActionText = "Buy 5x Luck Spin"
 	luckSpinPrompt.ObjectText = ""
 	if canPurchase then
 		local promptLocked = false
 		table.insert(connections, luckSpinPrompt.Triggered:Connect(function()
 			if promptLocked then return end
 			promptLocked = true
-			MonetizationServiceClient:promptProduct("luck99Spin")
+			MonetizationServiceClient:promptProduct("luck5Spin")
 			task.delay(PROMPT_COOLDOWN, function()
 				promptLocked = false
 			end)

@@ -1,7 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
+local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local MenuButton = require(ReplicatedStorage.Source.Features.App.Hud.MenuButton)
+local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 
 local BASE_BUTTON_COUNT = 3
 local BASE_HEIGHT_SCALE = 0.54
@@ -37,6 +40,22 @@ local BUTTONS = {
 }
 
 local function SideBar(props: Props)
+	local isPhone = useIsPhoneViewport()
+	local currency, setCurrency = React.useState(PlayerData.currency())
+	local rebirths, setRebirths = React.useState(PlayerData.rebirths())
+
+	React.useEffect(function()
+		local currencyConnection = PlayerData.currency.Changed(setCurrency)
+		local rebirthConnection = PlayerData.rebirths.Changed(setRebirths)
+
+		return function()
+			currencyConnection()
+			rebirthConnection()
+		end
+	end, {})
+
+	local rebirthCost = RebirthConfig.getCost(rebirths)
+	local canRebirth = rebirthCost ~= math.huge and math.floor(math.max(0, currency)) >= rebirthCost
 	local buttons = {}
 	local buttonCountScale = #BUTTONS / BASE_BUTTON_COUNT
 	local buttonHeightScale = BASE_BUTTON_HEIGHT_SCALE / buttonCountScale
@@ -48,6 +67,7 @@ local function SideBar(props: Props)
 			Image = buttonInfo.Image,
 			LayoutOrder = layoutOrder,
 			HeightScale = buttonHeightScale,
+			ShowAlert = buttonInfo.Text == "Rebirth" and canRebirth,
 			OnActivated = function()
 				if buttonInfo.Text == "Inventory" then
 					props.OnInventoryActivated()
@@ -65,7 +85,7 @@ local function SideBar(props: Props)
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -22, 0.5, 0),
+		Position = UDim2.new(1, if isPhone then -4 else -22, 0.5, 0),
 		Size = UDim2.new(0.082, 0, BASE_HEIGHT_SCALE * buttonCountScale, 0),
 	}, {
 		Layout = React.createElement("UIListLayout", {

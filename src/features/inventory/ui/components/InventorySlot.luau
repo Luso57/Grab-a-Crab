@@ -10,6 +10,7 @@ export type Props = {
 	RarityColor: Color3?,
 	Mutation: string?,
 	MutationColor: Color3?,
+	Production: string?,
 	Locked: boolean?,
 	Quantity: number?,
 	LayoutOrder: number?,
@@ -110,8 +111,8 @@ local function InventorySlot(props: Props)
 			AnchorPoint = Vector2.new(0.5, 1),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,
-			Position = UDim2.fromScale(0.5, 0.96),
-			Size = UDim2.new(0.9, 0, 0.18, 0),
+			Position = UDim2.fromScale(0.5, if props.Production then 0.89 else 0.96),
+			Size = UDim2.new(0.9, 0, if props.Production then 0.14 else 0.18, 0),
 			Text = props.Name,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
@@ -123,7 +124,23 @@ local function InventorySlot(props: Props)
 				MinTextSize = 8,
 			}),
 		}),
-		Quantity = props.Quantity and React.createElement("TextLabel", {
+		Production = props.Production and React.createElement("TextLabel", {
+			AnchorPoint = Vector2.new(0.5, 1),
+			BackgroundTransparency = 1,
+			Font = Enum.Font.FredokaOne,
+			Position = UDim2.fromScale(0.5, 0.985),
+			Size = UDim2.fromScale(0.9, 0.12),
+			Text = props.Production,
+			TextColor3 = Color3.fromRGB(255, 221, 33),
+			TextScaled = true,
+			TextStrokeColor3 = Color3.new(0, 0, 0),
+			TextStrokeTransparency = 0,
+		}, {
+			Constraint = React.createElement("UITextSizeConstraint", {
+				MaxTextSize = 15,
+				MinTextSize = 7,
+			}),
+		}),		Quantity = props.Quantity and React.createElement("TextLabel", {
 			AnchorPoint = Vector2.new(1, 0),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,

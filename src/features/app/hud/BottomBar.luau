@@ -4,9 +4,16 @@ local React = require(ReplicatedStorage.Packages.React)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local SlimeCurrencyVFX = require(ReplicatedStorage.Source.Features.App.Hud.SlimeCurrencyVFX)
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
+
+local DESKTOP_MAX_SIZE = Vector2.new(770, 165)
+local DESKTOP_MIN_SIZE = Vector2.new(275, 50)
+local PHONE_MAX_SIZE = Vector2.new(310, 70)
+local PHONE_MIN_SIZE = Vector2.new(190, 44)
 
 local function BottomBar()
 	local slimeCurrency, setSlimeCurrency = React.useState(PlayerData.slimeCurrency())
+	local isPhone = useIsPhoneViewport()
 
 	React.useEffect(function()
 		local previousAmount = PlayerData.slimeCurrency()
@@ -31,8 +38,8 @@ local function BottomBar()
 		Size = UDim2.new(100, 0, 100, 0),
 	}, {
 		SizeConstraint = React.createElement("UISizeConstraint", {
-			MaxSize = Vector2.new(770, 165),
-			MinSize = Vector2.new(275, 50),
+			MaxSize = if isPhone then PHONE_MAX_SIZE else DESKTOP_MAX_SIZE,
+			MinSize = if isPhone then PHONE_MIN_SIZE else DESKTOP_MIN_SIZE,
 		}),
 		Title = React.createElement("TextLabel", {
 			AnchorPoint = Vector2.new(0.5, 0.5),

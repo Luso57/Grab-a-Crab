@@ -1,4 +1,10 @@
-return {
+export type EventSpawnRules = {
+	minimumRarity: string,
+	maximumRarity: string,
+	allowMutations: boolean,
+}
+
+local Config = {
 	NetworkTag = "SlimeEventService",
 	ToolName = "Bat",
 	ToolAttribute = "SlimeEventBat",
@@ -19,18 +25,48 @@ return {
 	PickupHoldDuration = 1,
 	PickupDistance = 14,
 	CarryHeadClearance = 0.2,
-	DeliveryRadius = 6,
-	DeliveryVerticalTolerance = 10,
 	DeliveryCheckInterval = 0.1,
-	EventMinimumRarity = "Rare",
-	EventIntervalSeconds = 60,
+	EventIntervalSeconds = 15 * 60,
+	EventDurationSeconds = 300,
 	EventSpawnRetrySeconds = 5,
-	EventStartNotificationText = "RARE SLIME HAS SPAWNED!",
+	EventStartNotificationText = "EVENT SLIME HAS SPAWNED!",
 	EventStartSoundId = "rbxassetid://125414652637105",
 	EventStartSoundVolume = 1,
 	EventMutationNormalChance = 0.6,
 	EventMutationFireChance = 0.3,
 	EventBillboardSize = Vector2.new(340, 90),
+	EventBillboardPhoneSize = Vector2.new(190, 50),
 	EventBillboardHeight = 50,
 	EventBillboardMaxDistance = 1000,
 }
+
+local SMALL_SERVER_RULES: EventSpawnRules = {
+	minimumRarity = "Common",
+	maximumRarity = "Uncommon",
+	allowMutations = false,
+}
+
+local MEDIUM_SERVER_RULES: EventSpawnRules = {
+	minimumRarity = "Common",
+	maximumRarity = "Rare",
+	allowMutations = true,
+}
+
+local LARGE_SERVER_RULES: EventSpawnRules = {
+	minimumRarity = "Rare",
+	maximumRarity = "Secret",
+	allowMutations = true,
+}
+
+function Config.getEventSpawnRules(playerCount: number): EventSpawnRules
+	local normalizedPlayerCount = math.max(0, math.floor(playerCount))
+	if normalizedPlayerCount <= 3 then
+		return SMALL_SERVER_RULES
+	elseif normalizedPlayerCount == 4 then
+		return MEDIUM_SERVER_RULES
+	else
+		return LARGE_SERVER_RULES
+	end
+end
+
+return Config

@@ -5,6 +5,7 @@ local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local InventorySlot = require(ReplicatedStorage.Source.Features.Inventory.UI.Components.InventorySlot)
 
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
+local INVENTORY_ICON = "rbxthumb://type=Asset&id=121178791801369&w=420&h=420"
 local GRID_COLUMNS = 4
 local GRID_CELL_HEIGHT_SCALE = 0.36
 local GRID_ROW_PADDING_SCALE = 0.04
@@ -19,6 +20,7 @@ export type Item = {
 	rarityColor: Color3?,
 	mutation: string?,
 	mutationColor: Color3?,
+	production: string?,
 	locked: boolean?,
 	quantity: number?,
 	onActivated: (() -> ())?,
@@ -27,6 +29,7 @@ export type Item = {
 export type Props = {
 	OnClose: () -> (),
 	Title: string?,
+	Icon: string?,
 	Items: { Item }?,
 	EmptyMessage: string?,
 	SideContent: React.ReactNode?,
@@ -61,6 +64,7 @@ local function InventoryWindow(props: Props)
 			RarityColor = item.rarityColor,
 			Mutation = item.mutation,
 			MutationColor = item.mutationColor,
+			Production = item.production,
 			Locked = item.locked,
 			Quantity = item.quantity,
 			LayoutOrder = layoutOrder,
@@ -126,12 +130,21 @@ local function InventoryWindow(props: Props)
 					TileSize = UDim2.fromOffset(38, 38),
 					ZIndex = 23,
 				}),
+				Icon = React.createElement("ImageLabel", {
+					AnchorPoint = Vector2.new(0, 0.5),
+					BackgroundTransparency = 1,
+					Image = props.Icon or INVENTORY_ICON,
+					Position = UDim2.fromScale(0.025, 0.5),
+					ScaleType = Enum.ScaleType.Fit,
+					Size = UDim2.fromScale(0.115, 0.86),
+					ZIndex = 24,
+				}),
 				Title = React.createElement("TextLabel", {
 					AnchorPoint = Vector2.new(0, 0.5),
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
-					Position = UDim2.fromScale(0.035, 0.5),
-					Size = UDim2.fromScale(0.66, 0.7),
+					Position = UDim2.fromScale(0.145, 0.5),
+					Size = UDim2.fromScale(0.55, 0.7),
 					Text = props.Title or "INVENTORY",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,

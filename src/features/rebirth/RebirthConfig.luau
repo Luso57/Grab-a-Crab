@@ -1,6 +1,8 @@
 local RebirthConfig = {
 	BaseCost = 100_000,
 	CostGrowth = 10,
+	SellRateMilestoneInterval = 6,
+	SellRateMilestoneMultiplier = 2,
 }
 
 function RebirthConfig.getCount(value: number?): number
@@ -22,6 +24,16 @@ end
 
 function RebirthConfig.getNextRewardMultiplier(rebirthCount: number?): number
 	return RebirthConfig.getRewardMultiplier(rebirthCount) + 1
+end
+
+function RebirthConfig.isSellRateMilestone(rebirthNumber: number?): boolean
+	local count = RebirthConfig.getCount(rebirthNumber)
+	return count > 0 and count % RebirthConfig.SellRateMilestoneInterval == 0
+end
+
+function RebirthConfig.getSellRateMultiplier(rebirthCount: number?): number
+	local milestones = math.floor(RebirthConfig.getCount(rebirthCount) / RebirthConfig.SellRateMilestoneInterval)
+	return RebirthConfig.SellRateMilestoneMultiplier ^ milestones
 end
 
 return RebirthConfig

@@ -8,6 +8,8 @@ local Config = require(ReplicatedStorage.Source.Features.Offlinerewards.OfflineR
 local OfflineRewardsServiceClient = require(ReplicatedStorage.Source.Features.Offlinerewards.OfflineRewardsServiceClient)
 local OfflineRewardsSlice = require(ReplicatedStorage.Source.Features.Offlinerewards.OfflineRewardsSlice)
 
+local CASH_MULTIPLIER_ICON = "rbxthumb://type=Asset&id=18209585851&w=420&h=420"
+
 export type Props = {
 	IsOpen: boolean,
 	OnClose: () -> (),
@@ -79,12 +81,21 @@ local function OfflineRewardsRoot(props: Props)
 					TileSize = UDim2.fromOffset(38, 38),
 					ZIndex = 43,
 				}),
+				Icon = React.createElement("ImageLabel", {
+					AnchorPoint = Vector2.new(0, 0.5),
+					BackgroundTransparency = 1,
+					Image = CASH_MULTIPLIER_ICON,
+					Position = UDim2.fromScale(0.025, 0.5),
+					ScaleType = Enum.ScaleType.Fit,
+					Size = UDim2.fromScale(0.115, 0.86),
+					ZIndex = 44,
+				}),
 				Title = React.createElement("TextLabel", {
 					AnchorPoint = Vector2.new(0, 0.5),
 					BackgroundTransparency = 1,
 					Font = Enum.Font.FredokaOne,
-					Position = UDim2.fromScale(0.045, 0.5),
-					Size = UDim2.fromScale(0.72, 0.68),
+					Position = UDim2.fromScale(0.155, 0.5),
+					Size = UDim2.fromScale(0.66, 0.68),
 					Text = "OFFLINE SLIME",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,

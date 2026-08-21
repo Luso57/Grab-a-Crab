@@ -13,6 +13,8 @@ export type Props = {
 	Image: string?,
 	LayoutOrder: number?,
 	HeightScale: number?,
+	ShowAlert: boolean?,
+	PlaySelectSound: boolean?,
 	OnActivated: (() -> ())?,
 }
 
@@ -55,7 +57,9 @@ local function MenuButton(props: Props)
 		Text = "",
 
 		[React.Event.Activated] = function()
-			UISounds.playSelect()
+			if props.PlaySelectSound ~= false then
+				UISounds.playSelect()
+			end
 			if props.OnActivated then
 				props.OnActivated()
 			end
@@ -89,6 +93,33 @@ local function MenuButton(props: Props)
 			ref = scaleRef,
 			Scale = 1,
 		}),
+		Alert = if props.ShowAlert then React.createElement("TextLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = Color3.fromRGB(255, 91, 67),
+			BorderSizePixel = 0,
+			Font = Enum.Font.FredokaOne,
+			Position = UDim2.fromScale(0.88, 0.12),
+			Size = UDim2.fromScale(0.27, 0.27),
+			Text = "!",
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			ZIndex = 10,
+		}, {
+			AspectRatio = React.createElement("UIAspectRatioConstraint", {
+				AspectRatio = 1,
+			}),
+			Corner = React.createElement("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+			Stroke = React.createElement("UIStroke", {
+				Color = Color3.fromRGB(70, 20, 14),
+				Thickness = 2,
+			}),
+			TextSizeConstraint = React.createElement("UITextSizeConstraint", {
+				MaxTextSize = 24,
+				MinTextSize = 10,
+			}),
+		}) else nil,
 		IconPlaceholder = React.createElement("ImageLabel", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,

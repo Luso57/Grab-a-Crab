@@ -59,6 +59,7 @@ function InventoryServiceServer.addSlime(
 			level = 1,
 			upgradeInvestment = 0,
 			playpenLevel = playpenLevel,
+			purchasedWithRobux = false,
 		})
 	end
 

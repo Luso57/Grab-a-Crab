@@ -19,6 +19,9 @@ export type Props = {
 	UpgradeCost: number,
 	SellValue: number,
 	CanAfford: boolean,
+	CanSell: boolean,
+	UpgradePending: boolean,
+	HighlightUpgrade: boolean,
 	OnClose: () -> (),
 	OnUpgrade: () -> (),
 	OnSell: () -> (),
@@ -38,7 +41,8 @@ local function createButton(
 	enabled: boolean,
 	layoutOrder: number,
 	onActivated: () -> (),
-	onDisabled: (() -> ())?
+	onDisabled: (() -> ())?,
+	highlighted: boolean?
 )
 	return React.createElement("TextButton", {
 		AutoButtonColor = enabled,
@@ -63,7 +67,10 @@ local function createButton(
 		end,
 	}, {
 		Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 9) }),
-		Stroke = createStroke(Color3.fromRGB(8, 9, 12), 3),
+		Stroke = createStroke(
+			if highlighted then Color3.fromRGB(255, 242, 90) else Color3.fromRGB(8, 9, 12),
+			if highlighted then 6 else 3
+		),
 		TextConstraint = React.createElement("UITextSizeConstraint", {
 			MaxTextSize = 24,
 			MinTextSize = 12,
@@ -207,24 +214,29 @@ local function SlimeDetails(props: Props)
 				Upgrade = createButton(
 					`Upgrade  ${CompactNumber.format(props.UpgradeCost, 1)}`,
 					Color3.fromRGB(255, 205, 30),
-					props.CanAfford and not isDebounced,
+					props.CanAfford and not props.UpgradePending and not isDebounced,
 					7,
 					function()
 						runDebounced(props.OnUpgrade)
 					end,
-					if not props.CanAfford and not isDebounced
+					if not props.CanAfford and not props.UpgradePending and not isDebounced
 					then NotificationSlice.actions.showInsufficientMoney
-					else nil
+					else nil,
+					props.HighlightUpgrade
 				),
 				Sell = createButton(
 					`Sell for ${CompactNumber.format(props.SellValue, 1)}`,
 					Color3.fromRGB(244, 48, 67),
-					not isDebounced,
+					props.CanSell and not props.UpgradePending and not isDebounced,
 					8,
 					function()
 						runDebounced(props.OnSell)
 					end,
-					nil
+					if not props.CanSell
+						then function()
+							NotificationSlice.actions.show("UPGRADE THIS SLIME TO FINISH THE TUTORIAL!")
+						end
+						else nil
 				),
 			}),
 		}),

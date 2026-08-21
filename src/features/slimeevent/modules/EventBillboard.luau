@@ -23,8 +23,8 @@ function Handle.setCountdown(self: Handle, seconds: number)
 	self.gui:SetAttribute("State", "countdown")
 end
 
-function Handle.setInProgress(self: Handle)
-	self.label.Text = "EVENT" .. utf8.char(10) .. "IN PROGRESS"
+function Handle.setInProgress(self: Handle, seconds: number)
+	self.label.Text = "EVENT ENDS IN" .. utf8.char(10) .. formatTime(seconds)
 	self.label.TextColor3 = Color3.fromRGB(110, 255, 138)
 	self.gui:SetAttribute("State", "inProgress")
 end

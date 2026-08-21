@@ -5,7 +5,9 @@ local OfflineRewardsServiceServer = require(ServerScriptService.Features.Offline
 local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
 local SlimeEventServiceServer = require(ServerScriptService.Features.Slimeevent.SlimeEventServiceServer)
 local SettingsServiceServer = require(ServerScriptService.Features.Settings.SettingsServiceServer)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
+TutorialServiceServer:init()
 LeaderboardServiceServer:init()
 OfflineRewardsServiceServer:init()
 PlotServiceServer:init()

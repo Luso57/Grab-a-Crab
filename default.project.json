@@ -10,10 +10,19 @@
           "$className": "Folder",
           "App": {
             "$className": "Folder",
+            "Hooks": {
+              "$className": "Folder",
+              "useIsPhoneViewport": {
+                "$path": "src/features/app/hooks/useIsPhoneViewport.luau"
+              }
+            },
             "Hud": {
               "$className": "Folder",
               "BottomBar": {
                 "$path": "src/features/app/hud/BottomBar.luau"
+              },
+              "ESCUI": {
+                "$path": "src/features/app/hud/ESCUI.luau"
               },
               "HomeButton": {
                 "$path": "src/features/app/hud/HomeButton.luau"
@@ -23,6 +32,9 @@
               },
               "LeftBottom": {
                 "$path": "src/features/app/hud/LeftBottom.luau"
+              },
+              "LeftHud": {
+                "$path": "src/features/app/hud/LeftHud.luau"
               },
               "MenuButton": {
                 "$path": "src/features/app/hud/MenuButton.luau"
@@ -36,6 +48,9 @@
               "SlimeCurrencyVFX": {
                 "$path": "src/features/app/hud/SlimeCurrencyVFX.luau"
               }
+            },
+            "MobileControlsController": {
+              "$path": "src/features/app/MobileControlsController.luau"
             },
             "MusicController": {
               "$path": "src/features/app/MusicController.luau"
@@ -126,14 +141,11 @@
               "BuySlime": {
                 "$path": "src/features/monetization/handlers/BuySlime.luau"
               },
-              "DoubleOfflineSlime": {
-                "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
-              },
               "DoubleCash": {
                 "$path": "src/features/monetization/handlers/DoubleCash.luau"
               },
-              "DoubleSlimeDeposit": {
-                "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
+              "DoubleOfflineSlime": {
+                "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
               },
               "DoublePermanentLuck": {
                 "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau"
@@ -144,6 +156,9 @@
               "DoubleRollSpeed": {
                 "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau"
               },
+              "DoubleSlimeDeposit": {
+                "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
+              },
               "GrantPermanentProduct": {
                 "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau"
               },
@@ -152,6 +167,9 @@
               },
               "Registry": {
                 "$path": "src/features/monetization/handlers/Registry.luau"
+              },
+              "SkipRebirth": {
+                "$path": "src/features/monetization/handlers/SkipRebirth.luau"
               }
             },
             "Hooks": {
@@ -165,11 +183,17 @@
               "MonetizationPadBillboards": {
                 "$path": "src/features/monetization/modules/MonetizationPadBillboards.luau"
               },
+              "PassCatalog": {
+                "$path": "src/features/monetization/modules/PassCatalog.luau"
+              },
               "ProductEntitlements": {
                 "$path": "src/features/monetization/modules/ProductEntitlements.luau"
               },
               "Products": {
                 "$path": "src/features/monetization/modules/Products.luau"
+              },
+              "SlimePurchaseProducts": {
+                "$path": "src/features/monetization/modules/SlimePurchaseProducts.luau"
               }
             },
             "MonetizationServiceClient": {
@@ -181,6 +205,12 @@
           },
           "Offlinerewards": {
             "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "OfflineRewardCalculator": {
+                "$path": "src/features/offlinerewards/modules/OfflineRewardCalculator.luau"
+              }
+            },
             "OfflineRewardsConfig": {
               "$path": "src/features/offlinerewards/OfflineRewardsConfig.luau"
             },
@@ -317,6 +347,21 @@
               }
             }
           },
+          "Shop": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "Components": {
+                "$className": "Folder",
+                "PassCard": {
+                  "$path": "src/features/shop/ui/components/PassCard.luau"
+                }
+              },
+              "ShopRoot": {
+                "$path": "src/features/shop/ui/ShopRoot.luau"
+              }
+            }
+          },
           "Slimeevent": {
             "$className": "Folder",
             "Modules": {
@@ -382,6 +427,9 @@
             "SlimeSlice": {
               "$path": "src/features/slimes/SlimeSlice.luau"
             },
+            "SlimeUpgradeTypes": {
+              "$path": "src/features/slimes/SlimeUpgradeTypes.luau"
+            },
             "UI": {
               "$className": "Folder",
               "Screens": {
@@ -392,6 +440,33 @@
               },
               "SlimeRoot": {
                 "$path": "src/features/slimes/ui/SlimeRoot.luau"
+              }
+            }
+          },
+          "Tutorial": {
+            "$className": "Folder",
+            "Hooks": {
+              "$className": "Folder",
+              "useTutorialState": {
+                "$path": "src/features/tutorial/hooks/useTutorialState.luau"
+              }
+            },
+            "Modules": {
+              "$className": "Folder",
+              "TutorialGuide": {
+                "$path": "src/features/tutorial/modules/TutorialGuide.luau"
+              }
+            },
+            "TutorialConfig": {
+              "$path": "src/features/tutorial/TutorialConfig.luau"
+            },
+            "TutorialServiceClient": {
+              "$path": "src/features/tutorial/TutorialServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "TutorialRoot": {
+                "$path": "src/features/tutorial/ui/TutorialRoot.luau"
               }
             }
           },
@@ -456,6 +531,9 @@
       }
     },
     "StarterPlayer": {
+      "$properties": {
+        "CharacterWalkSpeed": 18
+      },
       "StarterPlayerScripts": {
         "StartUp": {
           "$className": "Folder",
@@ -482,25 +560,50 @@
         },
         "Monetization": {
           "$className": "Folder",
-          "Handlers": {
-            "$className": "Folder",
-            "AutoCollect": { "$path": "src/features/monetization/handlers/AutoCollect.luau" },
-            "BuySlime": { "$path": "src/features/monetization/handlers/BuySlime.luau" },
-            "DoubleOfflineSlime": { "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau" },
-            "DoubleCash": { "$path": "src/features/monetization/handlers/DoubleCash.luau" },
-            "DoubleSlimeDeposit": { "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau" },
-            "DoublePermanentLuck": { "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau" },
-            "DoubleRolls": { "$path": "src/features/monetization/handlers/DoubleRolls.luau" },
-            "DoubleRollSpeed": { "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau" },
-            "GrantPermanentProduct": { "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau" },
-            "QuadruplePermanentLuck": { "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau" },
-            "Registry": { "$path": "src/features/monetization/handlers/Registry.luau" }
-          },
           "MonetizationBootstrap.server": {
             "$path": "src/features/monetization/MonetizationBootstrap.server.luau"
           },
           "MonetizationServiceServer": {
             "$path": "src/features/monetization/MonetizationServiceServer.luau"
+          },
+          "Handlers": {
+            "$className": "Folder",
+            "AutoCollect": {
+              "$path": "src/features/monetization/handlers/AutoCollect.luau"
+            },
+            "BuySlime": {
+              "$path": "src/features/monetization/handlers/BuySlime.luau"
+            },
+            "DoubleCash": {
+              "$path": "src/features/monetization/handlers/DoubleCash.luau"
+            },
+            "DoubleOfflineSlime": {
+              "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
+            },
+            "DoublePermanentLuck": {
+              "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau"
+            },
+            "DoubleRolls": {
+              "$path": "src/features/monetization/handlers/DoubleRolls.luau"
+            },
+            "DoubleRollSpeed": {
+              "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau"
+            },
+            "DoubleSlimeDeposit": {
+              "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
+            },
+            "GrantPermanentProduct": {
+              "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau"
+            },
+            "QuadruplePermanentLuck": {
+              "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau"
+            },
+            "Registry": {
+              "$path": "src/features/monetization/handlers/Registry.luau"
+            },
+            "SkipRebirth": {
+              "$path": "src/features/monetization/handlers/SkipRebirth.luau"
+            }
           }
         },
         "Offlinerewards": {
@@ -543,6 +646,12 @@
           },
           "SlimeEventServiceServer": {
             "$path": "src/features/slimeevent/SlimeEventServiceServer.luau"
+          }
+        },
+        "Tutorial": {
+          "$className": "Folder",
+          "TutorialServiceServer": {
+            "$path": "src/features/tutorial/TutorialServiceServer.luau"
           }
         },
         "Upgrades": {

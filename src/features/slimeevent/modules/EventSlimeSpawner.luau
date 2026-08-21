@@ -39,15 +39,19 @@ local RARITY_RANK: { [string]: number } = {
 	Secret = 7,
 }
 
-local function getEventSlimeId(random: Random): string
-	local minimumRank = RARITY_RANK[Config.EventMinimumRarity]
-	assert(minimumRank, `Invalid event minimum rarity: {Config.EventMinimumRarity}`)
+local function getEventSlimeId(random: Random, minimumRarity: string, maximumRarity: string): string
+	local minimumRank = RARITY_RANK[minimumRarity]
+	local maximumRank = RARITY_RANK[maximumRarity]
+	assert(minimumRank, `Invalid event minimum rarity: {minimumRarity}`)
+	assert(maximumRank, `Invalid event maximum rarity: {maximumRarity}`)
+	assert(minimumRank <= maximumRank, "Event minimum rarity cannot exceed maximum rarity")
 
 	local eligibleIds = {}
 	local totalWeight = 0
 	for _, slimeId in Slimes.slimeIds do
 		local info = Slimes.getSlimeInfo(slimeId)
-		if (RARITY_RANK[info.rarity] or 0) >= minimumRank then
+		local rarityRank = RARITY_RANK[info.rarity] or 0
+		if rarityRank >= minimumRank and rarityRank <= maximumRank then
 			local weight = 1 / info.chance
 			totalWeight += weight
 			table.insert(eligibleIds, { id = slimeId, weight = weight })
@@ -246,13 +250,19 @@ function EventSlimeHandle.destroy(self: EventSlimeHandle)
 	self.movementArea:Destroy()
 end
 
-function EventSlimeSpawner.spawn(surface: BasePart, random: Random?, mutationId: string?): EventSlimeHandle
+function EventSlimeSpawner.spawn(
+	surface: BasePart,
+	minimumRarity: string,
+	maximumRarity: string,
+	random: Random?,
+	mutationId: string?
+): EventSlimeHandle
 	local parent = surface.Parent
 	local existingSlime = parent:FindFirstChild(EVENT_SLIME_NAME)
 	if existingSlime then existingSlime:Destroy() end
 
 	local movementArea = createMovementArea(surface)
-	local slimeId = getEventSlimeId(random or Random.new())
+	local slimeId = getEventSlimeId(random or Random.new(), minimumRarity, maximumRarity)
 	local model, _, movementAttachment, prompt, highlight = prepareSlimeModel(slimeId, mutationId or "normal")
 	local movement = SlimeMovement.play(model, movementArea, movementAttachment)
 

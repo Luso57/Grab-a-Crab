@@ -7,9 +7,11 @@ local SlimeEconomy = require(ReplicatedStorage.Source.Features.Slimes.Modules.Sl
 local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
 
 local e = React.createElement
 local PLAYPEN_BILLBOARD_SCALE = 0.625
+local PHONE_PLAYPEN_BILLBOARD_SCALE = 0.45
 
 local function createStatLabel(text: string, color: Color3, layoutOrder: number, scale: number?)
 	local visualScale = scale or 1
@@ -73,34 +75,35 @@ local function createPlaypenStats(
 	formattedOdds: string,
 	storedSlime: number,
 	level: number,
-	mutationId: string
+	mutationId: string,
+	visualScale: number
 )
 	local mutation = SlimeMutations.get(mutationId)
 	local isMutated = mutation.id ~= "normal"
 	local production = SlimeEconomy.getProduction(slimeInfo.income, level) * mutation.incomeMultiplier
 	return createStatsFrame(if isMutated then 122 else 100, {
-		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, PLAYPEN_BILLBOARD_SCALE),
+		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, visualScale),
 		Mutation = if isMutated
 			then createStatLabel(
 				`{string.upper(mutation.name)} • {mutation.incomeMultiplier}x`,
 				mutation.color,
 				2,
-				PLAYPEN_BILLBOARD_SCALE
+				visualScale
 			)
 			else nil,
 		Rarity = createStatLabel(
 			`{slimeInfo.rarity} • 1 in {formattedOdds}`,
 			Slimes.getRarityColor(slimeInfo.rarity),
 			3,
-			PLAYPEN_BILLBOARD_SCALE
+			visualScale
 		),
 		Production = createStatLabel(
 			`+{CompactNumber.format(production, 1)} Slime/s • {CompactNumber.format(storedSlime, 1)} Slime`,
 			Color3.fromRGB(255, 221, 33),
 			4,
-			PLAYPEN_BILLBOARD_SCALE
+			visualScale
 		),
-	}, PLAYPEN_BILLBOARD_SCALE)
+	}, visualScale)
 end
 
 local function createEventStats(slimeInfo: Slimes.SlimeInfo, mutationId: string)
@@ -126,6 +129,8 @@ local function createEventStats(slimeInfo: Slimes.SlimeInfo, mutationId: string)
 end
 
 local function SlimeBillboards()
+	local isPhone = useIsPhoneViewport()
+	local playpenScale = if isPhone then PHONE_PLAYPEN_BILLBOARD_SCALE else PLAYPEN_BILLBOARD_SCALE
 	local activeSlimes = ReactCharm.useAtom(SlimeSlice.state.slimes)
 	local billboards = {}
 
@@ -139,12 +144,12 @@ local function SlimeBillboards()
 			LightInfluence = 0,
 			MaxDistance = 100,
 			Size = if entry.billboardType == "playpen"
-				then UDim2.fromOffset(119, 144)
+				then if isPhone then UDim2.fromOffset(86, 104) else UDim2.fromOffset(119, 144)
 				elseif entry.billboardType == "event" then UDim2.fromOffset(190, 180)
 				else UDim2.fromOffset(190, 288),
 		}, {
 			Stats = if entry.billboardType == "playpen"
-				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level, entry.mutationId)
+				then createPlaypenStats(slimeInfo, formattedOdds, entry.storedSlime, entry.level, entry.mutationId, playpenScale)
 				elseif entry.billboardType == "event" then createEventStats(slimeInfo, entry.mutationId)
 				else createPurchaseStats(slimeInfo, formattedOdds, entry.mutationId),
 		})

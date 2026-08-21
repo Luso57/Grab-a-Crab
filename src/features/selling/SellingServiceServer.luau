@@ -54,14 +54,10 @@ local function getNonNegativeInteger(value: number): number
 	return math.floor(math.max(0, value))
 end
 
-local function getUpgradeOffer(level: number): (number, number)
-	local normalizedLevel = getNonNegativeInteger(level)
-	local costMultiplier = SellingConfig.UpgradePerSecondCostGrowth ^ normalizedLevel
-	local gainMultiplier = SellingConfig.UpgradePerSecondGainGrowth ^ normalizedLevel
-	local cost = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseCost * costMultiplier + 0.5))
-	local gain = math.max(1, math.floor(SellingConfig.UpgradePerSecondBaseGain * gainMultiplier + 0.5))
-
-	return cost, gain
+local function getEffectiveSellRate(playerData): number
+	local baseRate = getNonNegativeInteger(playerData.slimesPerSecond())
+	local rebirthMultiplier = RebirthConfig.getSellRateMultiplier(playerData.rebirths())
+	return getNonNegativeInteger(baseRate * rebirthMultiplier)
 end
 
 local function updatePlotAttributes(player: Player, plotModel: Model)
@@ -71,13 +67,16 @@ local function updatePlotAttributes(player: Player, plotModel: Model)
 	end
 
 	plotModel:SetAttribute(QUEUE_ATTRIBUTE, getNonNegativeInteger(playerData.slimeQueue()))
-	plotModel:SetAttribute(RATE_ATTRIBUTE, getNonNegativeInteger(playerData.slimesPerSecond()))
+	plotModel:SetAttribute(RATE_ATTRIBUTE, getEffectiveSellRate(playerData))
 	plotModel:SetAttribute(CASH_ATTRIBUTE, getNonNegativeInteger(playerData.uncollectedCash()))
 	plotModel:SetAttribute(
 		DOUBLE_SLIME_DEPOSIT_ATTRIBUTE,
 		ProductEntitlements.owns(playerData, "doubleSlimeDeposit")
 	)
-	local upgradeCost, upgradeGain = getUpgradeOffer(playerData.sellUpgradeLevel())
+	local upgradeLevel = playerData.sellUpgradeLevel()
+	local upgradeCost = SellingConfig.getUpgradeCost(upgradeLevel)
+	local upgradeGain = SellingConfig.getUpgradeGain(upgradeLevel)
+		* RebirthConfig.getSellRateMultiplier(playerData.rebirths())
 	local canAffordUpgrade = getNonNegativeInteger(playerData.currency()) >= upgradeCost
 	plotModel:SetAttribute(UPGRADE_COST_ATTRIBUTE, upgradeCost)
 	plotModel:SetAttribute(UPGRADE_GAIN_ATTRIBUTE, upgradeGain)
@@ -118,7 +117,7 @@ local function sellQueuedSlime(player: Player, plotModel: Model): boolean
 	end
 
 	local queuedSlime = getNonNegativeInteger(playerData.slimeQueue())
-	local sellRate = getNonNegativeInteger(playerData.slimesPerSecond())
+	local sellRate = getEffectiveSellRate(playerData)
 	local amountToSell = math.min(queuedSlime, sellRate)
 	if amountToSell <= 0 then
 		updatePlotAttributes(player, plotModel)
@@ -187,8 +186,9 @@ local function purchasePerSecondUpgrade(player: Player, plotModel: Model): boole
 		return false
 	end
 
-	local level = getNonNegativeInteger(playerData.sellUpgradeLevel())
-	local cost, gain = getUpgradeOffer(level)
+	local level = SellingConfig.getUpgradeLevel(playerData.sellUpgradeLevel())
+	local cost = SellingConfig.getUpgradeCost(level)
+	local gain = SellingConfig.getUpgradeGain(level)
 	local currency = getNonNegativeInteger(playerData.currency())
 	if currency < cost then
 		return false
@@ -208,15 +208,15 @@ function SellingServiceServer.attachPlot(
 	player: Player,
 	plotModel: Model,
 	onDeposited: (amount: number) -> (),
-	onCashCollected: (amount: number) -> (),
+	onCashCollected: (amount: number, isAutomatic: boolean) -> (),
 	onUpgradeStepped: () -> (),
 	onInsufficientMoney: () -> ()
 ): SellingHandle
-	local slimeDeposit = plotModel:WaitForChild("SlimeDeposit")
+	local slimeDeposit = plotModel:FindFirstChild("SlimeDeposit")
 	assert(slimeDeposit:IsA("Model"), "Plot SlimeDeposit must be a Model")
-	local collectCashModel = plotModel:WaitForChild("CollectCash")
+	local collectCashModel = plotModel:FindFirstChild("CollectCash")
 	assert(collectCashModel:IsA("Model"), "Plot CollectCash must be a Model")
-	local upgradeModel = plotModel:WaitForChild("UpgradePerSecond")
+	local upgradeModel = plotModel:FindFirstChild("UpgradePerSecond")
 	assert(upgradeModel:IsA("Model"), "Plot UpgradePerSecond must be a Model")
 	local upgradeButton: BasePart? = nil
 	for _, child in upgradeModel:GetChildren() do
@@ -278,7 +278,7 @@ function SellingServiceServer.attachPlot(
 
 		local collectedAmount = collectCash(player, plotModel)
 		if collectedAmount > 0 then
-			onCashCollected(collectedAmount)
+			onCashCollected(collectedAmount, false)
 		end
 	end
 
@@ -320,15 +320,43 @@ function SellingServiceServer.attachPlot(
 
 	local playerData = Data[player]
 	if playerData then
+		local autoCollectWasOwned = ProductEntitlements.owns(playerData, "autoCollect")
+		local function collectExistingCashAutomatically()
+			if handle.destroyed then return end
+			local collectedAmount = collectCash(player, plotModel)
+			if collectedAmount > 0 then
+				onCashCollected(collectedAmount, true)
+			end
+		end
+
+		local minimumRate = SellingConfig.getMinimumRateForLevel(playerData.sellUpgradeLevel())
+		if getNonNegativeInteger(playerData.slimesPerSecond()) < minimumRate then
+			playerData.slimesPerSecond(minimumRate)
+		end
 		table.insert(handle.cleanups, playerData.currency.Changed(function()
 			updatePlotAttributes(player, plotModel)
 		end))
 		table.insert(handle.cleanups, playerData.sellUpgradeLevel.Changed(function()
 			updatePlotAttributes(player, plotModel)
 		end))
-		table.insert(handle.cleanups, playerData.ownedProducts.Changed(function()
+		table.insert(handle.cleanups, playerData.slimesPerSecond.Changed(function()
 			updatePlotAttributes(player, plotModel)
 		end))
+		table.insert(handle.cleanups, playerData.rebirths.Changed(function()
+			updatePlotAttributes(player, plotModel)
+		end))
+		table.insert(handle.cleanups, playerData.ownedProducts.Changed(function()
+			updatePlotAttributes(player, plotModel)
+			local autoCollectIsOwned = ProductEntitlements.owns(playerData, "autoCollect")
+			if autoCollectIsOwned and not autoCollectWasOwned then
+				collectExistingCashAutomatically()
+			end
+			autoCollectWasOwned = autoCollectIsOwned
+		end))
+
+		if autoCollectWasOwned then
+			collectExistingCashAutomatically()
+		end
 	end
 
 	updatePlotAttributes(player, plotModel)
@@ -343,7 +371,10 @@ function SellingServiceServer.attachPlot(
 			if soldSlime then
 				local playerData = Data[player]
 				if playerData and ProductEntitlements.owns(playerData, "autoCollect") then
-					collectCash(player, plotModel)
+					local collectedAmount = collectCash(player, plotModel)
+					if collectedAmount > 0 then
+						onCashCollected(collectedAmount, true)
+					end
 				end
 			end
 		end

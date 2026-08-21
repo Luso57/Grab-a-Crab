@@ -1,4 +1,5 @@
 local grantPermanentProduct = require(script.Parent.GrantPermanentProduct)
+local createBuySlimeHandler = require(script.Parent.BuySlime)
 local ServerScriptService = game:GetService("ServerScriptService")
 local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
 
@@ -17,12 +18,12 @@ end
 local function grantUpgradeTen(player: Player): boolean
 	return grantUpgrade(player, 10)
 end
-local function grant99xLuckSpin(player: Player): boolean
+local function grant5xLuckSpin(player: Player): boolean
 	local plot = PlotServiceServer:getPlayerPlot(player)
 	if not plot then
 		return false
 	end
-	return plot:complete99xLuckSpinReceipt()
+	return plot:complete5xLuckSpinReceipt()
 end
 local function grantFinishNow(player: Player): boolean
 	local plot = PlotServiceServer:getPlayerPlot(player)
@@ -45,11 +46,18 @@ local handlers = {
 	autoCollectSlime = grantAutoCollectSlime,
 	doubleCash = require(script.Parent.DoubleCash),
 	doubleSlimeDeposit = require(script.Parent.DoubleSlimeDeposit),
-	buySlime = require(script.Parent.BuySlime),
+	buyCommonSlime = createBuySlimeHandler("buyCommonSlime"),
+	buyUncommonSlime = createBuySlimeHandler("buyUncommonSlime"),
+	buyRareSlime = createBuySlimeHandler("buyRareSlime"),
+	buyEpicSlime = createBuySlimeHandler("buyEpicSlime"),
+	buyLegendarySlime = createBuySlimeHandler("buyLegendarySlime"),
+	buyExoticSlime = createBuySlimeHandler("buyExoticSlime"),
+	buySecretSlime = createBuySlimeHandler("buySecretSlime"),
 	buyUpgradeOne = grantUpgradeOne,
 	buyUpgradeTen = grantUpgradeTen,
-	luck99Spin = grant99xLuckSpin,
+	luck5Spin = grant5xLuckSpin,
 	finishNow = grantFinishNow,
+	skipRebirth = require(script.Parent.SkipRebirth),
 	doubleOfflineSlime = require(script.Parent.DoubleOfflineSlime),
 }
 

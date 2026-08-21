@@ -6,6 +6,7 @@ export type SlimeData = {
 	level: number,
 	upgradeInvestment: number,
 	playpenLevel: number,
+	purchasedWithRobux: boolean,
 }
 
 export type PendingBuySlime = {
@@ -14,6 +15,17 @@ export type PendingBuySlime = {
 	mutationId: string,
 	offerIndex: number,
 	playpenLevel: number,
+	productKey: string,
+}
+
+export type RolledSlimeOffer = {
+	slimeId: string,
+	mutationId: string,
+}
+
+export type RolledSlimeOffers = {
+	primary: RolledSlimeOffer,
+	secondary: RolledSlimeOffer,
 }
 
 export type PendingUpgradePurchase = {
@@ -29,8 +41,15 @@ export type PendingOfflineReward = {
 	awaitingDouble: boolean,
 }
 
+export type TutorialData = {
+	version: number,
+	step: string,
+	completed: boolean,
+	targetSlimeInstanceId: string,
+}
+
 return {
-	currency = 10,
+	currency = 0,
 	slimeCurrency = 0,
 	slimeQueue = 0,
 	uncollectedCash = 0,
@@ -38,6 +57,7 @@ return {
 	sellUpgradeLevel = 0,
 	slimeLuckLevel = 0,
 	cashMultiplierLevel = 0,
+	hasPurchasedBoardCashUpgrade = false,
 	rebirths = 0,
 	plotLevel = 1,
 	timePlayedSeconds = 0,
@@ -48,14 +68,20 @@ return {
 	soundEffectsVolume = -1,
 	ownedProducts = {} :: { [string]: boolean },
 	processedPurchaseIds = {} :: { [string]: boolean },
-	pending99xLuckSpins = 0,
+	pending5xLuckSpins = 0,
+	pending99xLuckSpins = 0, -- Legacy queued spins; migrated when the plot loads.
 	pendingBuySlime = {
 		active = false,
 		slimeId = "",
 		mutationId = "normal",
 		offerIndex = 1,
 		playpenLevel = 1,
+		productKey = "",
 	} :: PendingBuySlime,
+	rolledSlimeOffers = {
+		primary = { slimeId = "", mutationId = "normal" },
+		secondary = { slimeId = "", mutationId = "normal" },
+	} :: RolledSlimeOffers,
 	pendingUpgradePurchase = {
 		active = false,
 		upgradeType = "",
@@ -68,6 +94,12 @@ return {
 		offlineSeconds = 0,
 		awaitingDouble = false,
 	} :: PendingOfflineReward,
+	tutorial = {
+		version = 0,
+		step = "",
+		completed = false,
+		targetSlimeInstanceId = "",
+	} :: TutorialData,
 	slimes = {} :: { SlimeData },
 	discoveredSlimes = {} :: { [string]: boolean },
 	inventory = {},

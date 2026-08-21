@@ -729,15 +729,6 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		chance = 1e30,
 	},
 
-	Crystal = {
-		name = "Crystal Slime",
-		rarity = "Secret",
-		image = "rbxassetid://77779673121493",
-		cost = 4.52783954e9,
-		income = 2.26391977e8,
-		chance = 1e32,
-	},
-
 	rob = {
 		name = "Rob Slime",
 		rarity = "Secret",

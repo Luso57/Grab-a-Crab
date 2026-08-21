@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
+local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local InventoryWindow = require(ReplicatedStorage.Source.Features.Inventory.UI.Screens.InventoryWindow)
@@ -9,6 +10,7 @@ local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
+local INDEX_ICON = "rbxassetid://127110909372919"
 
 type MutationId = "normal" | "fire" | "blackMatter"
 
@@ -44,6 +46,9 @@ local function getIndexItems(mutationId: MutationId, discoveredSlimes: { [string
 			rarityColor = Slimes.getRarityColor(slime.rarity),
 			mutation = if mutationId == "normal" then nil else string.upper(mutation.name),
 			mutationColor = if mutationId == "normal" then nil else mutation.color,
+			production = if isDiscovered
+				then `{CompactNumber.format(slime.income * mutation.incomeMultiplier, 1)}/sec`
+				else nil,
 			locked = not isDiscovered,
 		})
 	end
@@ -187,6 +192,7 @@ local function IndexRoot(props: Props)
 		Window = React.createElement(InventoryWindow, {
 			OnClose = props.OnClose,
 			Title = "INDEX",
+			Icon = INDEX_ICON,
 			Items = getIndexItems(selectedMutation, discoveredSlimes),
 			SideContent = React.createElement("Frame", {
 				AnchorPoint = Vector2.new(0, 0.5),

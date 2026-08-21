@@ -24,6 +24,7 @@ local CASH_LEVEL_ATTRIBUTE = "CashMultiplierLevel"
 local CASH_NEXT_MULTIPLIER_ATTRIBUTE = "CashMultiplierNextMultiplier"
 local CASH_COST_ATTRIBUTE = "CashMultiplierCost"
 local CASH_TEN_COST_ATTRIBUTE = "CashMultiplierTenCost"
+local CASH_UPGRADE_PURCHASED_ATTRIBUTE = "HasPurchasedBoardCashUpgrade"
 
 type EntryProps = {
 	title: BasePart,
@@ -49,6 +50,28 @@ local function useNumberAttribute(instance: Instance, attributeName: string, fal
 			setValue(getNumberAttribute(instance, attributeName, fallback))
 		end)
 		setValue(getNumberAttribute(instance, attributeName, fallback))
+
+		return function()
+			connection:Disconnect()
+		end
+	end, { instance, attributeName, fallback })
+
+	return value
+end
+
+local function getBooleanAttribute(instance: Instance, attributeName: string, fallback: boolean): boolean
+	local value = instance:GetAttribute(attributeName)
+	return if type(value) == "boolean" then value else fallback
+end
+
+local function useBooleanAttribute(instance: Instance, attributeName: string, fallback: boolean): boolean
+	local value, setValue = React.useState(getBooleanAttribute(instance, attributeName, fallback))
+
+	React.useEffect(function()
+		local connection = instance:GetAttributeChangedSignal(attributeName):Connect(function()
+			setValue(getBooleanAttribute(instance, attributeName, fallback))
+		end)
+		setValue(getBooleanAttribute(instance, attributeName, fallback))
 
 		return function()
 			connection:Disconnect()
@@ -135,6 +158,7 @@ local function PurchaseButton(props: {
 	label: string,
 	cashCost: number,
 	canAfford: boolean,
+	showRobuxFallback: boolean,
 	robuxPrice: number,
 	enabled: boolean,
 	onActivated: (() -> ())?,
@@ -168,7 +192,7 @@ local function PurchaseButton(props: {
 		Button = e("TextButton", {
 			Active = props.onActivated ~= nil,
 			AutoButtonColor = props.enabled,
-			BackgroundColor3 = if not props.enabled
+			BackgroundColor3 = if not props.enabled or (not props.canAfford and not props.showRobuxFallback)
 				then Color3.fromRGB(92, 115, 94)
 				elseif props.canAfford
 				then Color3.fromRGB(46, 255, 63)
@@ -176,7 +200,9 @@ local function PurchaseButton(props: {
 			Font = Enum.Font.FredokaOne,
 			Position = UDim2.fromScale(0, 0.32),
 			Size = UDim2.fromScale(1, 0.6),
-			Text = if props.canAfford then formatCurrency(props.cashCost) else `R$ {props.robuxPrice}`,
+			Text = if props.canAfford or not props.showRobuxFallback
+				then formatCurrency(props.cashCost)
+				else `R$ {props.robuxPrice}`,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextStrokeTransparency = 1,
@@ -206,6 +232,7 @@ local function UpgradeRow(props: {
 	tenCost: number,
 	singleRobuxPrice: number,
 	tenRobuxPrice: number,
+	robuxFallbackUnlocked: boolean,
 	enabled: boolean,
 	singleEnabled: boolean,
 	tenEnabled: boolean,
@@ -253,6 +280,7 @@ local function UpgradeRow(props: {
 			label = "Buy 1",
 			cashCost = props.singleCost,
 			canAfford = props.singleEnabled,
+			showRobuxFallback = props.robuxFallbackUnlocked and not props.singleEnabled,
 			robuxPrice = props.singleRobuxPrice,
 			enabled = props.enabled,
 			onActivated = props.onBuyOne,
@@ -262,6 +290,7 @@ local function UpgradeRow(props: {
 			label = "Buy 10",
 			cashCost = props.tenCost,
 			canAfford = props.tenEnabled,
+			showRobuxFallback = props.robuxFallbackUnlocked and not props.tenEnabled,
 			robuxPrice = props.tenRobuxPrice,
 			enabled = props.enabled,
 			onActivated = props.onBuyTen,
@@ -315,6 +344,7 @@ local function UpgradeBoardEntry(props: EntryProps)
 	)
 	local canAffordSingleCash = props.canPurchase and playerCurrency >= cashCost
 	local canAffordTenCash = props.canPurchase and playerCurrency >= tenCashCost
+	local robuxFallbackUnlocked = useBooleanAttribute(props.plotModel, CASH_UPGRADE_PURCHASED_ATTRIBUTE, false)
 
 	return e(React.Fragment, nil, {
 		Title = e("SurfaceGui", {
@@ -355,6 +385,7 @@ local function UpgradeBoardEntry(props: EntryProps)
 				tenCost = tenLuckCost,
 				singleRobuxPrice = buyOneRobuxPrice,
 				tenRobuxPrice = buyTenRobuxPrice,
+				robuxFallbackUnlocked = robuxFallbackUnlocked,
 				enabled = props.canPurchase,
 				singleEnabled = canAffordSingleLuck,
 				tenEnabled = canAffordTenLuck,
@@ -371,6 +402,7 @@ local function UpgradeBoardEntry(props: EntryProps)
 				tenCost = tenCashCost,
 				singleRobuxPrice = buyOneRobuxPrice,
 				tenRobuxPrice = buyTenRobuxPrice,
+				robuxFallbackUnlocked = robuxFallbackUnlocked,
 				enabled = props.canPurchase,
 				singleEnabled = canAffordSingleCash,
 				tenEnabled = canAffordTenCash,
