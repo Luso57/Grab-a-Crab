@@ -5,6 +5,7 @@ local Data = require(ReplicatedStorage.Source.Game.Data).server
 local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local SellingConfig = require(ReplicatedStorage.Source.Features.Selling.SellingConfig)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 
 local QUEUE_ATTRIBUTE = "SlimeQueue"
@@ -147,6 +148,7 @@ local function collectCash(player: Player, plotModel: Model): number
 	local multiplier = UpgradeConfig.getCashMultiplier(playerData.cashMultiplierLevel())
 		* RebirthConfig.getRewardMultiplier(playerData.rebirths())
 		* ProductEntitlements.getCashMultiplier(playerData)
+		* SlimeMutations.getEventCashMultiplier(playerData.slimes())
 	local payout = math.floor(amount * multiplier)
 	playerData.uncollectedCash(0)
 	playerData.currency(function(previous)

@@ -143,18 +143,7 @@ function SlimeEventServiceServer.beginCountdown(self: SlimeEventServiceServer)
 	if wasInProgress then self.networker:fireAll("eventEnded") end
 end
 
-function SlimeEventServiceServer.rollEventMutation(self: SlimeEventServiceServer): string
-	local roll = self.random:NextNumber()
-	if roll < Config.EventMutationNormalChance then return "normal" end
-	if roll < Config.EventMutationNormalChance + Config.EventMutationFireChance then return "fire" end
-	return "blackMatter"
-end
-
-function SlimeEventServiceServer.spawnEventSlime(
-	self: SlimeEventServiceServer,
-	mutationId: string,
-	spawnRules: Config.EventSpawnRules
-): boolean
+function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer): boolean
 	local surface = getSpawnSurface()
 	if not surface then
 		warn("[SlimeEvent] Workspace.Hexagon.SpawnBoard.SpawnSlime is missing")
@@ -165,10 +154,7 @@ function SlimeEventServiceServer.spawnEventSlime(
 	local success, result = pcall(
 		EventSlimeSpawner.spawn,
 		surface,
-		spawnRules.minimumRarity,
-		spawnRules.maximumRarity,
-		self.random,
-		mutationId
+		self.random
 	)
 	if success then
 		self.eventSlime = result
@@ -183,9 +169,7 @@ end
 
 function SlimeEventServiceServer.startEvent(self: SlimeEventServiceServer)
 	if self.eventState ~= "countdown" then return end
-	local spawnRules = Config.getEventSpawnRules(#Players:GetPlayers())
-	local mutationId = if spawnRules.allowMutations then self:rollEventMutation() else "normal"
-	if not self:spawnEventSlime(mutationId, spawnRules) then
+	if not self:spawnEventSlime() then
 		self.eventStartsAt = os.clock() + Config.EventSpawnRetrySeconds
 		if self.billboard then self.billboard:setCountdown(Config.EventSpawnRetrySeconds) end
 		return

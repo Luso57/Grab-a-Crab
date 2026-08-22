@@ -12,7 +12,7 @@ local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
 local INDEX_ICON = "rbxassetid://127110909372919"
 
-type MutationId = "normal" | "fire" | "blackMatter" | "speed"
+type MutationId = "normal" | "fire" | "blackMatter" | "speed" | "event"
 
 export type Props = {
 	IsOpen: boolean,
@@ -39,6 +39,9 @@ local function getIndexItems(mutationId: MutationId, discoveredSlimes: { [string
 		if mutationId == "speed" and not SlimeMutations.isSpeedEligible(slimeId) then
 			continue
 		end
+		if mutationId == "event" and not SlimeMutations.isEventEligible(slimeId) then
+			continue
+		end
 		local slime = Slimes.getSlimeInfo(slimeId)
 		local isDiscovered = SlimeDiscovery.isDiscovered(discoveredSlimes, slimeId, mutationId)
 		table.insert(items, {
@@ -49,6 +52,7 @@ local function getIndexItems(mutationId: MutationId, discoveredSlimes: { [string
 			rarityColor = Slimes.getRarityColor(slime.rarity),
 			mutation = if mutationId == "normal"
 				then nil
+				elseif mutationId == "event" then "2x MONEY"
 				else mutation.billboardText or string.upper(mutation.name),
 			mutationColor = if mutationId == "normal" then nil else mutation.color,
 			production = if isDiscovered
@@ -93,6 +97,12 @@ local MUTATION_BUTTONS: { MutationButtonDefinition } = {
 		color = Color3.fromRGB(55, 170, 255),
 		darkColor = Color3.fromRGB(17, 64, 105),
 	},
+	{
+		id = "event",
+		label = "2x MONEY",
+		color = Color3.fromRGB(255, 55, 55),
+		darkColor = Color3.fromRGB(105, 17, 17),
+	},
 }
 
 local function MutationButton(props: {
@@ -111,7 +121,7 @@ local function MutationButton(props: {
 		BackgroundColor3 = backgroundColor,
 		BorderSizePixel = 0,
 		LayoutOrder = props.LayoutOrder,
-		Size = UDim2.fromScale(1, 0.21),
+		Size = UDim2.fromScale(1, 0.16),
 		Text = props.Label,
 		TextColor3 = Color3.new(1, 1, 1),
 		TextScaled = true,
@@ -185,7 +195,7 @@ local function IndexRoot(props: Props)
 	buttons.Layout = React.createElement("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		Padding = UDim.new(0.045, 0),
+		Padding = UDim.new(0.035, 0),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	})

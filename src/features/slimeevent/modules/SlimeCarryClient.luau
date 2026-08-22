@@ -53,13 +53,21 @@ function SlimeCarryClient.init()
 
 	local function bindPrompt()
 		local slime = findEventSlime()
-		if not slime or slime == boundSlime then return end
-		disconnectPrompt()
-		boundSlime = slime
+		if not slime or (slime == boundSlime and billboardEntryId ~= nil) then return end
 		local prompt = slime:FindFirstChild("CarryPrompt", true)
 		local highlight = slime:FindFirstChild("CarryHighlight")
-		if not prompt or not prompt:IsA("ProximityPrompt") or not highlight or not highlight:IsA("Highlight") then return end
 		local movementAttachment = slime:FindFirstChild("MovementAttachment", true)
+		if not prompt
+			or not prompt:IsA("ProximityPrompt")
+			or not highlight
+			or not highlight:IsA("Highlight")
+			or not movementAttachment
+			or not movementAttachment:IsA("Attachment")
+		then
+			return
+		end
+		disconnectPrompt()
+		boundSlime = slime
 		local rootPart = movementAttachment and movementAttachment.Parent
 		if rootPart and rootPart:IsA("BasePart") then
 			mutationEffect = SlimeMutationEffects.apply(slime, rootPart, slime:GetAttribute("MutationId"))
@@ -88,7 +96,13 @@ function SlimeCarryClient.init()
 	end
 
 	workspace.DescendantAdded:Connect(function(descendant)
-		if descendant.Name == "EventSlime" or descendant.Name == "CarryPrompt" then task.defer(bindPrompt) end
+		if descendant.Name == "EventSlime"
+			or descendant.Name == "CarryPrompt"
+			or descendant.Name == "CarryHighlight"
+			or descendant.Name == "MovementAttachment"
+		then
+			task.defer(bindPrompt)
+		end
 	end)
 	task.defer(bindPrompt)
 

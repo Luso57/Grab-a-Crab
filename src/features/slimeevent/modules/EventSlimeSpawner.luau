@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SlimeMovement = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMovement)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
 local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
 
@@ -29,29 +30,12 @@ export type EventSlimeHandle = typeof(setmetatable(
 
 local EventSlimeSpawner = {}
 
-local RARITY_RANK: { [string]: number } = {
-	Common = 1,
-	Uncommon = 2,
-	Rare = 3,
-	Epic = 4,
-	Legendary = 5,
-	Exotic = 6,
-	Secret = 7,
-}
-
-local function getEventSlimeId(random: Random, minimumRarity: string, maximumRarity: string): string
-	local minimumRank = RARITY_RANK[minimumRarity]
-	local maximumRank = RARITY_RANK[maximumRarity]
-	assert(minimumRank, `Invalid event minimum rarity: {minimumRarity}`)
-	assert(maximumRank, `Invalid event maximum rarity: {maximumRarity}`)
-	assert(minimumRank <= maximumRank, "Event minimum rarity cannot exceed maximum rarity")
-
+local function getEventSlimeId(random: Random): string
 	local eligibleIds = {}
 	local totalWeight = 0
 	for _, slimeId in Slimes.slimeIds do
 		local info = Slimes.getSlimeInfo(slimeId)
-		local rarityRank = RARITY_RANK[info.rarity] or 0
-		if rarityRank >= minimumRank and rarityRank <= maximumRank then
+		if SlimeMutations.isEventEligible(slimeId) then
 			local weight = 1 / info.chance
 			totalWeight += weight
 			table.insert(eligibleIds, { id = slimeId, weight = weight })
@@ -98,13 +82,12 @@ local function createMovementArea(surface: BasePart): BasePart
 end
 
 local function prepareSlimeModel(
-	slimeId: string,
-	mutationId: string
+	slimeId: string
 ): (Model, BasePart, Attachment, ProximityPrompt, Highlight)
 	local model = Slimes.getSlimeModel(slimeId)
 	model.Name = EVENT_SLIME_NAME
 	model:SetAttribute("SlimeId", slimeId)
-	model:SetAttribute("MutationId", mutationId)
+	model:SetAttribute("MutationId", "event")
 
 	local rootPart: BasePart? = nil
 	for _, descendant in model:GetDescendants() do
@@ -156,6 +139,7 @@ function EventSlimeHandle.stopMovement(self: EventSlimeHandle)
 end
 
 function EventSlimeHandle.clearCarryAttachment(self: EventSlimeHandle)
+	local carriedPivot = if self.carryRoot then self.carryRoot.CFrame else nil
 	if self.carryWeld then
 		self.carryWeld:Destroy()
 		self.carryWeld = nil
@@ -173,15 +157,18 @@ function EventSlimeHandle.clearCarryAttachment(self: EventSlimeHandle)
 		self.carryRoot:Destroy()
 		self.carryRoot = nil
 	end
+	if carriedPivot and not self.model.PrimaryPart then self.model.WorldPivot = carriedPivot end
 end
 
-function EventSlimeHandle.startMovement(self: EventSlimeHandle)
+function EventSlimeHandle.startMovement(self: EventSlimeHandle, startAtCenter: boolean?)
+	self:stopMovement()
 	self:clearCarryAttachment()
 	self.model:SetAttribute(Config.CarrierAttribute, 0)
 	self.prompt.ActionText = "Pick Up"
 	self.prompt.Enabled = true
-	self:stopMovement()
-	self.movement = SlimeMovement.play(self.model, self.movementArea, self.movementAttachment)
+	self.movement = SlimeMovement.play(self.model, self.movementArea, self.movementAttachment, {
+		startAtCenter = startAtCenter,
+	})
 end
 
 function EventSlimeHandle.carry(self: EventSlimeHandle, player: Player, character: Model)
@@ -240,7 +227,7 @@ function EventSlimeHandle.carry(self: EventSlimeHandle, player: Player, characte
 end
 
 function EventSlimeHandle.returnToBoard(self: EventSlimeHandle)
-	self:startMovement()
+	self:startMovement(true)
 end
 
 function EventSlimeHandle.destroy(self: EventSlimeHandle)
@@ -252,18 +239,15 @@ end
 
 function EventSlimeSpawner.spawn(
 	surface: BasePart,
-	minimumRarity: string,
-	maximumRarity: string,
-	random: Random?,
-	mutationId: string?
+	random: Random?
 ): EventSlimeHandle
 	local parent = surface.Parent
 	local existingSlime = parent:FindFirstChild(EVENT_SLIME_NAME)
 	if existingSlime then existingSlime:Destroy() end
 
 	local movementArea = createMovementArea(surface)
-	local slimeId = getEventSlimeId(random or Random.new(), minimumRarity, maximumRarity)
-	local model, _, movementAttachment, prompt, highlight = prepareSlimeModel(slimeId, mutationId or "normal")
+	local slimeId = getEventSlimeId(random or Random.new())
+	local model, _, movementAttachment, prompt, highlight = prepareSlimeModel(slimeId)
 	local movement = SlimeMovement.play(model, movementArea, movementAttachment)
 
 	return setmetatable({

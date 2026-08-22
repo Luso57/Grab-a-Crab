@@ -4,6 +4,7 @@ local React = require(ReplicatedStorage.Packages.React)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
 local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
+local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local UpgradeConfig = require(ReplicatedStorage.Source.Features.Upgrades.UpgradeConfig)
 
 local CASH_ICON = "rbxthumb://type=Asset&id=15040641396&w=420&h=420"
@@ -65,18 +66,23 @@ local function MultiplierBadges()
 	local cashLevel, setCashLevel = React.useState(PlayerData.cashMultiplierLevel())
 	local rebirths, setRebirths = React.useState(PlayerData.rebirths())
 	local ownedProducts, setOwnedProducts = React.useState(PlayerData.ownedProducts())
+	local ownedSlimes, setOwnedSlimes = React.useState(table.clone(PlayerData.slimes()))
 
 	React.useEffect(function()
 		local luckConnection = PlayerData.slimeLuckLevel.Changed(setLuckLevel)
 		local cashConnection = PlayerData.cashMultiplierLevel.Changed(setCashLevel)
 		local rebirthConnection = PlayerData.rebirths.Changed(setRebirths)
 		local ownedProductsConnection = PlayerData.ownedProducts.Changed(setOwnedProducts)
+		local ownedSlimesConnection = PlayerData.slimes.Changed(function(nextSlimes)
+			setOwnedSlimes(table.clone(nextSlimes))
+		end)
 
 		return function()
 			luckConnection()
 			cashConnection()
 			rebirthConnection()
 			ownedProductsConnection()
+			ownedSlimesConnection()
 		end
 	end, {})
 
@@ -87,6 +93,7 @@ local function MultiplierBadges()
 	local cashMultiplier = UpgradeConfig.getCashMultiplier(cashLevel)
 		* rebirthMultiplier
 		* ProductEntitlements.getCashMultiplierFromOwnedProducts(ownedProducts)
+		* SlimeMutations.getEventCashMultiplier(ownedSlimes)
 
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0, 1),

@@ -37,9 +37,14 @@ export type MovementHandle = typeof(setmetatable(
 		connection: RBXScriptConnection?,
 		jumpSound: Sound,
 		cancelled: boolean,
+		restorePose: () -> (),
 	},
 	MovementHandle
 ))
+
+export type PlayOptions = {
+	startAtCenter: boolean?,
+}
 
 local SlimeMovement = {}
 
@@ -105,6 +110,13 @@ local function getRandomPlaypenPivot(playpenBase: BasePart, placement: PlaypenPl
 	return targetBoundingBox * placement.boundingBoxToPivot
 end
 
+local function getCenterPlaypenPivot(playpenBase: BasePart, placement: PlaypenPlacement): CFrame
+	local y = playpenBase.Size.Y / 2 + placement.boundingBoxSize.Y / 2
+	local targetBoundingBox = playpenBase.CFrame * CFrame.new(0, y, 0)
+
+	return targetBoundingBox * placement.boundingBoxToPivot
+end
+
 local function getFacingPivot(currentPivot: CFrame, targetPosition: Vector3, upVector: Vector3): CFrame
 	local direction = targetPosition - currentPivot.Position
 	local flatDirection = direction - upVector * direction:Dot(upVector)
@@ -131,13 +143,21 @@ function MovementHandle.cancel(self: MovementHandle)
 		self.connection:Disconnect()
 		self.connection = nil
 	end
+	self.restorePose()
 	self.jumpSound:Destroy()
 end
 
-function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment: Attachment): MovementHandle
+function SlimeMovement.play(
+	model: Model,
+	playpenBase: BasePart,
+	statsAttachment: Attachment,
+	options: PlayOptions?
+): MovementHandle
 	local random = Random.new()
 	local placement = getPlaypenPlacement(model)
-	local spawnPivot = getRandomPlaypenPivot(playpenBase, placement, random)
+	local spawnPivot = if options and options.startAtCenter
+		then getCenterPlaypenPivot(playpenBase, placement)
+		else getRandomPlaypenPivot(playpenBase, placement, random)
 	model:PivotTo(spawnPivot)
 	model.Parent = playpenBase.Parent
 
@@ -152,14 +172,19 @@ function SlimeMovement.play(model: Model, playpenBase: BasePart, statsAttachment
 	jumpSound.RollOffMaxDistance = JUMP_SOUND_MAX_DISTANCE
 	jumpSound.Parent = statsAttachment
 	local hopHeight = math.clamp(placement.boundingBoxSize.Y * 0.18, 0.3, 0.75)
+	local logicalPivot = spawnPivot
 	local handle = setmetatable({
 		connection = nil,
 		jumpSound = jumpSound,
 		cancelled = false,
+		restorePose = function()
+			applyDeformation(deformParts, logicalPivot, 1, 1)
+			statsAttachment.Position = statsAttachmentPosition
+			if not model.PrimaryPart then model.WorldPivot = logicalPivot end
+		end,
 	}, MovementHandle)
 
 	local state = "paused"
-	local logicalPivot = spawnPivot
 	local phaseStartPivot = spawnPivot
 	local phaseTargetPivot = spawnPivot
 	local destinationPosition = spawnPivot.Position
