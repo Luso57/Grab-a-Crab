@@ -44,6 +44,7 @@ local COLLECTION_VERTICAL_MARGIN = 10
 local SLIMES_PER_PLAYPEN = 7
 local PAID_LUCK_SPIN_MULTIPLIER = 5
 local ROBUX_SLIME_INSTANCE_PREFIX = "robux-buy-slime:"
+local BASE_CHARACTER_WALK_SPEED = 18
 
 local function getSafeCurrency(value: number): number
 	if value ~= value or value == math.huge or value == -math.huge then
@@ -147,6 +148,7 @@ function PlotServer.new(player: Player, plotSpawn: PlotSpawn): Plot
 
 		local plotModel = PlotModel:Clone()
 		self.plotModel = plotModel
+		plotModel.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 		plotModel:PivotTo(plotSpawn.part.CFrame)
 		self.levelTemplates = stagePlotLevels(plotModel, player, plotSpawn.index)
 		plotModel.Parent = workspace
@@ -520,6 +522,10 @@ function PlotServer.charInit(self: Plot)
 			return
 		end
 		character:PivotTo(self.plotModel:GetPivot() * CHAR_SPAWN_OFFSET)
+		local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+		if humanoid and humanoid:IsA("Humanoid") and self.player.Character == character then
+			self:refreshPlayerWalkSpeed()
+		end
 	end
 
 	local character = self.player.Character
@@ -528,6 +534,22 @@ function PlotServer.charInit(self: Plot)
 	end
 
 	self.characterConnection = self.player.CharacterAdded:Connect(placeCharacter)
+end
+
+function PlotServer.refreshPlayerWalkSpeed(self: Plot)
+	local playerData = Data[self.player]
+	if not playerData then return end
+
+	local speedBonus = 0
+	for _, slimeData in playerData.slimes() do
+		speedBonus += SlimeMutations.getPlayerSpeedBonus(slimeData.mutationId)
+	end
+
+	local character = self.player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		humanoid.WalkSpeed = BASE_CHARACTER_WALK_SPEED + speedBonus
+	end
 end
 
 local function clearPendingBuySlime(playerData)
@@ -621,7 +643,7 @@ function PlotServer.performRoll(self: Plot, player: Player, isPaidLuckSpin: bool
 		local slimeId = if needsFreeStarter
 			then Slimes.getRandomFreeSlimeId(self.random)
 			else Slimes.getLuckyRandomSlimeId(luckMultiplier, self.random)
-		local mutationId = SlimeMutations.roll(self.random)
+		local mutationId = SlimeMutations.roll(slimeId, self.random)
 		local animationSeed = self.random:NextInteger(1, 2_147_483_647)
 		return slimeId, mutationId, animationSeed
 	end
@@ -726,9 +748,6 @@ function PlotServer.rollSlime(self: Plot, player: Player): boolean
 	return rolled
 end
 function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): boolean
-	if self.paidRandomItemsRestricted then
-		return false
-	end
 	if not self:isOwner(player) then
 		return false
 	end
@@ -750,7 +769,7 @@ function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): b
 	end
 	local existingPending = playerData.pendingBuySlime()
 	if existingPending.active then
-		if Slimes.isValidSlimeId(existingPending.slimeId) then
+		if not self.paidRandomItemsRestricted and Slimes.isValidSlimeId(existingPending.slimeId) then
 			local pendingRarity = Slimes.getSlimeInfo(existingPending.slimeId).rarity
 			local pendingProductKey = SlimePurchaseProducts.getProductKey(pendingRarity)
 			if pendingProductKey then
@@ -775,6 +794,9 @@ function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): b
 			return false
 		end
 		self.networker:fire(player, "insufficientMoney")
+		if self.paidRandomItemsRestricted then
+			return false
+		end
 		playerData.pendingBuySlime({
 			active = true,
 			slimeId = slimeId,
@@ -800,6 +822,7 @@ function PlotServer.buySlime(self: Plot, player: Player, offerIndex: number?): b
 
 	playerData.currency(currency - cost)
 	playerData.slimes.Insert(slimeData)
+	self:refreshPlayerWalkSpeed()
 	local discoveryKey = SlimeDiscovery.getKey(slimeId, mutationId)
 	local discoveredSlimes = playerData.discoveredSlimes()
 	if discoveredSlimes[discoveryKey] ~= true then
@@ -889,6 +912,7 @@ function PlotServer.completeBuySlimeReceipt(self: Plot, purchaseId: string, purc
 		purchasedWithRobux = true,
 	}
 	playerData.slimes.Insert(slimeData)
+	self:refreshPlayerWalkSpeed()
 
 	local discoveryKey = SlimeDiscovery.getKey(pending.slimeId, mutationId)
 	local discoveredSlimes = playerData.discoveredSlimes()
@@ -950,6 +974,7 @@ function PlotServer.grantSlime(self: Plot, slimeId: string, mutationId: string):
 		purchasedWithRobux = false,
 	}
 	playerData.slimes.Insert(slimeData)
+	self:refreshPlayerWalkSpeed()
 
 	local discoveryKey = SlimeDiscovery.getKey(slimeId, safeMutationId)
 	local discoveredSlimes = playerData.discoveredSlimes()
@@ -1161,6 +1186,7 @@ function PlotServer.sellSlime(self: Plot, player: Player, instanceId: string): b
 			end)
 		end
 		playerData.slimes.Remove(index)
+		self:refreshPlayerWalkSpeed()
 		self.lastCollectionAt[instanceId] = nil
 		self.slimeManagementLocked = false
 		self.networker:fireAll("slimeSold", instanceId)
@@ -1215,6 +1241,7 @@ function PlotServer.rebirth(self: Plot, player: Player): boolean
 		end
 	end
 	playerData.slimes(preservedSlimes)
+	self:refreshPlayerWalkSpeed()
 	self.activeRollSeed = nil
 	self.currentSlimeId = nil
 	self.currentMutationId = nil

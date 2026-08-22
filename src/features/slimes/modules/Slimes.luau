@@ -693,6 +693,42 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		chance = 1e18,
 	},
 
+	PenguinSlime = {
+		name = "Penguin Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://129004740062304",
+		cost = 6.8e8,
+		income = 3.4e7,
+		chance = 3e14,
+	},
+
+	LionSlime = {
+		name = "Lion Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://82479477616283",
+		cost = 8.5e8,
+		income = 4.25e7,
+		chance = 3e15,
+	},
+
+	SharkSlime = {
+		name = "Shark Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://133014582643752",
+		cost = 1.06e9,
+		income = 5.3e7,
+		chance = 3e16,
+	},
+
+	OwlSlime = {
+		name = "Owl Slime",
+		rarity = "Legendary",
+		image = "rbxassetid://133768152844503",
+		cost = 1.326e9,
+		income = 6.63e7,
+		chance = 3e17,
+	},
+
 	AncientRunicSlime = {
 		name = "Ancient Runic Slime",
 		rarity = "Exotic",
@@ -729,6 +765,42 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		chance = 1e30,
 	},
 
+	CyclopsSlime = {
+		name = "Cyclops Slime",
+		rarity = "Exotic",
+		image = "rbxassetid://137504740765993",
+		cost = 2.05e9,
+		income = 1.025e8,
+		chance = 3e21,
+	},
+
+	CobraSlime = {
+		name = "Cobra Slime",
+		rarity = "Exotic",
+		image = "rbxassetid://116858123677282",
+		cost = 2.58e9,
+		income = 1.29e8,
+		chance = 3e24,
+	},
+
+	ElephantSlime = {
+		name = "Elephant Slime",
+		rarity = "Exotic",
+		image = "rbxassetid://96873057758755",
+		cost = 3.22e9,
+		income = 1.61e8,
+		chance = 3e27,
+	},
+
+	DeerSlime = {
+		name = "Deer Slime",
+		rarity = "Exotic",
+		image = "rbxassetid://70598034882829",
+		cost = 4.03e9,
+		income = 2.015e8,
+		chance = 3e30,
+	},
+
 	rob = {
 		name = "Rob Slime",
 		rarity = "Secret",
@@ -736,6 +808,33 @@ local slimeDefinitions: { [string]: SlimeDefinition } = {
 		cost = 5.65979942e9,
 		income = 2.82989971e8,
 		chance = 9.5e35,
+	},
+
+	KitsuneSlime = {
+		name = "Kitsune Slime",
+		rarity = "Secret",
+		image = "rbxassetid://96467909539021",
+		cost = 6.287e9,
+		income = 3.1435e8,
+		chance = 1e36,
+	},
+
+	GumballSlime = {
+		name = "Gumball Slime",
+		rarity = "Secret",
+		image = "rbxassetid://131050338883595",
+		cost = 7e9,
+		income = 3.5e8,
+		chance = 1e39,
+	},
+
+	SnowglobeSlime = {
+		name = "Snowglobe Slime",
+		rarity = "Secret",
+		image = "rbxassetid://80693845783356",
+		cost = 7.8e9,
+		income = 3.9e8,
+		chance = 1e42,
 	},
 
 }

@@ -52,10 +52,11 @@ local function createPurchaseStats(slimeInfo: Slimes.SlimeInfo, formattedOdds: s
 	local rarityColor = Slimes.getRarityColor(slimeInfo.rarity)
 	local mutation = SlimeMutations.get(mutationId)
 	local isMutated = mutation.id ~= "normal"
-
 	return createStatsFrame(if isMutated then 162 else 132, {
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
-		Mutation = if isMutated then createStatLabel(string.upper(mutation.name), mutation.color, 2) else nil,
+		Mutation = if isMutated
+			then createStatLabel(mutation.billboardText or string.upper(mutation.name), mutation.color, 2)
+			else nil,
 		Odds = createStatLabel(`1 in {formattedOdds}`, rarityColor, 3),
 		Income = createStatLabel(
 			`{CompactNumber.format(slimeInfo.income * mutation.incomeMultiplier, 1)} Slime/s`,
@@ -85,6 +86,7 @@ local function createPlaypenStats(
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1, visualScale),
 		Mutation = if isMutated
 			then createStatLabel(
+				mutation.billboardText or
 				`{string.upper(mutation.name)} • {mutation.incomeMultiplier}x`,
 				mutation.color,
 				2,
@@ -115,6 +117,7 @@ local function createEventStats(slimeInfo: Slimes.SlimeInfo, mutationId: string)
 		Name = createStatLabel(slimeInfo.name, Color3.new(1, 1, 1), 1),
 		Mutation = if isMutated
 			then createStatLabel(
+				mutation.billboardText or
 				`{string.upper(mutation.name)} • {mutation.incomeMultiplier}x`,
 				mutation.color,
 				2
@@ -137,7 +140,6 @@ local function SlimeBillboards()
 	for entryId, entry in activeSlimes do
 		local slimeInfo = Slimes.getSlimeInfo(entry.slimeId)
 		local formattedOdds = Slimes.getFormattedSlimeOdds(entry.slimeId)
-
 		billboards[entryId] = e("BillboardGui", {
 			Adornee = entry.adornee,
 			AlwaysOnTop = true,

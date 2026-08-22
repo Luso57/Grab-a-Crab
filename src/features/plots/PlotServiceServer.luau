@@ -43,6 +43,7 @@ function PlotServiceServer.init(self: PlotServiceServer)
 
 		local plotSpawn = instance :: BasePart
 		local fakePlot: Model & any = ReplicatedStorage.Assets.Misc.Plot:Clone()
+		fakePlot.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 		fakePlot:PivotTo(plotSpawn.CFrame)
 		local fakeLevels = fakePlot:FindFirstChild("Levels")
 		if fakeLevels then fakeLevels:Destroy() end

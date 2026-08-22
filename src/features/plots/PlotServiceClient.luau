@@ -16,6 +16,9 @@ export type PlotOwnerEntry = {
 type Atom<T> = Charm.Atom<T>
 
 local plotOwners: Atom<{ [number]: PlotOwnerEntry }> = Charm.atom({})
+local PLOT_RESYNC_DELAY = 1
+local MAX_PLOT_RESYNC_ATTEMPTS = 5
+local REQUEST_PLOTS_EVENT = "requestPlots"
 
 local PlotServiceClient = {
 	initialized = false,
@@ -32,8 +35,38 @@ function PlotServiceClient.init(self: PlotServiceClient)
 	self.initializingPlots = {}
 	self.pendingPlotData = {}
 	self.plotGenerations = {}
+	self.plotRetryTokens = {}
+	self.plotRetryScheduled = {}
 	self.networker = Networker.client.new("PlotService", self)
-	self.networker:fire("requestPlots")
+	self.networker:fire(REQUEST_PLOTS_EVENT)
+end
+
+function PlotServiceClient.cancelPlotResync(self: PlotServiceClient, index: number)
+	self.plotRetryTokens[index] = (self.plotRetryTokens[index] or 0) + 1
+	self.plotRetryScheduled[index] = nil
+end
+
+function PlotServiceClient.schedulePlotResync(self: PlotServiceClient, index: number, generation: number)
+	if self.plotRetryScheduled[index] then return end
+
+	local token = (self.plotRetryTokens[index] or 0) + 1
+	self.plotRetryTokens[index] = token
+	self.plotRetryScheduled[index] = true
+
+	task.spawn(function()
+		for _ = 1, MAX_PLOT_RESYNC_ATTEMPTS do
+			task.wait(PLOT_RESYNC_DELAY)
+			if self.plotRetryTokens[index] ~= token
+				or (self.plotGenerations[index] or 0) ~= generation
+			then
+				return
+			end
+			self.networker:fire(REQUEST_PLOTS_EVENT)
+		end
+		if self.plotRetryTokens[index] == token then
+			self.plotRetryScheduled[index] = nil
+		end
+	end)
 end
 
 function PlotServiceClient.removePlotOwner(self: PlotServiceClient, index: number)
@@ -82,13 +115,22 @@ end
 
 function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes.PlotData)
 	local index = plotData.index
+	local generation = self.plotGenerations[index] or 0
+	local plotModel: any = plotData.plotModel
+	if typeof(plotModel) ~= "Instance"
+		or not plotModel:IsA("Model")
+		or not plotModel:IsDescendantOf(workspace)
+	then
+		self:schedulePlotResync(index, generation)
+		return
+	end
+
 	if self.initializingPlots[index] then
 		self.pendingPlotData[index] = plotData
 		return
 	end
 
 	self.initializingPlots[index] = true
-	local generation = self.plotGenerations[index] or 0
 	local success, result = xpcall(function()
 		local existingPlot = self.plots[index]
 		if existingPlot and existingPlot.plotModel == plotData.plotModel then
@@ -123,8 +165,12 @@ function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes
 			self.plots[index] = plot
 			self:registerPlotOwner(plotData)
 		end
+		if (self.plotGenerations[index] or 0) == generation then
+			self:cancelPlotResync(index)
+		end
 	else
 		warn(`Failed to initialize plot {index}: {result}`)
+		self:schedulePlotResync(index, generation)
 	end
 
 	self.initializingPlots[index] = nil
@@ -151,6 +197,7 @@ end
 
 function PlotServiceClient.removePlot(self: PlotServiceClient, index: number)
 	self.plotGenerations[index] = (self.plotGenerations[index] or 0) + 1
+	self:cancelPlotResync(index)
 	self.pendingPlotData[index] = nil
 	local plot = self.plots[index]
 	self:removePlotOwner(index)
@@ -167,6 +214,8 @@ type PlotServiceClient = typeof(PlotServiceClient) & {
 	initializingPlots: { [number]: boolean },
 	pendingPlotData: { [number]: PlotTypes.PlotData },
 	plotGenerations: { [number]: number },
+	plotRetryTokens: { [number]: number },
+	plotRetryScheduled: { [number]: boolean },
 }
 
 return PlotServiceClient :: PlotServiceClient

@@ -12,7 +12,7 @@ local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
 local INDEX_ICON = "rbxassetid://127110909372919"
 
-type MutationId = "normal" | "fire" | "blackMatter"
+type MutationId = "normal" | "fire" | "blackMatter" | "speed"
 
 export type Props = {
 	IsOpen: boolean,
@@ -36,6 +36,9 @@ local function getIndexItems(mutationId: MutationId, discoveredSlimes: { [string
 
 	local items = table.create(#slimeIds)
 	for _, slimeId in slimeIds do
+		if mutationId == "speed" and not SlimeMutations.isSpeedEligible(slimeId) then
+			continue
+		end
 		local slime = Slimes.getSlimeInfo(slimeId)
 		local isDiscovered = SlimeDiscovery.isDiscovered(discoveredSlimes, slimeId, mutationId)
 		table.insert(items, {
@@ -44,7 +47,9 @@ local function getIndexItems(mutationId: MutationId, discoveredSlimes: { [string
 			image = slime.image,
 			rarity = slime.rarity,
 			rarityColor = Slimes.getRarityColor(slime.rarity),
-			mutation = if mutationId == "normal" then nil else string.upper(mutation.name),
+			mutation = if mutationId == "normal"
+				then nil
+				else mutation.billboardText or string.upper(mutation.name),
 			mutationColor = if mutationId == "normal" then nil else mutation.color,
 			production = if isDiscovered
 				then `{CompactNumber.format(slime.income * mutation.incomeMultiplier, 1)}/sec`
@@ -82,6 +87,12 @@ local MUTATION_BUTTONS: { MutationButtonDefinition } = {
 		color = Color3.fromRGB(178, 63, 255),
 		darkColor = Color3.fromRGB(67, 22, 100),
 	},
+	{
+		id = "speed",
+		label = "SPEED",
+		color = Color3.fromRGB(55, 170, 255),
+		darkColor = Color3.fromRGB(17, 64, 105),
+	},
 }
 
 local function MutationButton(props: {
@@ -100,7 +111,7 @@ local function MutationButton(props: {
 		BackgroundColor3 = backgroundColor,
 		BorderSizePixel = 0,
 		LayoutOrder = props.LayoutOrder,
-		Size = UDim2.fromScale(1, 0.29),
+		Size = UDim2.fromScale(1, 0.21),
 		Text = props.Label,
 		TextColor3 = Color3.new(1, 1, 1),
 		TextScaled = true,
@@ -179,8 +190,8 @@ local function IndexRoot(props: Props)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	})
 	buttons.SizeConstraint = React.createElement("UISizeConstraint", {
-		MaxSize = Vector2.new(135, 230),
-		MinSize = Vector2.new(90, 165),
+		MaxSize = Vector2.new(135, 285),
+		MinSize = Vector2.new(90, 210),
 	})
 
 	return React.createElement("Frame", {

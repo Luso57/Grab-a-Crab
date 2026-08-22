@@ -17,7 +17,7 @@ local LUCK_SPIN_ICON = "rbxthumb://type=Asset&id=129360611840213&w=420&h=420"
 local PAD_DISPLAYS: { [string]: { title: string, price: string, productKey: ProductKey? } } = {
 	Buy2xSlime = {
 		title = "x2 Slimes",
-		price = "R$ 499",
+		price = "R$ 99",
 		productKey = "doubleSlimeDeposit",
 	},
 	BuyAutoCollect = {
