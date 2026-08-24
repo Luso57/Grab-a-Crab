@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local Config = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
 local SlimeSlice = require(ReplicatedStorage.Source.Features.Slimes.SlimeSlice)
 local SlimeMutationEffects = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutationEffects)
 
@@ -119,3 +119,4 @@ function SlimeCarryClient.init()
 end
 
 return SlimeCarryClient
+

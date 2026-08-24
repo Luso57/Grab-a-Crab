@@ -33,7 +33,7 @@ local function BottomBar()
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		Image = "rbxthumb://type=Asset&id=137154481767301&w=420&h=420",
-		Position = UDim2.new(0.5, 0, 1, -5),
+		Position = UDim2.new(0.5, 0, 1, if isPhone then 7 else -5),
 		ScaleType = Enum.ScaleType.Fit,
 		Size = UDim2.new(100, 0, 100, 0),
 	}, {

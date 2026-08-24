@@ -86,7 +86,7 @@ local function SideBar(props: Props)
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.new(1, if isPhone then -4 else -22, 0.5, 0),
-		Size = UDim2.new(0.082, 0, BASE_HEIGHT_SCALE * buttonCountScale, 0),
+		Size = UDim2.new(if isPhone then 0.07 else 0.082, 0, BASE_HEIGHT_SCALE * buttonCountScale, 0),
 	}, {
 		Layout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -100,8 +100,12 @@ local function SideBar(props: Props)
 			PaddingTop = UDim.new(0, 8),
 		}),
 		SizeConstraint = React.createElement("UISizeConstraint", {
-			MaxSize = Vector2.new(96, math.round(BASE_MAX_HEIGHT * buttonCountScale)),
-			MinSize = Vector2.new(64, math.round(BASE_MIN_HEIGHT * buttonCountScale)),
+			MaxSize = if isPhone
+				then Vector2.new(82, math.round(BASE_MAX_HEIGHT * buttonCountScale * 0.85))
+				else Vector2.new(96, math.round(BASE_MAX_HEIGHT * buttonCountScale)),
+			MinSize = if isPhone
+				then Vector2.new(54, math.round(BASE_MIN_HEIGHT * buttonCountScale * 0.85))
+				else Vector2.new(64, math.round(BASE_MIN_HEIGHT * buttonCountScale)),
 		}),
 	}, buttons)
 end

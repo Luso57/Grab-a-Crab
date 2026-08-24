@@ -61,7 +61,7 @@ function getVirtualPath(filepath) {
 }
 
 const tree = {
-  emitLegacyScripts: false,
+  emitLegacyScripts: true,
   name: "RNG",
   tree: {
     $className: "DataModel",

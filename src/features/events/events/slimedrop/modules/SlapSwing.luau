@@ -1,5 +1,5 @@
 local RunService = game:GetService("RunService")
-local Config = require(script.Parent.Parent.SlimeEventConfig)
+local Config = require(script.Parent.Parent.SlimeDropConfig)
 
 local SlapSwing = {}
 local activeSwings: { [Model]: number } = {}
@@ -62,3 +62,4 @@ RunService.PreSimulation:Connect(function()
 end)
 
 return SlapSwing
+

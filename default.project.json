@@ -1,5 +1,5 @@
 {
-  "emitLegacyScripts": false,
+  "emitLegacyScripts": true,
   "name": "RNG",
   "tree": {
     "$className": "DataModel",
@@ -18,6 +18,9 @@
             },
             "Hud": {
               "$className": "Folder",
+              "AutoCollectSlimePromo": {
+                "$path": "src/features/app/hud/AutoCollectSlimePromo.luau"
+              },
               "BottomBar": {
                 "$path": "src/features/app/hud/BottomBar.luau"
               },
@@ -72,6 +75,57 @@
             },
             "UISounds": {
               "$path": "src/features/app/UISounds.luau"
+            }
+          },
+          "Events": {
+            "$className": "Folder",
+            "EventConfig": {
+              "$path": "src/features/events/EventConfig.luau"
+            },
+            "Events": {
+              "$className": "Folder",
+              "Slimedrop": {
+                "$className": "Folder",
+                "Modules": {
+                  "$className": "Folder",
+                  "SlapSwing": {
+                    "$path": "src/features/events/events/slimedrop/modules/SlapSwing.luau"
+                  },
+                  "SlapToolClient": {
+                    "$path": "src/features/events/events/slimedrop/modules/SlapToolClient.luau"
+                  },
+                  "SlimeCarryClient": {
+                    "$path": "src/features/events/events/slimedrop/modules/SlimeCarryClient.luau"
+                  },
+                  "SlimeDropSpawner": {
+                    "$path": "src/features/events/events/slimedrop/modules/SlimeDropSpawner.luau"
+                  }
+                },
+                "SlimeDropClient": {
+                  "$path": "src/features/events/events/slimedrop/SlimeDropClient.luau"
+                },
+                "SlimeDropConfig": {
+                  "$path": "src/features/events/events/slimedrop/SlimeDropConfig.luau"
+                }
+              }
+            },
+            "EventServiceClient": {
+              "$path": "src/features/events/EventServiceClient.luau"
+            },
+            "EventTypes": {
+              "$path": "src/features/events/EventTypes.luau"
+            },
+            "Modules": {
+              "$className": "Folder",
+              "EventBillboard": {
+                "$path": "src/features/events/modules/EventBillboard.luau"
+              }
+            },
+            "Registry": {
+              "$className": "Folder",
+              "EventRegistryClient": {
+                "$path": "src/features/events/registry/EventRegistryClient.luau"
+              }
             }
           },
           "Index": {
@@ -362,33 +416,6 @@
               }
             }
           },
-          "Slimeevent": {
-            "$className": "Folder",
-            "Modules": {
-              "$className": "Folder",
-              "EventBillboard": {
-                "$path": "src/features/slimeevent/modules/EventBillboard.luau"
-              },
-              "EventSlimeSpawner": {
-                "$path": "src/features/slimeevent/modules/EventSlimeSpawner.luau"
-              },
-              "SlapSwing": {
-                "$path": "src/features/slimeevent/modules/SlapSwing.luau"
-              },
-              "SlapToolClient": {
-                "$path": "src/features/slimeevent/modules/SlapToolClient.luau"
-              },
-              "SlimeCarryClient": {
-                "$path": "src/features/slimeevent/modules/SlimeCarryClient.luau"
-              }
-            },
-            "SlimeEventConfig": {
-              "$path": "src/features/slimeevent/SlimeEventConfig.luau"
-            },
-            "SlimeEventServiceClient": {
-              "$path": "src/features/slimeevent/SlimeEventServiceClient.luau"
-            }
-          },
           "Slimes": {
             "$className": "Folder",
             "Classes": {
@@ -546,6 +573,33 @@
     "ServerScriptService": {
       "Features": {
         "$className": "Folder",
+        "Events": {
+          "$className": "Folder",
+          "Events": {
+            "$className": "Folder",
+            "Slimedrop": {
+              "$className": "Folder",
+              "Modules": {
+                "$className": "Folder",
+                "RagdollServer": {
+                  "$path": "src/features/events/events/slimedrop/modules/RagdollServer.luau"
+                }
+              },
+              "SlimeDropServer": {
+                "$path": "src/features/events/events/slimedrop/SlimeDropServer.luau"
+              }
+            }
+          },
+          "EventServiceServer": {
+            "$path": "src/features/events/EventServiceServer.luau"
+          },
+          "Registry": {
+            "$className": "Folder",
+            "EventRegistryServer": {
+              "$path": "src/features/events/registry/EventRegistryServer.luau"
+            }
+          }
+        },
         "Inventory": {
           "$className": "Folder",
           "InventoryServiceServer": {
@@ -634,18 +688,6 @@
           "$className": "Folder",
           "SettingsServiceServer": {
             "$path": "src/features/settings/SettingsServiceServer.luau"
-          }
-        },
-        "Slimeevent": {
-          "$className": "Folder",
-          "Modules": {
-            "$className": "Folder",
-            "RagdollServer": {
-              "$path": "src/features/slimeevent/modules/RagdollServer.luau"
-            }
-          },
-          "SlimeEventServiceServer": {
-            "$path": "src/features/slimeevent/SlimeEventServiceServer.luau"
           }
         },
         "Tutorial": {

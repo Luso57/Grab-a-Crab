@@ -251,14 +251,13 @@ local function RobuxBoardEntry(props: { title: BasePart, board: BasePart })
 				TextStrokeTransparency = 1,
 			}, 6),
 		}),
-		Board = e("SurfaceGui", {
+		[BOARD_GUI_NAME] = e("SurfaceGui", {
 			Active = true,
 			Adornee = props.board,
 			AlwaysOnTop = false,
 			CanvasSize = Vector2.new(1240, 654),
 			Face = Enum.NormalId.Right,
 			LightInfluence = 0,
-			Name = BOARD_GUI_NAME,
 			ref = boardGuiRef,
 		}, {
 			Content = e("ScrollingFrame", {

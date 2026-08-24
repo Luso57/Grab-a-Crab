@@ -4,7 +4,7 @@ local RunService = game:GetService("RunService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).client
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
-local SlimeEventConfig = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local SlimeEventConfig = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
 local TutorialConfig = require(ReplicatedStorage.Source.Features.Tutorial.TutorialConfig)
 local TutorialGuide = require(ReplicatedStorage.Source.Features.Tutorial.Modules.TutorialGuide)
 

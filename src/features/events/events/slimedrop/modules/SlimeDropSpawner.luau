@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SlimeMovement = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMovement)
 local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
 local Slimes = require(ReplicatedStorage.Source.Features.Slimes.Modules.Slimes)
-local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local Config = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
 
 local EVENT_SLIME_NAME = "EventSlime"
 local MOVEMENT_AREA_NAME = "EventSlimeMovementArea"
@@ -28,7 +28,7 @@ export type EventSlimeHandle = typeof(setmetatable(
 	EventSlimeHandle
 ))
 
-local EventSlimeSpawner = {}
+local SlimeDropSpawner = {}
 
 local function getEventSlimeId(random: Random): string
 	local eligibleIds = {}
@@ -237,7 +237,7 @@ function EventSlimeHandle.destroy(self: EventSlimeHandle)
 	self.movementArea:Destroy()
 end
 
-function EventSlimeSpawner.spawn(
+function SlimeDropSpawner.spawn(
 	surface: BasePart,
 	random: Random?
 ): EventSlimeHandle
@@ -263,4 +263,5 @@ function EventSlimeSpawner.spawn(
 	}, EventSlimeHandle)
 end
 
-return EventSlimeSpawner
+return SlimeDropSpawner
+

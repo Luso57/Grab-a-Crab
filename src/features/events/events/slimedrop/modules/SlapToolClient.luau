@@ -1,4 +1,4 @@
-local Config = require(script.Parent.Parent.SlimeEventConfig)
+local Config = require(script.Parent.Parent.SlimeDropConfig)
 local SlapSwing = require(script.Parent.SlapSwing)
 
 local SlapToolClient = {}
@@ -53,3 +53,4 @@ function SlapToolClient.bind(tool: Tool, activated: () -> ())
 end
 
 return SlapToolClient
+

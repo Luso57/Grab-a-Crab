@@ -6,13 +6,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotLevelConfig = require(ReplicatedStorage.Source.Features.PlotLevels.PlotLevelConfig)
-local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
-local EventBillboard = require(ReplicatedStorage.Source.Features.Slimeevent.Modules.EventBillboard)
-local EventSlimeSpawner = require(ReplicatedStorage.Source.Features.Slimeevent.Modules.EventSlimeSpawner)
+local Config = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
+local SlimeDropSpawner = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.Modules.SlimeDropSpawner)
 local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
-local RagdollServer = require(ServerScriptService.Features.Slimeevent.Modules.RagdollServer)
+local RagdollServer = require(ServerScriptService.Features.Events.Events.Slimedrop.Modules.RagdollServer)
 
-local SlimeEventServiceServer = {}
+local SlimeDropServer = {}
 
 local function findBat(container: Instance?): Tool?
 	if not container then return nil end
@@ -36,45 +35,26 @@ local function getSpawnSurface(): BasePart?
 	return if surface and surface:IsA("BasePart") then surface else nil
 end
 
-function SlimeEventServiceServer.init(self: SlimeEventServiceServer)
-	self.networker = Networker.server.new(Config.NetworkTag, self, { self.requestSwing, self.requestEventState })
+
+function SlimeDropServer.init(self: SlimeDropServer)
+	if self.initialized then return end
+	self.initialized = true
+	self.networker = Networker.server.new(Config.NetworkTag, self, { self.requestSwing })
 	self.lastSwingAt = {}
 	self.combatEnabled = false
+	self.active = false
 	self.random = Random.new()
 	self.carrier = nil
-	self.eventState = "countdown"
-	self.eventStartsAt = 0
-	self.eventEndsAt = 0
-	self.billboard = nil
-	self.timerUpdateElapsed = 0
 	self.deliveryCheckElapsed = 0
 	self.deliveryAttempting = false
 	self.plotFullNotified = false
-	self:beginCountdown()
+	self.complete = nil
+
 	RunService.Heartbeat:Connect(function(deltaTime)
-		if self.eventState == "countdown" then
-			self.timerUpdateElapsed += deltaTime
-			local remaining = self.eventStartsAt - os.clock()
-			if remaining <= 0 then
-				self:startEvent()
-			elseif self.timerUpdateElapsed >= 1 then
-				self.timerUpdateElapsed = 0
-				if self.billboard then self.billboard:setCountdown(remaining) end
-			end
+		if not self.active or not self.carrier then
+			self.deliveryCheckElapsed = 0
 			return
 		end
-
-		self.timerUpdateElapsed += deltaTime
-		local remaining = self.eventEndsAt - os.clock()
-		if remaining <= 0 then
-			self:beginCountdown()
-			return
-		elseif self.timerUpdateElapsed >= 1 then
-			self.timerUpdateElapsed = 0
-			if self.billboard then self.billboard:setInProgress(remaining) end
-		end
-
-		if not self.carrier then self.deliveryCheckElapsed = 0 return end
 		self.deliveryCheckElapsed += deltaTime
 		if self.deliveryCheckElapsed >= Config.DeliveryCheckInterval then
 			self.deliveryCheckElapsed = 0
@@ -90,13 +70,13 @@ function SlimeEventServiceServer.init(self: SlimeEventServiceServer)
 			else
 				player:SetAttribute(Config.CarryingAttribute, false)
 			end
-			if self.combatEnabled then
+			if self.active and self.combatEnabled then
 				task.defer(function() self:grantBat(player) end)
 			else
 				self:removeBat(player)
 			end
 		end)
-		if self.combatEnabled then
+		if self.active and self.combatEnabled then
 			task.defer(function() self:grantBat(player) end)
 		else
 			self:removeBat(player)
@@ -109,41 +89,7 @@ function SlimeEventServiceServer.init(self: SlimeEventServiceServer)
 	end)
 	for _, player in Players:GetPlayers() do playerAdded(player) end
 end
-
-function SlimeEventServiceServer.ensureBillboard(self: SlimeEventServiceServer): boolean
-	local surface = getSpawnSurface()
-	if not surface then
-		warn("[SlimeEvent] Workspace.Hexagon.SpawnBoard.SpawnSlime is missing")
-		return false
-	end
-	if not self.billboard or not self.billboard.gui.Parent then self.billboard = EventBillboard.new(surface) end
-	return true
-end
-
-function SlimeEventServiceServer.beginCountdown(self: SlimeEventServiceServer)
-	local wasInProgress = self.eventState == "inProgress"
-	if self.carrier then
-		self.carrier:SetAttribute(Config.CarryingAttribute, false)
-	end
-	if self.eventSlime then
-		self.eventSlime:destroy()
-		self.eventSlime = nil
-	end
-	self.carrier = nil
-	self.deliveryAttempting = false
-	self.plotFullNotified = false
-	self.eventState = "countdown"
-	self.eventStartsAt = os.clock() + Config.EventIntervalSeconds
-	self.eventEndsAt = 0
-	self.timerUpdateElapsed = 0
-	self:setCombatEnabled(false)
-	if self:ensureBillboard() and self.billboard then
-		self.billboard:setCountdown(Config.EventIntervalSeconds)
-	end
-	if wasInProgress then self.networker:fireAll("eventEnded") end
-end
-
-function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer): boolean
+function SlimeDropServer.spawnEventSlime(self: SlimeDropServer): boolean
 	local surface = getSpawnSurface()
 	if not surface then
 		warn("[SlimeEvent] Workspace.Hexagon.SpawnBoard.SpawnSlime is missing")
@@ -152,7 +98,7 @@ function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer):
 
 	if self.eventSlime then self.eventSlime:destroy() end
 	local success, result = pcall(
-		EventSlimeSpawner.spawn,
+		SlimeDropSpawner.spawn,
 		surface,
 		self.random
 	)
@@ -167,28 +113,43 @@ function SlimeEventServiceServer.spawnEventSlime(self: SlimeEventServiceServer):
 	end
 end
 
-function SlimeEventServiceServer.startEvent(self: SlimeEventServiceServer)
-	if self.eventState ~= "countdown" then return end
+function SlimeDropServer.start(self: SlimeDropServer, context)
+	if self.active then error("Slime Drop is already active") end
+	self.random = context.random
+	self.complete = context.complete
+	self.active = true
 	if not self:spawnEventSlime() then
-		self.eventStartsAt = os.clock() + Config.EventSpawnRetrySeconds
-		if self.billboard then self.billboard:setCountdown(Config.EventSpawnRetrySeconds) end
-		return
+		self.active = false
+		self.complete = nil
+		error("Failed to spawn the event slime")
 	end
-	self.eventState = "inProgress"
-	self.eventEndsAt = os.clock() + Config.EventDurationSeconds
-	self.timerUpdateElapsed = 0
-	if self:ensureBillboard() and self.billboard then self.billboard:setInProgress(Config.EventDurationSeconds) end
 	self:setCombatEnabled(true)
-	self.networker:fireAll("eventStarted")
+	return self
 end
 
-function SlimeEventServiceServer.removeBat(_self: SlimeEventServiceServer, player: Player)
+function SlimeDropServer.stop(self: SlimeDropServer, _reason)
+	self.active = false
+	self:setCombatEnabled(false)
+	if self.carrier then
+		self.carrier:SetAttribute(Config.CarryingAttribute, false)
+	end
+	self.carrier = nil
+	self.deliveryAttempting = false
+	self.deliveryCheckElapsed = 0
+	self.plotFullNotified = false
+	if self.eventSlime then
+		self.eventSlime:destroy()
+		self.eventSlime = nil
+	end
+	self.complete = nil
+end
+function SlimeDropServer.removeBat(_self: SlimeDropServer, player: Player)
 	destroyBats(player:FindFirstChildOfClass("Backpack"))
 	destroyBats(player.Character)
 	destroyBats(player:FindFirstChild("StarterGear"))
 end
 
-function SlimeEventServiceServer.releaseEventSlime(self: SlimeEventServiceServer, player: Player, restoreBat: boolean?)
+function SlimeDropServer.releaseEventSlime(self: SlimeDropServer, player: Player, restoreBat: boolean?)
 	if self.carrier ~= player then return end
 	self.carrier = nil
 	self.deliveryAttempting = false
@@ -198,7 +159,7 @@ function SlimeEventServiceServer.releaseEventSlime(self: SlimeEventServiceServer
 	if restoreBat ~= false and self.combatEnabled then task.defer(function() self:grantBat(player) end) end
 end
 
-function SlimeEventServiceServer.toggleEventSlime(self: SlimeEventServiceServer, player: Player)
+function SlimeDropServer.toggleEventSlime(self: SlimeDropServer, player: Player)
 	local eventSlime = self.eventSlime
 	if not eventSlime or not eventSlime.model.Parent then return end
 	if self.carrier then return end
@@ -238,7 +199,7 @@ function SlimeEventServiceServer.toggleEventSlime(self: SlimeEventServiceServer,
 	end)
 end
 
-function SlimeEventServiceServer.tryDeliverEventSlime(self: SlimeEventServiceServer)
+function SlimeDropServer.tryDeliverEventSlime(self: SlimeDropServer)
 	if self.deliveryAttempting then return end
 	local player = self.carrier
 	local eventSlime = self.eventSlime
@@ -283,10 +244,9 @@ function SlimeEventServiceServer.tryDeliverEventSlime(self: SlimeEventServiceSer
 	eventSlime:destroy()
 	self.eventSlime = nil
 	self.deliveryAttempting = false
-	self:beginCountdown()
+	if self.complete then self.complete() end
 end
-
-function SlimeEventServiceServer.grantBat(self: SlimeEventServiceServer, player: Player)
+function SlimeDropServer.grantBat(self: SlimeDropServer, player: Player)
 	if not self.combatEnabled or player:GetAttribute(Config.CarryingAttribute) == true then return end
 	local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 5)
 	if not backpack then return end
@@ -307,7 +267,7 @@ function SlimeEventServiceServer.grantBat(self: SlimeEventServiceServer, player:
 	if bat.Parent ~= character then humanoid:EquipTool(bat) end
 end
 
-function SlimeEventServiceServer.setCombatEnabled(self: SlimeEventServiceServer, enabled: boolean)
+function SlimeDropServer.setCombatEnabled(self: SlimeDropServer, enabled: boolean)
 	self.combatEnabled = enabled
 	for _, player in Players:GetPlayers() do
 		if enabled then
@@ -318,7 +278,7 @@ function SlimeEventServiceServer.setCombatEnabled(self: SlimeEventServiceServer,
 	end
 end
 
-function SlimeEventServiceServer.requestSwing(self: SlimeEventServiceServer, player: Player)
+function SlimeDropServer.requestSwing(self: SlimeDropServer, player: Player)
 	if not self.combatEnabled then return end
 	local now = os.clock()
 	if now - (self.lastSwingAt[player] or -math.huge) < Config.SwingCooldown then return end
@@ -371,25 +331,19 @@ function SlimeEventServiceServer.requestSwing(self: SlimeEventServiceServer, pla
 	end)
 end
 
-function SlimeEventServiceServer.requestEventState(self: SlimeEventServiceServer, player: Player)
-	self.networker:fire(player, "eventStateChanged", self.eventState == "inProgress")
-end
-
-type SlimeEventServiceServer = typeof(SlimeEventServiceServer) & {
+type SlimeDropServer = typeof(SlimeDropServer) & {
+	initialized: boolean,
+	active: boolean,
 	networker: Networker.Server,
 	combatEnabled: boolean,
-	eventSlime: EventSlimeSpawner.EventSlimeHandle?,
-	billboard: EventBillboard.Handle?,
+	eventSlime: SlimeDropSpawner.EventSlimeHandle?,
 	carrier: Player?,
 	deliveryAttempting: boolean,
 	deliveryCheckElapsed: number,
-	eventStartsAt: number,
-	eventEndsAt: number,
-	eventState: "countdown" | "inProgress",
 	plotFullNotified: boolean,
-	timerUpdateElapsed: number,
 	lastSwingAt: { [Player]: number },
 	random: Random,
+	complete: (() -> ())?,
 }
 
-return SlimeEventServiceServer :: SlimeEventServiceServer
+return SlimeDropServer :: SlimeDropServer

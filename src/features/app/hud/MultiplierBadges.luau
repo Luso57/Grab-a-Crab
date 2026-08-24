@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Packages.React)
 local PlayerData = require(ReplicatedStorage.Source.Game.Data).client
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
 local ProductEntitlements = require(ReplicatedStorage.Source.Features.Monetization.Modules.ProductEntitlements)
 local RebirthConfig = require(ReplicatedStorage.Source.Features.Rebirth.RebirthConfig)
 local SlimeMutations = require(ReplicatedStorage.Source.Features.Slimes.Modules.SlimeMutations)
@@ -23,17 +24,18 @@ end
 local function MultiplierBadge(props: {
 	Image: string,
 	Value: number,
+	IsPhone: boolean,
 })
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(48, 48),
+		Size = UDim2.fromOffset(if props.IsPhone then 40 else 48, if props.IsPhone then 40 else 48),
 	}, {
 		Icon = React.createElement("ImageLabel", {
 			BackgroundTransparency = 1,
 			Image = props.Image,
 			Position = UDim2.fromOffset(2, 1),
 			ScaleType = Enum.ScaleType.Fit,
-			Size = UDim2.fromOffset(36, 34),
+			Size = UDim2.fromOffset(if props.IsPhone then 30 else 36, if props.IsPhone then 28 else 34),
 			ZIndex = 10,
 		}),
 		Value = React.createElement("TextLabel", {
@@ -41,7 +43,7 @@ local function MultiplierBadge(props: {
 			BackgroundTransparency = 1,
 			Font = Enum.Font.FredokaOne,
 			Position = UDim2.new(0, 0, 1, 0),
-			Size = UDim2.fromOffset(44, 20),
+			Size = UDim2.fromOffset(if props.IsPhone then 36 else 44, if props.IsPhone then 17 else 20),
 			Text = formatMultiplier(props.Value),
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
@@ -51,11 +53,11 @@ local function MultiplierBadge(props: {
 			Stroke = React.createElement("UIStroke", {
 				Color = Color3.new(0, 0, 0),
 				LineJoinMode = Enum.LineJoinMode.Round,
-				Thickness = 3,
+				Thickness = if props.IsPhone then 2.5 else 3,
 			}),
 			TextSizeConstraint = React.createElement("UITextSizeConstraint", {
-				MaxTextSize = 18,
-				MinTextSize = 10,
+				MaxTextSize = if props.IsPhone then 15 else 18,
+				MinTextSize = if props.IsPhone then 8 else 10,
 			}),
 		}),
 	})
@@ -67,6 +69,7 @@ local function MultiplierBadges()
 	local rebirths, setRebirths = React.useState(PlayerData.rebirths())
 	local ownedProducts, setOwnedProducts = React.useState(PlayerData.ownedProducts())
 	local ownedSlimes, setOwnedSlimes = React.useState(table.clone(PlayerData.slimes()))
+	local isPhone = useIsPhoneViewport()
 
 	React.useEffect(function()
 		local luckConnection = PlayerData.slimeLuckLevel.Changed(setLuckLevel)
@@ -98,8 +101,8 @@ local function MultiplierBadges()
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 24, 1, -80),
-		Size = UDim2.fromOffset(98, 48),
+		Position = UDim2.new(0, if isPhone then 8 else 24, 1, if isPhone then -58 else -80),
+		Size = UDim2.fromOffset(if isPhone then 82 else 98, if isPhone then 40 else 48),
 		ZIndex = 10,
 	}, {
 		Layout = React.createElement("UIListLayout", {
@@ -111,10 +114,12 @@ local function MultiplierBadges()
 		Luck = React.createElement(MultiplierBadge, {
 			Image = LUCK_ICON,
 			Value = luckMultiplier,
+			IsPhone = isPhone,
 		}),
 		Cash = React.createElement(MultiplierBadge, {
 			Image = CASH_ICON,
 			Value = cashMultiplier,
+			IsPhone = isPhone,
 		}),
 	})
 end

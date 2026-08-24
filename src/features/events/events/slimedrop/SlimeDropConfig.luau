@@ -20,16 +20,11 @@ local Config = {
 	PickupDistance = 14,
 	CarryHeadClearance = 0.2,
 	DeliveryCheckInterval = 0.1,
-	EventIntervalSeconds = 15,
-	EventDurationSeconds = 300,
-	EventSpawnRetrySeconds = 5,
 	EventStartNotificationText = "EVENT SLIME HAS SPAWNED!",
 	EventStartSoundId = "rbxassetid://125414652637105",
 	EventStartSoundVolume = 1,
-	EventBillboardSize = Vector2.new(340, 90),
-	EventBillboardPhoneSize = Vector2.new(190, 50),
-	EventBillboardHeight = 50,
-	EventBillboardMaxDistance = 1000,
 }
 
 return Config
+
+

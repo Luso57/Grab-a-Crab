@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local Config = require(ReplicatedStorage.Source.Features.Events.EventConfig)
 
 local EventBillboard = {}
 local Handle = {}
@@ -34,23 +34,23 @@ function Handle.destroy(self: Handle)
 end
 
 function EventBillboard.new(adornee: BasePart): Handle
-	local existing = adornee:FindFirstChild("SlimeEventBillboard")
+	local existing = adornee:FindFirstChild("EventBillboard")
 	if existing then existing:Destroy() end
-	local existingAnchor = adornee:FindFirstChild("SlimeEventBillboardAnchor")
+	local existingAnchor = adornee:FindFirstChild("EventBillboardAnchor")
 	if existingAnchor then existingAnchor:Destroy() end
 
 	local anchor = Instance.new("Attachment")
-	anchor.Name = "SlimeEventBillboardAnchor"
-	anchor.Position = adornee.CFrame:PointToObjectSpace(adornee.Position + Vector3.new(0, Config.EventBillboardHeight, 0))
+	anchor.Name = "EventBillboardAnchor"
+	anchor.Position = adornee.CFrame:PointToObjectSpace(adornee.Position + Vector3.new(0, Config.BillboardHeight, 0))
 	anchor.Parent = adornee
 
 	local gui = Instance.new("BillboardGui")
-	gui.Name = "SlimeEventBillboard"
+	gui.Name = "EventBillboard"
 	gui.Adornee = anchor
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
-	gui.MaxDistance = Config.EventBillboardMaxDistance
-	gui.Size = UDim2.fromOffset(Config.EventBillboardSize.X, Config.EventBillboardSize.Y)
+	gui.MaxDistance = Config.BillboardMaxDistance
+	gui.Size = UDim2.fromOffset(Config.BillboardSize.X, Config.BillboardSize.Y)
 	gui.Parent = anchor
 
 	local background = Instance.new("Frame")
@@ -92,3 +92,4 @@ function EventBillboard.new(adornee: BasePart): Handle
 end
 
 return EventBillboard
+

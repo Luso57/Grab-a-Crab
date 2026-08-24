@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Config = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local Config = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
 
 local RagdollServer = {}
 local active: { [Model]: boolean } = {}
@@ -72,7 +72,7 @@ function RagdollServer.apply(character: Model, direction: Vector3): boolean
 	setServerOwnership(assemblies)
 	local flatDirection = Vector3.new(direction.X, 0, direction.Z)
 	flatDirection = if flatDirection.Magnitude < 0.01 then root.CFrame.LookVector else flatDirection.Unit
-	local tumbleAxis = Vector3.yAxis:Cross(flatDirection)
+	local tumbleAxis = Vector3.new(0, 1, 0):Cross(flatDirection)
 	local launchVelocity = flatDirection * Config.KnockbackHorizontal
 		+ Vector3.yAxis * Config.KnockbackVertical
 	local tumbleVelocity = tumbleAxis * Config.KnockbackAngularSpeed
@@ -113,3 +113,4 @@ function RagdollServer.apply(character: Model, direction: Vector3): boolean
 end
 
 return RagdollServer
+

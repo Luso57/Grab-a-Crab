@@ -4,8 +4,9 @@ local TweenService = game:GetService("TweenService")
 
 local React = require(ReplicatedStorage.Packages.React)
 local UISounds = require(ReplicatedStorage.Source.Features.App.UISounds)
+local useIsPhoneViewport = require(ReplicatedStorage.Source.Features.App.Hooks.useIsPhoneViewport)
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
-local SlimeEventConfig = require(ReplicatedStorage.Source.Features.Slimeevent.SlimeEventConfig)
+local SlimeEventConfig = require(ReplicatedStorage.Source.Features.Events.Events.Slimedrop.SlimeDropConfig)
 
 local STUD_BACKGROUND_IMAGE = "rbxassetid://88022115777392"
 local ACTIVATION_COOLDOWN = 0.75
@@ -15,6 +16,7 @@ local TWEEN_INFO = TweenInfo.new(0.11, Enum.EasingStyle.Back, Enum.EasingDirecti
 
 local function HomeButton()
 	local player = Players.LocalPlayer
+	local isPhone = useIsPhoneViewport()
 	local isCarrying, setIsCarrying = React.useState(player:GetAttribute(SlimeEventConfig.CarryingAttribute) == true)
 	local scaleRef = React.useRef(nil)
 	local activeTweenRef = React.useRef(nil)
@@ -60,7 +62,7 @@ local function HomeButton()
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		Position = UDim2.new(0.5, 0, 0, 18),
-		Size = UDim2.new(0.15, 0, 0, 73),
+		Size = UDim2.new(if isPhone then 0.13 else 0.15, 0, 0, if isPhone then 64 else 73),
 		Text = "",
 		ZIndex = 10,
 		[React.Event.Activated] = function()
@@ -108,8 +110,8 @@ local function HomeButton()
 			Scale = 1,
 		}),
 		SizeConstraint = React.createElement("UISizeConstraint", {
-			MaxSize = Vector2.new(275, 74),
-			MinSize = Vector2.new(180, 44),
+			MaxSize = if isPhone then Vector2.new(235, 63) else Vector2.new(275, 74),
+			MinSize = if isPhone then Vector2.new(155, 38) else Vector2.new(180, 44),
 		}),
 		Face = React.createElement("Frame", {
 			BackgroundColor3 = Color3.fromRGB(39, 174, 76),
@@ -153,8 +155,8 @@ local function HomeButton()
 			ZIndex = 13,
 		}, {
 			Constraint = React.createElement("UITextSizeConstraint", {
-				MaxTextSize = 38,
-				MinTextSize = 21,
+				MaxTextSize = if isPhone then 33 else 38,
+				MinTextSize = if isPhone then 18 else 21,
 			}),
 			Stroke = React.createElement("UIStroke", {
 				Color = Color3.new(0, 0, 0),
