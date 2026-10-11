@@ -1,192 +1,406 @@
+--!strict
+
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local ServerStorage = game:GetService("ServerStorage")
+local Workspace = game:GetService("Workspace")
 
-local PlotServer = require(ServerScriptService.Features.Plots.Classes.PlotServer)
-local Networker = require(ReplicatedStorage.Packages.Networker)
-local ServicePlayerData = require(ReplicatedStorage.Packages.ServicePlayerData)
 local Data = require(ReplicatedStorage.Source.Game.Data).server
-local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
+local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
+local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
+local TankServiceServer = require(ServerScriptService.Features.Tanks.TankServiceServer)
+local EggConveyorServiceServer = require(ServerScriptService.Features.EggConveyor.EggConveyorServiceServer)
+local Networker = require(ReplicatedStorage.Packages.Networker)
+local PlotServer = require(script.Parent.Classes.PlotServer)
+local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string? }
+type SavedInventory = { [string]: SavedItem }
+
+local MAX_INTERACTION_DISTANCE = 10
 
 local PlotServiceServer = {}
-local EXPECTED_PLOT_COUNT = 6
-local ASSIGNMENT_LOG_PREFIX = "[PlotAssignment]"
+local initialized = false
+local plots: { [number]: PlotServer.PlotServer } = {}
+local playerPlots: { [Player]: PlotServer.PlotServer } = {}
+local waiting: { Player } = {}
+local waitingSet: { [Player]: boolean } = {}
 
-type Plot = PlotServer.Plot
-type PlotSpawn = PlotTypes.PlotSpawn
-type PlayerData = { plot: Plot? }
-type AssignmentToken = { cancelled: boolean }
-
-local PLAYER_DATA_TEMPLATE = { plot = nil }
-
-local function isValidPlotIndex(index: any): boolean
-	return type(index) == "number" and index % 1 == 0 and index >= 1 and index <= EXPECTED_PLOT_COUNT
-end
-
-function PlotServiceServer.init(self: PlotServiceServer)
-	self.networker = Networker.server.new("PlotService", self, { self.requestPlots })
-	self.plotSpawns = {}
-	self.plots = {}
-	self.assignmentTokens = {}
-
-	local taggedSpawns = CollectionService:GetTagged("PlotSpawn")
-	assert(#taggedSpawns == EXPECTED_PLOT_COUNT, `{ASSIGNMENT_LOG_PREFIX} Expected {EXPECTED_PLOT_COUNT} tagged PlotSpawns, found {#taggedSpawns}`)
-
-	for _, instance in taggedSpawns do
-		assert(instance:IsA("BasePart"), `{ASSIGNMENT_LOG_PREFIX} {instance:GetFullName()} must be a BasePart`)
-		local index = instance:GetAttribute("Index")
-		assert(isValidPlotIndex(index), `{ASSIGNMENT_LOG_PREFIX} {instance:GetFullName()} must have an integer Index from 1 to {EXPECTED_PLOT_COUNT}`)
-		assert(self.plotSpawns[index] == nil, `{ASSIGNMENT_LOG_PREFIX} Duplicate PlotSpawn Index {index}`)
-
-		local plotSpawn = instance :: BasePart
-		local fakePlot: Model & any = ReplicatedStorage.Assets.Misc.Plot:Clone()
-		fakePlot.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
-		fakePlot:PivotTo(plotSpawn.CFrame)
-		local fakeLevels = fakePlot:FindFirstChild("Levels")
-		if fakeLevels then fakeLevels:Destroy() end
-		fakePlot.Parent = workspace
-		self.plotSpawns[index] = { part = plotSpawn, owner = nil, index = index, fakePlot = fakePlot }
+local function getTemplate(itemId: string): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	if not assets then
+		return nil
 	end
-	for index = 1, EXPECTED_PLOT_COUNT do
-		assert(self.plotSpawns[index] ~= nil, `{ASSIGNMENT_LOG_PREFIX} Missing PlotSpawn Index {index}`)
-	end
-
-	self.playerData = ServicePlayerData.new(PLAYER_DATA_TEMPLATE :: PlayerData, self)
-end
-
-function PlotServiceServer.isAssignmentCurrent(self: PlotServiceServer, player: Player, token: AssignmentToken): boolean
-	return player.Parent == Players and not token.cancelled and self.assignmentTokens[player] == token
-end
-
-function PlotServiceServer.releaseSpawn(_self: PlotServiceServer, plotSpawn: PlotSpawn, player: Player)
-	if plotSpawn.owner == player then
-		plotSpawn.owner = nil
-		plotSpawn.fakePlot.Parent = workspace
-	end
-end
-
-function PlotServiceServer.claimPlot(self: PlotServiceServer, player: Player, token: AssignmentToken): PlotSpawn?
-	while self:isAssignmentCurrent(player, token) do
-		for index = 1, EXPECTED_PLOT_COUNT do
-			local plotSpawn = self.plotSpawns[index]
-			if plotSpawn.owner then
-				if plotSpawn.owner == player then return plotSpawn end
-				continue
-			end
-			plotSpawn.fakePlot.Parent = ServerStorage
-			plotSpawn.owner = player
-			return plotSpawn
+	local folder: Instance?
+	local modelName: string?
+	if itemId == "Incubator" then
+		folder = assets:FindFirstChild("Incubators")
+		modelName = "Incubator"
+	else
+		local tankId = string.match(itemId, "^Tank%.([%w_]+)$")
+		local definition = if tankId then Tanks.get(tankId) else nil
+		if definition then
+			folder = assets:FindFirstChild("Tanks")
+			modelName = definition.modelName
 		end
-		task.wait(1)
+	end
+	local template = if folder and modelName then folder:FindFirstChild(modelName) else nil
+	return if template and template:IsA("Model") and template.PrimaryPart then template else nil
+end
+
+local function makePlacedModel(itemId: string, instanceId: string, slot: BasePart): Model?
+	local template = getTemplate(itemId)
+	if not template then
+		return nil
+	end
+	local model = template:Clone()
+	local boxCFrame, boxSize = model:GetBoundingBox()
+	if boxSize.Y <= 0 then
+		model:Destroy()
+		return nil
+	end
+	local pivotToBottom = model:GetPivot().Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
+	model:PivotTo(slot.CFrame * CFrame.new(0, slot.Size.Y / 2 + pivotToBottom, 0))
+	model.Name = itemId .. "_" .. instanceId
+	model:SetAttribute("ItemInstanceId", instanceId)
+	model:SetAttribute("ItemId", itemId)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+		end
+	end
+	return model
+end
+
+local function inRange(player: Player, slot: BasePart): boolean
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	return root ~= nil and root:IsA("BasePart") and humanoid ~= nil and humanoid.Health > 0
+		and (root.Position - slot.Position).Magnitude <= MAX_INTERACTION_DISTANCE
+end
+
+local function equippedTool(player: Player, instanceId: string, itemId: string): Tool?
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	for _, child in character:GetChildren() do
+		if child:IsA("Tool") and child:GetAttribute("ItemInstanceId") == instanceId and child:GetAttribute("ItemId") == itemId then
+			return child
+		end
 	end
 	return nil
 end
 
-function PlotServiceServer.assertAssignmentInvariants(self: PlotServiceServer)
-	if not RunService:IsStudio() then return end
-	local seenOwners = {}
-	for index = 1, EXPECTED_PLOT_COUNT do
-		local plotSpawn = self.plotSpawns[index]
-		local plot = self.plots[index]
-		if plotSpawn.owner then
-			assert(not seenOwners[plotSpawn.owner], `{ASSIGNMENT_LOG_PREFIX} Player owns multiple plot spawns`)
-			seenOwners[plotSpawn.owner] = true
-			assert(plot ~= nil, `{ASSIGNMENT_LOG_PREFIX} PlotSpawn {index} has an owner but no active plot`)
-		end
-		if plot then
-			assert(plot.index == index, `{ASSIGNMENT_LOG_PREFIX} Plot registry index mismatch at {index}`)
-			assert(plotSpawn.owner == plot.player, `{ASSIGNMENT_LOG_PREFIX} Plot {index} owner mismatch`)
-		end
-	end
+local function clearPlacement(data: any, instanceId: string, item: SavedItem)
+	local updated = table.clone(item)
+	updated.placedSlotId = nil
+	data.inventory[instanceId](updated)
 end
 
-function PlotServiceServer.playerAdded(self: PlotServiceServer, player: Player, playerData: PlayerData)
-	if playerData.plot then return end
-	local existingToken = self.assignmentTokens[player]
-	if existingToken and not existingToken.cancelled then return end
-
-	local token: AssignmentToken = { cancelled = false }
-	self.assignmentTokens[player] = token
-	while self:isAssignmentCurrent(player, token) and Data[player] == nil do task.wait() end
-	if not self:isAssignmentCurrent(player, token) then return end
-
-	local plotSpawn = self:claimPlot(player, token)
-	if not plotSpawn then return end
-
-	local success, plotOrError = xpcall(function()
-		return PlotServer.new(player, plotSpawn)
-	end, debug.traceback)
-	if not success then
-		self:releaseSpawn(plotSpawn, player)
-		if self.assignmentTokens[player] == token then self.assignmentTokens[player] = nil end
-		warn(`{ASSIGNMENT_LOG_PREFIX} Failed to create plot {plotSpawn.index} for {player.Name}: {plotOrError}`)
-		if player.Parent == Players then player:Kick("Your plot could not be loaded safely. Please rejoin.") end
+local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
+	local data = Data.Service:waitForData(player)
+	if not data or player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
 		return
 	end
+	local inventory = data.inventory() :: SavedInventory
+	local instanceIds: { string } = {}
+	for instanceId, item in inventory do
+		if typeof(item) == "table" and typeof(item.placedSlotId) == "string" then
+			table.insert(instanceIds, instanceId)
+		end
+	end
+	table.sort(instanceIds)
 
-	local plot = plotOrError :: Plot
-	if not self:isAssignmentCurrent(player, token) then
-		plot:destroy()
-		self:releaseSpawn(plotSpawn, player)
+	local repaired = false
+	for _, instanceId in instanceIds do
+		if player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
+			return
+		end
+		local item = inventory[instanceId]
+		local slotId = item.placedSlotId
+		local slot = if slotId then plot:getSlot(slotId) else nil
+		if not slot or plot:getPlaced(slotId :: string) then
+			clearPlacement(data, instanceId, item)
+			repaired = true
+			continue
+		end
+		local model = makePlacedModel(item.itemId, instanceId, slot)
+		if not model or not plot:addPlaced(slotId :: string, model) then
+			if model then
+				model:Destroy()
+			end
+			clearPlacement(data, instanceId, item)
+			repaired = true
+		elseif item.itemId == "Incubator" then
+			if not IncubatorServiceServer:registerPlaced(player, plot.model, model, instanceId) then
+				plot:removePlaced(slotId :: string)
+				clearPlacement(data, instanceId, item)
+				repaired = true
+			end
+		elseif string.match(item.itemId, "^Tank%.([%w_]+)$") then
+			if not TankServiceServer:registerPlaced(player, plot.model, model, instanceId) then
+				plot:removePlaced(slotId :: string)
+				clearPlacement(data, instanceId, item)
+				repaired = true
+			end
+		end
+	end
+	local active: { [string]: string } = {}
+	for _, model in plot.placedModels do
+		if model:GetAttribute("ItemId") == "Incubator" then
+			local incubatorId = model:GetAttribute("ItemInstanceId")
+			local eggId = IncubatorServiceServer:getPlacedEggId(model)
+			if typeof(incubatorId) == "string" and eggId then
+				active[incubatorId] = eggId
+			end
+		end
+	end
+	InventoryServiceServer:repairIncubations(player, active)
+	TankServiceServer:restoreContents(player)
+	if repaired then
+		InventoryServiceServer:refreshTools(player)
+	end
+end
+
+local function assignWaiting()
+	while #waiting > 0 do
+		local freePlot: PlotServer.PlotServer? = nil
+		for index = 1, 6 do
+			local plot = plots[index]
+			if plot and not plot:getOwner() then
+				freePlot = plot
+				break
+			end
+		end
+		if not freePlot then
+			return
+		end
+
+		local player = table.remove(waiting, 1)
+		waitingSet[player] = nil
+		if player.Parent == Players and not playerPlots[player] and freePlot:claim(player) then
+			playerPlots[player] = freePlot
+			task.spawn(restorePlayer, player, freePlot)
+		end
+	end
+end
+
+local function playerAdded(player: Player)
+	if playerPlots[player] or waitingSet[player] then
 		return
 	end
-
-	playerData.plot = plot
-	self.plots[plot.index] = plot
-	self.assignmentTokens[player] = nil
-	self.networker:fireAll("initPlot", plot:get())
-	self:assertAssignmentInvariants()
-	task.spawn(function() plot:loadPaidRandomItemsPolicy() end)
+	table.insert(waiting, player)
+	waitingSet[player] = true
+	assignWaiting()
 end
 
-function PlotServiceServer.requestPlots(self: PlotServiceServer, player: Player)
-	for _, plot in self.plots do
-		self.networker:fire(player, "initPlot", plot:get())
-	end
-end
-
-function PlotServiceServer.getPlayerPlot(self: PlotServiceServer, player: Player): Plot?
-	local playerData = self.playerData:get(player)
-	return playerData.plot
-end
-
-function PlotServiceServer.playerRemoving(self: PlotServiceServer, player: Player, playerData: PlayerData)
-	local token = self.assignmentTokens[player]
-	if token then
-		token.cancelled = true
-		self.assignmentTokens[player] = nil
+local function playerRemoving(player: Player)
+	if waitingSet[player] then
+		local position = table.find(waiting, player)
+		if position then
+			table.remove(waiting, position)
+		end
+		waitingSet[player] = nil
 	end
 
-	local plot = playerData.plot
+	local plot = playerPlots[player]
 	if plot then
-		self.plots[plot.index] = nil
-		local success, destroyError = xpcall(function() plot:destroy() end, debug.traceback)
-		if not success then
-			warn(`{ASSIGNMENT_LOG_PREFIX} Failed to destroy plot {plot.index} for {player.Name}: {destroyError}`)
-		end
-		playerData.plot = nil
-		self.networker:fireAll("removePlot", plot.index)
+		playerPlots[player] = nil
+		EggConveyorServiceServer:stop(plot.model)
+		TankServiceServer:clearPlacedForPlayer(player)
+		IncubatorServiceServer:clearPlacedForPlayer(player)
+		plot:release()
+		assignWaiting()
+	end
+end
+
+function PlotServiceServer:init()
+	if initialized then
+		return
 	end
 
-	for index = 1, EXPECTED_PLOT_COUNT do
-		local plotSpawn = self.plotSpawns[index]
-		if plotSpawn.owner == player then
-			self:releaseSpawn(plotSpawn, player)
+	local template = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Plot") :: Model
+	local folder = Workspace:FindFirstChild("SpawnedPlots")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "SpawnedPlots"
+		folder.Parent = Workspace
+	end
+	if not folder:IsA("Folder") then
+		warn("SpawnedPlots must be a Folder")
+		return
+	end
+
+	for _, tagged in CollectionService:GetTagged("PlotSpawn") do
+		if not tagged:IsA("BasePart") then
+			warn("Skipping PlotSpawn that is not a BasePart")
+			continue
+		end
+		local index = tagged:GetAttribute("Index")
+		if type(index) ~= "number" or index % 1 ~= 0 or index < 1 or index > 6 then
+			warn("Skipping PlotSpawn with invalid Index")
+			continue
+		end
+		if plots[index] then
+			warn("Skipping duplicate PlotSpawn Index", index)
+			continue
+		end
+		local plot = PlotServer.new(index, tagged, template, folder)
+		if plot then
+			plots[index] = plot
+		end
+	end
+	for index = 1, 6 do
+		if not plots[index] then
+			warn("Missing PlotSpawn Index", index)
+		end
+	end
+
+	Networker.server.new("PlotPlacement", self, { self.place, self.pickup })
+	initialized = true
+	Players.PlayerAdded:Connect(playerAdded)
+	Players.PlayerRemoving:Connect(playerRemoving)
+	for _, player in Players:GetPlayers() do
+		playerAdded(player)
+	end
+end
+
+function PlotServiceServer:getPlot(player: Player): PlotServer.PlotServer?
+	return playerPlots[player]
+end
+
+function PlotServiceServer:place(player: Player, instanceId: any, slotId: any)
+	if typeof(instanceId) ~= "string" or typeof(slotId) ~= "string" then
+		return
+	end
+	local plot = playerPlots[player]
+	local slot = if plot then plot:getSlot(slotId) else nil
+	if not plot or plot:getOwner() ~= player or not slot or plot:getPlaced(slotId) or not inRange(player, slot) then
+		return
+	end
+	local data = Data[player]
+	if not data then
+		return
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[instanceId]
+	if typeof(item) ~= "table" or typeof(item.itemId) ~= "string" or item.placedSlotId ~= nil
+		or item.incubatorInstanceId ~= nil or item.tankInstanceId ~= nil then
+		return
+	end
+	if not equippedTool(player, instanceId, item.itemId) then
+		return
+	end
+	for _, other in inventory do
+		if typeof(other) == "table" and other.placedSlotId == slotId then
+			return
+		end
+	end
+
+	local model = makePlacedModel(item.itemId, instanceId, slot)
+	if not model then
+		return
+	end
+	if not plot:addPlaced(slotId, model) then
+		model:Destroy()
+		return
+	end
+	local tankId = string.match(item.itemId, "^Tank%.([%w_]+)$")
+	if tankId and not TankServiceServer:registerPlaced(player, plot.model, model, instanceId) then
+		plot:removePlaced(slotId)
+		return
+	end
+
+	local updatedItem = table.clone(item)
+	updatedItem.placedSlotId = slotId
+	data.inventory[instanceId](updatedItem)
+	if item.itemId == "Incubator" then
+		IncubatorServiceServer:registerPlaced(player, plot.model, model, instanceId)
+	end
+	local hotbar = data.hotbar() :: { string }
+	local updatedHotbar = table.clone(hotbar)
+	local hotbarChanged = false
+	for index = 1, InventoryConfig.hotbarSize do
+		if updatedHotbar[index] == instanceId then
+			updatedHotbar[index] = InventoryConfig.emptySlot
+			hotbarChanged = true
+		end
+	end
+	if hotbarChanged then
+		data.hotbar(updatedHotbar)
+	end
+	InventoryServiceServer:refreshTools(player)
+end
+
+function PlotServiceServer:pickup(player: Player, slotId: any)
+	if typeof(slotId) ~= "string" then
+		return
+	end
+	local plot = playerPlots[player]
+	local slot = if plot then plot:getSlot(slotId) else nil
+	local model = if plot then plot:getPlaced(slotId) else nil
+	if not plot or plot:getOwner() ~= player or not slot or not model or not inRange(player, slot) then
+		return
+	end
+	local instanceId = model:GetAttribute("ItemInstanceId")
+	if typeof(instanceId) ~= "string" then
+		return
+	end
+	local data = Data[player]
+	if not data then
+		return
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local hammerId = InventoryConfig.hammerInstanceId(player.UserId)
+	local hammer = inventory[hammerId]
+	local hotbar = data.hotbar() :: { string }
+	if not hammer or hammer.itemId ~= InventoryConfig.hammerItemId
+		or hotbar[InventoryConfig.hammerSlot] ~= hammerId
+		or not equippedTool(player, hammerId, InventoryConfig.hammerItemId) then
+		return
+	end
+	local item = inventory[instanceId]
+	if typeof(item) ~= "table" or item.placedSlotId ~= slotId then
+		return
+	end
+	if item.itemId == "Incubator" then
+		if IncubatorServiceServer:isOccupied(model) then
+			return
+		end
+		for _, other in inventory do
+			if typeof(other) == "table" and other.incubatorInstanceId == instanceId then
+				return
+			end
+		end
+		IncubatorServiceServer:unregisterPlaced(model)
+	end
+	if string.match(item.itemId, "^Tank%.([%w_]+)$") then
+		if TankServiceServer:isOccupied(model) then
+			return
+		end
+		for _, other in inventory do
+			if typeof(other) == "table" and other.tankInstanceId == instanceId then
+				return
+			end
+		end
+		TankServiceServer:unregisterPlaced(model)
+	end
+
+	clearPlacement(data, instanceId, item)
+	plot:removePlaced(slotId)
+	for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
+		if hotbar[index] == InventoryConfig.emptySlot then
+			local updatedHotbar = table.clone(hotbar)
+			updatedHotbar[index] = instanceId
+			data.hotbar(updatedHotbar)
 			break
 		end
 	end
-	self:assertAssignmentInvariants()
+	InventoryServiceServer:refreshTools(player)
 end
 
-type PlotServiceServer = typeof(PlotServiceServer) & {
-	networker: Networker.Server,
-	playerData: ServicePlayerData.ServicePlayerData<PlayerData>,
-	plotSpawns: { PlotSpawn },
-	plots: { [number]: Plot },
-	assignmentTokens: { [Player]: AssignmentToken },
-}
-
-return PlotServiceServer :: PlotServiceServer
+return PlotServiceServer

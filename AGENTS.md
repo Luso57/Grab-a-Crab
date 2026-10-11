@@ -1,27 +1,40 @@
 ﻿# Repository Guidelines
 
-## Project Structure & Module Organization
 
-This is a Roblox experience built with Luau and Rojo. Application code lives in `src/`: `src/startup/` contains client/server entry points, `src/game/` holds shared game data and utilities, and `src/features/<feature>/` groups services, state slices, UI, hooks, modules, and classes by gameplay feature. Static images and audio belong in `assets/`. `default.project.json` maps source files into the Roblox DataModel. Dependencies are declared in `wally.toml`; treat `Packages/` and its `_Index/` contents as generated vendor code.
+## Saved Player Data
 
-## Build, Test, and Development Commands
+Use [DataServiceTyped](https://github.com/leifstout/dataServiceTyped) for persistent player data. It saves server changes through ProfileStore and automatically replicates them to the client. The installed version is declared in `wally.toml`; use the project's shared wrapper in `src/game/Data.luau`, with the default data shape in `src/game/items/DataTemplate.luau`.
 
-- `rokit install` installs the pinned tools from `rokit.toml`.
-- `wally install` resolves dependencies into `Packages/` using `wally.lock`.
-- `rojo serve default.project.json` starts live synchronization with Roblox Studio.
-- `rojo build default.project.json -o RNG.rbxlx` creates a local place file.
-- `selene src` lints project Luau against the Roblox standard library.
+- Server: `local Data = require(ReplicatedStorage.Source.Game.Data).server`; read with `Data[player].inventory()`, set with `Data[player].inventory(newInventory)`, or update with `Data[player].inventory(function(old) return newInventory end)`.
+- Client: require the same module's `.client`; read with `Data.inventory()` and listen with `Data.inventory.Changed(callback)`. Client writes only change the local mirror, so perform changes that must save on the server.
+- If code can run before a profile loads, use `Data.Service:waitForData(player)` before accessing it. Keep saved values datastore-safe and update `DataTemplate.luau` when adding fields.
+- See the [getting started guide](https://leifstout.github.io/dataServiceTyped/docs/intro/) and [service functions](https://leifstout.github.io/dataServiceTyped/docs/service-functions/) for the full API.
 
-Run commands from the repository root. Do not hand-edit generated package files.
+## Client-Server Remotes
 
-## Coding Style & Naming Conventions
+Use [Networker](https://github.com/leifstout/networker) for client-server remote calls in this project. It is installed through `wally.toml`; require it with `require(ReplicatedStorage.Packages.Networker)`. Follow the existing feature service pattern instead of creating raw `RemoteEvent` or `RemoteFunction` instances.
 
-Use tabs for Luau indentation and follow existing strict, typed Luau patterns. Name modules and React components in PascalCase (`SlimeEconomy.luau`, `InventoryRoot.luau`), hooks with a `use` prefix, and service modules with `ServiceClient` or `ServiceServer` suffixes. Reserve `.client.luau` and `.server.luau` for executable entry scripts. Keep feature-specific code inside its feature directory; shared domain code belongs in `src/game/`. Run Selene before submitting.
+- Server: `Networker.server.new("ServiceName", self, { self.action })` exposes only the listed methods. The handler receives the calling `player` first: `function Service:action(player: Player, value)`. Validate client-supplied arguments on the server.
+- Client: `local networker = Networker.client.new("ServiceName", self)` uses the same service name; call an exposed method with `networker:fire("action", value)`.
+- See `ShopServiceServer.luau` and `ShopServiceClient.luau` for a local example, and the [Networker README](https://github.com/leifstout/networker) for package usage.
 
-## Testing Guidelines
+## Rojo and Studio Workflow
 
-No first-party automated test framework or coverage threshold is currently configured. Validate changes in Roblox Studio through the Rojo session and exercise both client and server behavior. UI work can use `src/features/app/root.story.luau`; add adjacent `*.story.luau` files for reusable visual scenarios. Include clear manual test steps in the pull request.
+This Roblox game uses Rojo for filesystem-to-Studio sync and has a Roblox Studio MCP connection for inspecting the live DataModel and playtesting when Studio is available. Keep script source in this repository's `src/`; use Studio MCP to verify the resulting instance tree and behavior.
 
-## Commit & Pull Request Guidelines
+- Before adding a Luau file, check `tools/genFeatureTree.js` and nearby files for its location and name. Put feature code in `src/features/<feature>/` (`classes/`, `modules/`, or `ui/` as appropriate), shared game code in `src/game/`, and executable startup scripts in `src/startup/`.
+- The generator maps normal feature/client/shared modules under `ReplicatedStorage.Source` and filenames containing `Server` under `ServerScriptService` (with explicit exceptions in the generator). It capitalizes folder names in Studio, so `src/features/shop/ui/ShopRoot.luau` becomes `ReplicatedStorage.Source.Features.Shop.UI.ShopRoot`. Check the generator's special handling before using `init.luau` or an unusual filename.
+- After adding, moving, or renaming Luau files, run `node tools/genFeatureTree.js` from the repo root to regenerate `default.project.json`; do not make mapping changes only in the generated JSON. Then sync with `rojo serve default.project.json` and check the new instance and its require path in Studio through MCP when connected. Use `rojo build default.project.json -o RNG.rbxlx` to verify the place can be built.
 
-Recent history uses short informal subjects; improve on this with concise, imperative messages such as `Add offline reward cap` or `Fix inventory selection state`. Keep each commit focused. Pull requests should explain behavior changes, list Studio test steps, link relevant issues, and include screenshots or recordings for UI/VFX changes. Call out edits to `default.project.json`, dependency manifests, or saved-data behavior explicitly.
+## Feature Architecture
+
+Follow the feature-oriented service and class pattern already used by `PlotServiceServer`/`PlotServiceClient` and `classes/PlotServer`/`PlotClient` (also illustrated by [Easy Defense](https://github.com/leifstout/easy-defense/tree/main/src/features)).
+
+- A `ServiceServer` or `ServiceClient` ModuleScript is a singleton manager for one feature. It owns startup, player or world event wiring, and the collection of live objects. Give it an `init` method and initialize it from the matching script in `src/startup/`, in dependency order. Add a client or server half only when the feature needs one.
+- Put per-object state and behavior in `src/features/<feature>/classes/` with explicit `new` and `destroy` methods. Use separate `ThingServer` and `ThingClient` classes when both sides need their own representation; the service creates, tracks, and cleans up those instances.
+- Put feature-specific data, configuration, and focused utilities in that feature's `modules/`; keep reusable game-wide data in `src/game/`. Keep feature UI in its `ui/` folder and initialize it from client code.
+- Keep authoritative gameplay decisions, saved-data changes, and validation of client requests on the server. Let the client request an action through Networker; the server checks whether it is allowed and sends the resulting state or response.
+
+## UI
+
+Use [Vide](https://centau.github.io/vide/) for new reactive UI in this project; it is installed as `centau/vide@0.4.1` in `wally.toml`. Keep UI modules in the owning feature's `ui/` folder. Follow `src/features/shop/ui/ShopRoot.luau`, `ShopItemCard.luau`, and `ShopServiceClient.luau` for the local `Vide.create`, `source`, `derive`, `effect`, and `mount` patterns. Use Vide's own sources for ordinary UI state; add Charm only when shared state outside the UI needs it.

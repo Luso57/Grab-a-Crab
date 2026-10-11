@@ -24,6 +24,9 @@ function CompactNumber.format(value: number, decimalPlaces: number?, lowercaseSu
 	end
 
 	local decimals = math.clamp(math.floor(decimalPlaces or 1), 0, 3)
+	if math.abs(value) >= 1e36 then
+		return string.format(`%.{decimals}e`, value)
+	end
 
 	for _, entry in SUFFIXES do
 		if math.abs(value) >= entry.threshold then

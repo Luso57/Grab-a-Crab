@@ -1,3 +1,0 @@
-local UpgradeServiceClient = {}
-
-return UpgradeServiceClient

@@ -6,293 +6,98 @@
     "ReplicatedStorage": {
       "Source": {
         "$className": "Folder",
+        "Assets": {
+          "$className": "Folder",
+          "UI": {
+            "$className": "Folder",
+            "ShopImages": {
+              "$path": "assets/UI/assets.luau"
+            }
+          }
+        },
         "Features": {
           "$className": "Folder",
-          "App": {
+          "Crabs": {
             "$className": "Folder",
-            "Hooks": {
+            "Modules": {
               "$className": "Folder",
-              "useIsPhoneViewport": {
-                "$path": "src/features/app/hooks/useIsPhoneViewport.luau"
+              "CrabRigBuilder": {
+                "$path": "src/features/crabs/modules/CrabRigBuilder.luau"
+              },
+              "Crabs": {
+                "$path": "src/features/crabs/modules/Crabs.luau"
               }
-            },
-            "Hud": {
+            }
+          },
+          "Egg": {
+            "$className": "Folder",
+            "Modules": {
               "$className": "Folder",
-              "AutoCollectSlimePromo": {
-                "$path": "src/features/app/hud/AutoCollectSlimePromo.luau"
-              },
-              "BottomBar": {
-                "$path": "src/features/app/hud/BottomBar.luau"
-              },
-              "ESCUI": {
-                "$path": "src/features/app/hud/ESCUI.luau"
-              },
-              "HomeButton": {
-                "$path": "src/features/app/hud/HomeButton.luau"
-              },
-              "HudRoot": {
-                "$path": "src/features/app/hud/HudRoot.luau"
-              },
-              "LeftBottom": {
-                "$path": "src/features/app/hud/LeftBottom.luau"
-              },
-              "LeftHud": {
-                "$path": "src/features/app/hud/LeftHud.luau"
-              },
-              "MenuButton": {
-                "$path": "src/features/app/hud/MenuButton.luau"
-              },
-              "MultiplierBadges": {
-                "$path": "src/features/app/hud/MultiplierBadges.luau"
-              },
-              "SideBar": {
-                "$path": "src/features/app/hud/SideBar.luau"
-              },
-              "SlimeCurrencyVFX": {
-                "$path": "src/features/app/hud/SlimeCurrencyVFX.luau"
+              "Eggs": {
+                "$path": "src/features/egg/modules/Eggs.luau"
               }
-            },
-            "MobileControlsController": {
-              "$path": "src/features/app/MobileControlsController.luau"
-            },
-            "MusicController": {
-              "$path": "src/features/app/MusicController.luau"
-            },
-            "NotificationSlice": {
-              "$path": "src/features/app/NotificationSlice.luau"
-            },
-            "root.story": {
-              "$path": "src/features/app/root.story.luau"
-            },
-            "RootUI": {
-              "$path": "src/features/app/RootUI.luau"
             },
             "UI": {
               "$className": "Folder",
-              "NotificationRoot": {
-                "$path": "src/features/app/ui/NotificationRoot.luau"
+              "EggBillboard": {
+                "$path": "src/features/egg/ui/EggBillboard.luau"
               }
-            },
-            "UISounds": {
-              "$path": "src/features/app/UISounds.luau"
             }
           },
-          "Events": {
+          "EggConveyor": {
             "$className": "Folder",
-            "EventConfig": {
-              "$path": "src/features/events/EventConfig.luau"
-            },
-            "Events": {
-              "$className": "Folder",
-              "Slimedrop": {
-                "$className": "Folder",
-                "Modules": {
-                  "$className": "Folder",
-                  "SlapSwing": {
-                    "$path": "src/features/events/events/slimedrop/modules/SlapSwing.luau"
-                  },
-                  "SlapToolClient": {
-                    "$path": "src/features/events/events/slimedrop/modules/SlapToolClient.luau"
-                  },
-                  "SlimeCarryClient": {
-                    "$path": "src/features/events/events/slimedrop/modules/SlimeCarryClient.luau"
-                  },
-                  "SlimeDropSpawner": {
-                    "$path": "src/features/events/events/slimedrop/modules/SlimeDropSpawner.luau"
-                  }
-                },
-                "SlimeDropClient": {
-                  "$path": "src/features/events/events/slimedrop/SlimeDropClient.luau"
-                },
-                "SlimeDropConfig": {
-                  "$path": "src/features/events/events/slimedrop/SlimeDropConfig.luau"
-                }
-              }
-            },
-            "EventServiceClient": {
-              "$path": "src/features/events/EventServiceClient.luau"
-            },
-            "EventTypes": {
-              "$path": "src/features/events/EventTypes.luau"
+            "EggConveyorServiceClient": {
+              "$path": "src/features/eggconveyor/EggConveyorServiceClient.luau"
+            }
+          },
+          "Incubators": {
+            "$className": "Folder",
+            "IncubatorServiceClient": {
+              "$path": "src/features/incubators/IncubatorServiceClient.luau"
             },
             "Modules": {
               "$className": "Folder",
-              "EventBillboard": {
-                "$path": "src/features/events/modules/EventBillboard.luau"
+              "Incubators": {
+                "$path": "src/features/incubators/modules/Incubators.luau"
               }
             },
-            "Registry": {
-              "$className": "Folder",
-              "EventRegistryClient": {
-                "$path": "src/features/events/registry/EventRegistryClient.luau"
-              }
-            }
-          },
-          "Index": {
-            "$className": "Folder",
             "UI": {
               "$className": "Folder",
-              "IndexRoot": {
-                "$path": "src/features/index/ui/IndexRoot.luau"
+              "IncubatorCountdown": {
+                "$path": "src/features/incubators/ui/IncubatorCountdown.luau"
               }
             }
           },
           "Inventory": {
             "$className": "Folder",
-            "InventorySlice": {
-              "$path": "src/features/inventory/InventorySlice.luau"
+            "InventoryConfig": {
+              "$path": "src/features/inventory/InventoryConfig.luau"
+            },
+            "InventoryServiceClient": {
+              "$path": "src/features/inventory/InventoryServiceClient.luau"
             },
             "UI": {
               "$className": "Folder",
-              "Components": {
-                "$className": "Folder",
-                "InventorySlot": {
-                  "$path": "src/features/inventory/ui/components/InventorySlot.luau"
-                },
-                "SlimeDetails": {
-                  "$path": "src/features/inventory/ui/components/SlimeDetails.luau"
-                }
+              "HotbarRoot": {
+                "$path": "src/features/inventory/ui/HotbarRoot.luau"
+              },
+              "HotbarSlot": {
+                "$path": "src/features/inventory/ui/HotbarSlot.luau"
               },
               "InventoryRoot": {
                 "$path": "src/features/inventory/ui/InventoryRoot.luau"
-              },
-              "Screens": {
-                "$className": "Folder",
-                "InventoryWindow": {
-                  "$path": "src/features/inventory/ui/screens/InventoryWindow.luau"
-                }
               }
             }
           },
-          "Leaderboards": {
+          "Money": {
             "$className": "Folder",
-            "LeaderboardConfig": {
-              "$path": "src/features/leaderboards/LeaderboardConfig.luau"
-            },
-            "LeaderboardServiceClient": {
-              "$path": "src/features/leaderboards/LeaderboardServiceClient.luau"
-            },
-            "LeaderboardSlice": {
-              "$path": "src/features/leaderboards/LeaderboardSlice.luau"
-            },
-            "LeaderboardTypes": {
-              "$path": "src/features/leaderboards/LeaderboardTypes.luau"
+            "MoneyServiceClient": {
+              "$path": "src/features/money/MoneyServiceClient.luau"
             },
             "UI": {
               "$className": "Folder",
-              "LeaderboardRoot": {
-                "$path": "src/features/leaderboards/ui/LeaderboardRoot.luau"
-              }
-            }
-          },
-          "Monetization": {
-            "$className": "Folder",
-            "Handlers": {
-              "$className": "Folder",
-              "AutoCollect": {
-                "$path": "src/features/monetization/handlers/AutoCollect.luau"
-              },
-              "BuySlime": {
-                "$path": "src/features/monetization/handlers/BuySlime.luau"
-              },
-              "DoubleCash": {
-                "$path": "src/features/monetization/handlers/DoubleCash.luau"
-              },
-              "DoubleOfflineSlime": {
-                "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
-              },
-              "DoublePermanentLuck": {
-                "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau"
-              },
-              "DoubleRolls": {
-                "$path": "src/features/monetization/handlers/DoubleRolls.luau"
-              },
-              "DoubleRollSpeed": {
-                "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau"
-              },
-              "DoubleSlimeDeposit": {
-                "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
-              },
-              "GrantPermanentProduct": {
-                "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau"
-              },
-              "QuadruplePermanentLuck": {
-                "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau"
-              },
-              "Registry": {
-                "$path": "src/features/monetization/handlers/Registry.luau"
-              },
-              "SkipRebirth": {
-                "$path": "src/features/monetization/handlers/SkipRebirth.luau"
-              }
-            },
-            "Hooks": {
-              "$className": "Folder",
-              "useOwnsProduct": {
-                "$path": "src/features/monetization/hooks/useOwnsProduct.luau"
-              }
-            },
-            "Modules": {
-              "$className": "Folder",
-              "MonetizationPadBillboards": {
-                "$path": "src/features/monetization/modules/MonetizationPadBillboards.luau"
-              },
-              "PassCatalog": {
-                "$path": "src/features/monetization/modules/PassCatalog.luau"
-              },
-              "ProductEntitlements": {
-                "$path": "src/features/monetization/modules/ProductEntitlements.luau"
-              },
-              "Products": {
-                "$path": "src/features/monetization/modules/Products.luau"
-              },
-              "SlimePurchaseProducts": {
-                "$path": "src/features/monetization/modules/SlimePurchaseProducts.luau"
-              }
-            },
-            "MonetizationServiceClient": {
-              "$path": "src/features/monetization/MonetizationServiceClient.luau"
-            },
-            "MonetizationTypes": {
-              "$path": "src/features/monetization/MonetizationTypes.luau"
-            }
-          },
-          "Offlinerewards": {
-            "$className": "Folder",
-            "Modules": {
-              "$className": "Folder",
-              "OfflineRewardCalculator": {
-                "$path": "src/features/offlinerewards/modules/OfflineRewardCalculator.luau"
-              }
-            },
-            "OfflineRewardsConfig": {
-              "$path": "src/features/offlinerewards/OfflineRewardsConfig.luau"
-            },
-            "OfflineRewardsServiceClient": {
-              "$path": "src/features/offlinerewards/OfflineRewardsServiceClient.luau"
-            },
-            "OfflineRewardsSlice": {
-              "$path": "src/features/offlinerewards/OfflineRewardsSlice.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "OfflineRewardsRoot": {
-                "$path": "src/features/offlinerewards/ui/OfflineRewardsRoot.luau"
-              }
-            }
-          },
-          "Plotlevels": {
-            "$className": "Folder",
-            "PlotLevelConfig": {
-              "$path": "src/features/plotlevels/PlotLevelConfig.luau"
-            },
-            "PlotLevelSlice": {
-              "$path": "src/features/plotlevels/PlotLevelSlice.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "PlotLevelRoot": {
-                "$path": "src/features/plotlevels/ui/PlotLevelRoot.luau"
+              "MoneyHud": {
+                "$path": "src/features/money/ui/MoneyHud.luau"
               }
             }
           },
@@ -306,222 +111,69 @@
             },
             "PlotServiceClient": {
               "$path": "src/features/plots/PlotServiceClient.luau"
-            },
-            "PlotTypes": {
-              "$path": "src/features/plots/PlotTypes.luau"
-            }
-          },
-          "Rebirth": {
-            "$className": "Folder",
-            "RebirthConfig": {
-              "$path": "src/features/rebirth/RebirthConfig.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "RebirthRoot": {
-                "$path": "src/features/rebirth/ui/RebirthRoot.luau"
-              }
-            }
-          },
-          "RobuxBoard": {
-            "$className": "Folder",
-            "RobuxBoardSlice": {
-              "$path": "src/features/robuxboard/RobuxBoardSlice.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "RobuxBoardRoot": {
-                "$path": "src/features/robuxboard/ui/RobuxBoardRoot.luau"
-              },
-              "Screens": {
-                "$className": "Folder",
-                "RobuxBoard": {
-                  "$path": "src/features/robuxboard/ui/screens/RobuxBoard.luau"
-                }
-              }
-            }
-          },
-          "Selling": {
-            "$className": "Folder",
-            "Modules": {
-              "$className": "Folder",
-              "CashCollectionVFX": {
-                "$path": "src/features/selling/modules/CashCollectionVFX.luau"
-              },
-              "DepositConfetti": {
-                "$path": "src/features/selling/modules/DepositConfetti.luau"
-              }
-            },
-            "SellingConfig": {
-              "$path": "src/features/selling/SellingConfig.luau"
-            },
-            "SellingServiceClient": {
-              "$path": "src/features/selling/SellingServiceClient.luau"
-            },
-            "SellingSlice": {
-              "$path": "src/features/selling/SellingSlice.luau"
-            },
-            "SellingTypes": {
-              "$path": "src/features/selling/SellingTypes.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "Screens": {
-                "$className": "Folder",
-                "CollectCashBillboard": {
-                  "$path": "src/features/selling/ui/screens/CollectCashBillboard.luau"
-                },
-                "SlimeDepositBillboard": {
-                  "$path": "src/features/selling/ui/screens/SlimeDepositBillboard.luau"
-                },
-                "SlimeQueueSign": {
-                  "$path": "src/features/selling/ui/screens/SlimeQueueSign.luau"
-                },
-                "UncollectedCashBillboard": {
-                  "$path": "src/features/selling/ui/screens/UncollectedCashBillboard.luau"
-                },
-                "UpgradePerSecondBillboard": {
-                  "$path": "src/features/selling/ui/screens/UpgradePerSecondBillboard.luau"
-                }
-              },
-              "SellingRoot": {
-                "$path": "src/features/selling/ui/SellingRoot.luau"
-              }
-            }
-          },
-          "Settings": {
-            "$className": "Folder",
-            "SettingsServiceClient": {
-              "$path": "src/features/settings/SettingsServiceClient.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "SettingsRoot": {
-                "$path": "src/features/settings/ui/SettingsRoot.luau"
-              }
             }
           },
           "Shop": {
             "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "ShopStock": {
+                "$path": "src/features/shop/modules/ShopStock.luau"
+              }
+            },
+            "ShopConfig": {
+              "$path": "src/features/shop/ShopConfig.luau"
+            },
+            "ShopServiceClient": {
+              "$path": "src/features/shop/ShopServiceClient.luau"
+            },
             "UI": {
               "$className": "Folder",
-              "Components": {
-                "$className": "Folder",
-                "PassCard": {
-                  "$path": "src/features/shop/ui/components/PassCard.luau"
-                }
+              "ShopItemCard": {
+                "$path": "src/features/shop/ui/ShopItemCard.luau"
               },
               "ShopRoot": {
                 "$path": "src/features/shop/ui/ShopRoot.luau"
               }
             }
           },
-          "Slimes": {
+          "Tanks": {
             "$className": "Folder",
             "Classes": {
               "$className": "Folder",
-              "SlimeClient": {
-                "$path": "src/features/slimes/classes/SlimeClient.luau"
+              "TankClient": {
+                "$path": "src/features/tanks/classes/TankClient.luau"
+              },
+              "TankCrabAnimatorClient": {
+                "$path": "src/features/tanks/classes/TankCrabAnimatorClient.luau"
               }
             },
             "Modules": {
               "$className": "Folder",
-              "SlimeDiscovery": {
-                "$path": "src/features/slimes/modules/SlimeDiscovery.luau"
+              "TankAnimationConfig": {
+                "$path": "src/features/tanks/modules/TankAnimationConfig.luau"
               },
-              "SlimeEconomy": {
-                "$path": "src/features/slimes/modules/SlimeEconomy.luau"
-              },
-              "SlimeMovement": {
-                "$path": "src/features/slimes/modules/SlimeMovement.luau"
-              },
-              "SlimeMutationEffects": {
-                "$path": "src/features/slimes/modules/SlimeMutationEffects.luau"
-              },
-              "SlimeMutations": {
-                "$path": "src/features/slimes/modules/SlimeMutations.luau"
-              },
-              "SlimeRollVFX": {
-                "$path": "src/features/slimes/modules/SlimeRollVFX.luau"
-              },
-              "Slimes": {
-                "$path": "src/features/slimes/modules/Slimes.luau"
-              },
-              "SlimeTouchDetector": {
-                "$path": "src/features/slimes/modules/SlimeTouchDetector.luau"
+              "Tanks": {
+                "$path": "src/features/tanks/modules/Tanks.luau"
               }
             },
-            "SlimeSlice": {
-              "$path": "src/features/slimes/SlimeSlice.luau"
+            "TankServiceClient": {
+              "$path": "src/features/tanks/TankServiceClient.luau"
             },
-            "SlimeUpgradeTypes": {
-              "$path": "src/features/slimes/SlimeUpgradeTypes.luau"
+            "TankTypes": {
+              "$path": "src/features/tanks/TankTypes.luau"
             },
             "UI": {
               "$className": "Folder",
-              "Screens": {
-                "$className": "Folder",
-                "SlimeBillboards": {
-                  "$path": "src/features/slimes/ui/screens/SlimeBillboards.luau"
-                }
+              "MoneyPadDisplay": {
+                "$path": "src/features/tanks/ui/MoneyPadDisplay.luau"
               },
-              "SlimeRoot": {
-                "$path": "src/features/slimes/ui/SlimeRoot.luau"
-              }
-            }
-          },
-          "Tutorial": {
-            "$className": "Folder",
-            "Hooks": {
-              "$className": "Folder",
-              "useTutorialState": {
-                "$path": "src/features/tutorial/hooks/useTutorialState.luau"
-              }
-            },
-            "Modules": {
-              "$className": "Folder",
-              "TutorialGuide": {
-                "$path": "src/features/tutorial/modules/TutorialGuide.luau"
-              }
-            },
-            "TutorialConfig": {
-              "$path": "src/features/tutorial/TutorialConfig.luau"
-            },
-            "TutorialServiceClient": {
-              "$path": "src/features/tutorial/TutorialServiceClient.luau"
-            },
-            "UI": {
-              "$className": "Folder",
-              "TutorialRoot": {
-                "$path": "src/features/tutorial/ui/TutorialRoot.luau"
-              }
-            }
-          },
-          "Upgrades": {
-            "$className": "Folder",
-            "UI": {
-              "$className": "Folder",
-              "Screens": {
-                "$className": "Folder",
-                "UpgradeBoard": {
-                  "$path": "src/features/upgrades/ui/screens/UpgradeBoard.luau"
-                }
+              "TankCrabBillboard": {
+                "$path": "src/features/tanks/ui/TankCrabBillboard.luau"
               },
-              "UpgradeRoot": {
-                "$path": "src/features/upgrades/ui/UpgradeRoot.luau"
+              "TankPopupRoot": {
+                "$path": "src/features/tanks/ui/TankPopupRoot.luau"
               }
-            },
-            "UpgradeConfig": {
-              "$path": "src/features/upgrades/UpgradeConfig.luau"
-            },
-            "UpgradeServiceClient": {
-              "$path": "src/features/upgrades/UpgradeServiceClient.luau"
-            },
-            "UpgradeSlice": {
-              "$path": "src/features/upgrades/UpgradeSlice.luau"
-            },
-            "UpgradeTypes": {
-              "$path": "src/features/upgrades/UpgradeTypes.luau"
             }
           }
         },
@@ -536,20 +188,17 @@
           "Data": {
             "$path": "src/game/Data.luau"
           },
-          "Fruits": {
-            "$path": "src/game/Fruits.luau"
-          },
           "Items": {
             "$className": "Folder",
             "DataTemplate": {
               "$path": "src/game/items/DataTemplate.luau"
+            },
+            "ItemCatalog": {
+              "$path": "src/game/items/ItemCatalog.luau"
+            },
+            "Rarities": {
+              "$path": "src/game/items/Rarities.luau"
             }
-          }
-        },
-        "StartUp": {
-          "$className": "Folder",
-          "MountUI": {
-            "$path": "src/startup/MountUI.luau"
           }
         }
       },
@@ -573,97 +222,55 @@
     "ServerScriptService": {
       "Features": {
         "$className": "Folder",
-        "Events": {
+        "Crabs": {
           "$className": "Folder",
-          "Events": {
+          "Classes": {
             "$className": "Folder",
-            "Slimedrop": {
-              "$className": "Folder",
-              "Modules": {
-                "$className": "Folder",
-                "RagdollServer": {
-                  "$path": "src/features/events/events/slimedrop/modules/RagdollServer.luau"
-                }
-              },
-              "SlimeDropServer": {
-                "$path": "src/features/events/events/slimedrop/SlimeDropServer.luau"
-              }
+            "CrabServer": {
+              "$path": "src/features/crabs/classes/CrabServer.luau"
+            }
+          }
+        },
+        "Egg": {
+          "$className": "Folder",
+          "Classes": {
+            "$className": "Folder",
+            "EggServer": {
+              "$path": "src/features/egg/classes/EggServer.luau"
+            }
+          }
+        },
+        "EggConveyor": {
+          "$className": "Folder",
+          "Classes": {
+            "$className": "Folder",
+            "EggConveyorServer": {
+              "$path": "src/features/eggconveyor/classes/EggConveyorServer.luau"
             }
           },
-          "EventServiceServer": {
-            "$path": "src/features/events/EventServiceServer.luau"
-          },
-          "Registry": {
+          "EggConveyorServiceServer": {
+            "$path": "src/features/eggconveyor/EggConveyorServiceServer.luau"
+          }
+        },
+        "Incubators": {
+          "$className": "Folder",
+          "Classes": {
             "$className": "Folder",
-            "EventRegistryServer": {
-              "$path": "src/features/events/registry/EventRegistryServer.luau"
+            "IncubatorServer": {
+              "$path": "src/features/incubators/classes/IncubatorServer.luau"
+            },
+            "PlacedIncubatorServer": {
+              "$path": "src/features/incubators/classes/PlacedIncubatorServer.luau"
             }
+          },
+          "IncubatorServiceServer": {
+            "$path": "src/features/incubators/IncubatorServiceServer.luau"
           }
         },
         "Inventory": {
           "$className": "Folder",
           "InventoryServiceServer": {
             "$path": "src/features/inventory/InventoryServiceServer.luau"
-          }
-        },
-        "Leaderboards": {
-          "$className": "Folder",
-          "LeaderboardServiceServer": {
-            "$path": "src/features/leaderboards/LeaderboardServiceServer.luau"
-          }
-        },
-        "Monetization": {
-          "$className": "Folder",
-          "MonetizationBootstrap.server": {
-            "$path": "src/features/monetization/MonetizationBootstrap.server.luau"
-          },
-          "MonetizationServiceServer": {
-            "$path": "src/features/monetization/MonetizationServiceServer.luau"
-          },
-          "Handlers": {
-            "$className": "Folder",
-            "AutoCollect": {
-              "$path": "src/features/monetization/handlers/AutoCollect.luau"
-            },
-            "BuySlime": {
-              "$path": "src/features/monetization/handlers/BuySlime.luau"
-            },
-            "DoubleCash": {
-              "$path": "src/features/monetization/handlers/DoubleCash.luau"
-            },
-            "DoubleOfflineSlime": {
-              "$path": "src/features/monetization/handlers/DoubleOfflineSlime.luau"
-            },
-            "DoublePermanentLuck": {
-              "$path": "src/features/monetization/handlers/DoublePermanentLuck.luau"
-            },
-            "DoubleRolls": {
-              "$path": "src/features/monetization/handlers/DoubleRolls.luau"
-            },
-            "DoubleRollSpeed": {
-              "$path": "src/features/monetization/handlers/DoubleRollSpeed.luau"
-            },
-            "DoubleSlimeDeposit": {
-              "$path": "src/features/monetization/handlers/DoubleSlimeDeposit.luau"
-            },
-            "GrantPermanentProduct": {
-              "$path": "src/features/monetization/handlers/GrantPermanentProduct.luau"
-            },
-            "QuadruplePermanentLuck": {
-              "$path": "src/features/monetization/handlers/QuadruplePermanentLuck.luau"
-            },
-            "Registry": {
-              "$path": "src/features/monetization/handlers/Registry.luau"
-            },
-            "SkipRebirth": {
-              "$path": "src/features/monetization/handlers/SkipRebirth.luau"
-            }
-          }
-        },
-        "Offlinerewards": {
-          "$className": "Folder",
-          "OfflineRewardsServiceServer": {
-            "$path": "src/features/offlinerewards/OfflineRewardsServiceServer.luau"
           }
         },
         "Plots": {
@@ -678,28 +285,34 @@
             "$path": "src/features/plots/PlotServiceServer.luau"
           }
         },
-        "Selling": {
+        "Shop": {
           "$className": "Folder",
-          "SellingServiceServer": {
-            "$path": "src/features/selling/SellingServiceServer.luau"
+          "ShopServiceServer": {
+            "$path": "src/features/shop/ShopServiceServer.luau"
           }
         },
-        "Settings": {
+        "Tanks": {
           "$className": "Folder",
-          "SettingsServiceServer": {
-            "$path": "src/features/settings/SettingsServiceServer.luau"
+          "Classes": {
+            "$className": "Folder",
+            "TankServer": {
+              "$path": "src/features/tanks/classes/TankServer.luau"
+            }
+          },
+          "Modules": {
+            "$className": "Folder",
+            "TankPlacement": {
+              "$path": "src/features/tanks/modules/TankPlacement.luau"
+            }
+          },
+          "TankServiceServer": {
+            "$path": "src/features/tanks/TankServiceServer.luau"
           }
         },
-        "Tutorial": {
+        "Monetization": {
           "$className": "Folder",
-          "TutorialServiceServer": {
-            "$path": "src/features/tutorial/TutorialServiceServer.luau"
-          }
-        },
-        "Upgrades": {
-          "$className": "Folder",
-          "UpgradeServiceServer": {
-            "$path": "src/features/upgrades/UpgradeServiceServer.luau"
+          "Handlers": {
+            "$className": "Folder"
           }
         }
       },

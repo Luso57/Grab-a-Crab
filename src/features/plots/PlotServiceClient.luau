@@ -1,221 +1,333 @@
+--!strict
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
-local Charm = require(ReplicatedStorage.Packages.Charm)
-
+local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
+local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local Networker = require(ReplicatedStorage.Packages.Networker)
-local PlotClient = require(ReplicatedStorage.Source.Features.Plots.Classes.PlotClient)
-local PlotTypes = require(ReplicatedStorage.Source.Features.Plots.PlotTypes)
+local PlotClient = require(script.Parent.Classes.PlotClient)
+local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
 
-export type PlotOwnerEntry = {
-	adornee: Attachment,
-	playerName: string,
-	userId: number,
-}
+local SLOT_IDS = { "Left1", "Left2", "Left3", "Right1", "Right2", "Right3" }
+local MAX_INTERACTION_DISTANCE = 10
 
-type Atom<T> = Charm.Atom<T>
+local PlotServiceClient = {}
+local initialized = false
+local plots: { [number]: PlotClient.PlotClient } = {}
+local indicators: { [string]: Model } = {}
+local indicatorFolder: Folder? = nil
+local activePlot: PlotClient.PlotClient? = nil
+local prompt: ProximityPrompt? = nil
+local promptSlotId: string? = nil
+local promptMode: string? = nil
+local sendPlace: ((string, string) -> ())? = nil
+local sendPickup: ((string) -> ())? = nil
 
-local plotOwners: Atom<{ [number]: PlotOwnerEntry }> = Charm.atom({})
-local PLOT_RESYNC_DELAY = 1
-local MAX_PLOT_RESYNC_ATTEMPTS = 5
-local REQUEST_PLOTS_EVENT = "requestPlots"
-
-local PlotServiceClient = {
-	initialized = false,
-	state = {
-		plotOwners = plotOwners,
-	},
-}
-
-function PlotServiceClient.init(self: PlotServiceClient)
-	if self.initialized then return end
-	self.initialized = true
-	self.plots = {}
-	self.plotOwnerAttachments = {}
-	self.initializingPlots = {}
-	self.pendingPlotData = {}
-	self.plotGenerations = {}
-	self.plotRetryTokens = {}
-	self.plotRetryScheduled = {}
-	self.networker = Networker.client.new("PlotService", self)
-	self.networker:fire(REQUEST_PLOTS_EVENT)
-end
-
-function PlotServiceClient.cancelPlotResync(self: PlotServiceClient, index: number)
-	self.plotRetryTokens[index] = (self.plotRetryTokens[index] or 0) + 1
-	self.plotRetryScheduled[index] = nil
-end
-
-function PlotServiceClient.schedulePlotResync(self: PlotServiceClient, index: number, generation: number)
-	if self.plotRetryScheduled[index] then return end
-
-	local token = (self.plotRetryTokens[index] or 0) + 1
-	self.plotRetryTokens[index] = token
-	self.plotRetryScheduled[index] = true
-
-	task.spawn(function()
-		for _ = 1, MAX_PLOT_RESYNC_ATTEMPTS do
-			task.wait(PLOT_RESYNC_DELAY)
-			if self.plotRetryTokens[index] ~= token
-				or (self.plotGenerations[index] or 0) ~= generation
-			then
-				return
-			end
-			self.networker:fire(REQUEST_PLOTS_EVENT)
-		end
-		if self.plotRetryTokens[index] == token then
-			self.plotRetryScheduled[index] = nil
-		end
-	end)
-end
-
-function PlotServiceClient.removePlotOwner(self: PlotServiceClient, index: number)
-	local attachment = self.plotOwnerAttachments[index]
-	self.plotOwnerAttachments[index] = nil
-	if attachment then attachment:Destroy() end
-	if plotOwners()[index] == nil then return end
-
-	plotOwners(function(previousOwners)
-		local nextOwners = table.clone(previousOwners)
-		nextOwners[index] = nil
-		return nextOwners
-	end)
-end
-
-function PlotServiceClient.registerPlotOwner(self: PlotServiceClient, plotData: PlotTypes.PlotData)
-	local existingEntry = plotOwners()[plotData.index]
-	if existingEntry
-		and existingEntry.adornee.Parent
-		and existingEntry.userId == plotData.player.UserId
-		and existingEntry.playerName == plotData.player.Name
-	then
+local function addPlot(instance: Instance)
+	if not instance:IsA("Model") then
 		return
 	end
-
-	self:removePlotOwner(plotData.index)
-	local plotOrigin = plotData.plotModel:WaitForChild("PlotOrigin")
-	assert(plotOrigin:IsA("BasePart"), "Plot PlotOrigin must be a BasePart")
-
-	local attachment = Instance.new("Attachment")
-	attachment.Name = "PlotOwnerBillboardAttachment"
-	attachment.Position = plotOrigin.CFrame:PointToObjectSpace(plotOrigin.Position + Vector3.new(0, 90, 0))
-	attachment.Parent = plotOrigin
-	self.plotOwnerAttachments[plotData.index] = attachment
-
-	plotOwners(function(previousOwners)
-		local nextOwners = table.clone(previousOwners)
-		nextOwners[plotData.index] = {
-			adornee = attachment,
-			playerName = plotData.player.Name,
-			userId = plotData.player.UserId,
-		}
-		return nextOwners
-	end)
-end
-
-function PlotServiceClient.initPlot(self: PlotServiceClient, plotData: PlotTypes.PlotData)
-	local index = plotData.index
-	local generation = self.plotGenerations[index] or 0
-	local plotModel: any = plotData.plotModel
-	if typeof(plotModel) ~= "Instance"
-		or not plotModel:IsA("Model")
-		or not plotModel:IsDescendantOf(workspace)
-	then
-		self:schedulePlotResync(index, generation)
+	local index = instance:GetAttribute("Index")
+	if type(index) ~= "number" then
 		return
 	end
+	local existing = plots[index]
+	if existing then
+		if existing.model == instance then
+			return
+		end
+		existing:destroy()
+	end
+	plots[index] = PlotClient.new(instance)
+end
 
-	if self.initializingPlots[index] then
-		self.pendingPlotData[index] = plotData
+local function removePlot(instance: Instance)
+	if not instance:IsA("Model") then
 		return
 	end
-
-	self.initializingPlots[index] = true
-	local success, result = xpcall(function()
-		local existingPlot = self.plots[index]
-		if existingPlot and existingPlot.plotModel == plotData.plotModel then
-			self:registerPlotOwner(plotData)
-			existingPlot:syncPlaypenSlimes(plotData.slimes)
-			existingPlot:setPlotLevel(plotData.plotLevel)
-			existingPlot:syncOffers(
-				plotData.currentSlimeId,
-				plotData.currentMutationId,
-				plotData.secondarySlimeId,
-				plotData.secondaryMutationId
-			)
-			return existingPlot
-		end
-
-		if existingPlot then
-			self:removePlotOwner(index)
-			existingPlot:destroy()
-			self.plots[index] = nil
-		end
-		return PlotClient.new(plotData)
-	end, debug.traceback)
-
-	if success then
-		local plot = result :: PlotClient.PlotClient
-		if self.plotGenerations[index] == nil then
-			self.plotGenerations[index] = generation
-		end
-		if self.plotGenerations[index] ~= generation then
-			if plot ~= self.plots[index] then plot:destroy() end
-		elseif self.plots[index] ~= plot then
-			self.plots[index] = plot
-			self:registerPlotOwner(plotData)
-		end
-		if (self.plotGenerations[index] or 0) == generation then
-			self:cancelPlotResync(index)
-		end
-	else
-		warn(`Failed to initialize plot {index}: {result}`)
-		self:schedulePlotResync(index, generation)
+	local index = instance:GetAttribute("Index")
+	if type(index) ~= "number" then
+		return
 	end
-
-	self.initializingPlots[index] = nil
-	local pending = self.pendingPlotData[index]
-	self.pendingPlotData[index] = nil
-	if pending then
-		self:initPlot(pending)
+	local plot = plots[index]
+	if plot and plot.model == instance then
+		plot:destroy()
+		plots[index] = nil
 	end
 end
 
-function PlotServiceClient.getPlot(self: PlotServiceClient, index: number): PlotClient.PlotClient?
-	return self.plots[index]
-end
-
-function PlotServiceClient.getLocalPlayerPlot(self: PlotServiceClient): PlotClient.PlotClient?
-	for _, plot in self.plots do
-		if plot.player == Players.LocalPlayer then
+local function getLocalPlot(): PlotClient.PlotClient?
+	for _, plot in plots do
+		if plot:isLocal() then
 			return plot
 		end
 	end
-
 	return nil
 end
 
-function PlotServiceClient.removePlot(self: PlotServiceClient, index: number)
-	self.plotGenerations[index] = (self.plotGenerations[index] or 0) + 1
-	self:cancelPlotResync(index)
-	self.pendingPlotData[index] = nil
-	local plot = self.plots[index]
-	self:removePlotOwner(index)
-	if plot then
-		plot:destroy()
-		self.plots[index] = nil
+local function getEquippedItem(): (string?, string?)
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return nil, nil
+	end
+	for _, child in character:GetChildren() do
+		if child:IsA("Tool") then
+			local instanceId = child:GetAttribute("ItemInstanceId")
+			local itemId = child:GetAttribute("ItemId")
+			local tankId = if typeof(itemId) == "string" then string.match(itemId, "^Tank%.([%w_]+)$") else nil
+			if typeof(instanceId) == "string" and typeof(itemId) == "string"
+				and (itemId == "Incubator" or (tankId ~= nil and Tanks.get(tankId) ~= nil)) then
+				return instanceId, itemId
+			end
+		end
+	end
+	return nil, nil
+end
+
+local function isHammerEquipped(): boolean
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return false
+	end
+	for _, child in character:GetChildren() do
+		if child:IsA("Tool") and child:GetAttribute("ItemId") == InventoryConfig.hammerItemId then
+			return true
+		end
+	end
+	return false
+end
+
+local function isEggEquipped(): boolean
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return false
+	end
+	for _, child in character:GetChildren() do
+		if child:IsA("Tool") then
+			local itemId = child:GetAttribute("ItemId")
+			local eggId = if typeof(itemId) == "string" then string.match(itemId, "^Egg%.([%w_]+)$") else nil
+			if eggId and Eggs.get(eggId) and typeof(child:GetAttribute("ItemInstanceId")) == "string" then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function updateEggPrompts()
+	local eggEquipped = isEggEquipped()
+	for _, plot in plots do
+		local placedItems = plot.model:FindFirstChild("PlacedItems")
+		if not placedItems then
+			continue
+		end
+		for _, model in placedItems:GetChildren() do
+			if model:IsA("Model") and model:GetAttribute("ItemId") == "Incubator" then
+				local eggPrompt = model:FindFirstChild("PlaceEggPrompt", true)
+				if eggPrompt and eggPrompt:IsA("ProximityPrompt") then
+					eggPrompt.Enabled = plot:isLocal() and eggEquipped and model:GetAttribute("IncubatingEggId") == nil
+				end
+			end
+		end
 	end
 end
 
-type PlotServiceClient = typeof(PlotServiceClient) & {
-	networker: Networker.Client,
-	plots: { [number]: PlotClient.PlotClient },
-	plotOwnerAttachments: { [number]: Attachment },
-	initializingPlots: { [number]: boolean },
-	pendingPlotData: { [number]: PlotTypes.PlotData },
-	plotGenerations: { [number]: number },
-	plotRetryTokens: { [number]: number },
-	plotRetryScheduled: { [number]: boolean },
-}
+local function addDash(parent: Model, cframe: CFrame, size: Vector3)
+	local dash = Instance.new("Part")
+	dash.Name = "Dash"
+	dash.Size = size
+	dash.CFrame = cframe
+	dash.Anchored = true
+	dash.CanCollide = false
+	dash.CanTouch = false
+	dash.CanQuery = false
+	dash.CastShadow = false
+	dash.Material = Enum.Material.Neon
+	dash.Color = Color3.new(1, 1, 1)
+	dash.Parent = parent
+end
 
-return PlotServiceClient :: PlotServiceClient
+local function makeOutline(slot: BasePart): Model
+	local outline = Instance.new("Model")
+	outline.Name = slot.Name .. "_Outline"
+	local halfX = slot.Size.X / 2
+	local halfZ = slot.Size.Z / 2
+	local y = slot.Size.Y / 2 + 0.1
+	for index = 1, 4 do
+		local x = -halfX + (index - 0.5) * slot.Size.X / 4
+		local z = -halfZ + (index - 0.5) * slot.Size.Z / 4
+		local xLength = slot.Size.X / 7
+		local zLength = slot.Size.Z / 7
+		addDash(outline, slot.CFrame * CFrame.new(x, y, -halfZ), Vector3.new(xLength, 0.08, 0.16))
+		addDash(outline, slot.CFrame * CFrame.new(x, y, halfZ), Vector3.new(xLength, 0.08, 0.16))
+		addDash(outline, slot.CFrame * CFrame.new(-halfX, y, z), Vector3.new(0.16, 0.08, zLength))
+		addDash(outline, slot.CFrame * CFrame.new(halfX, y, z), Vector3.new(0.16, 0.08, zLength))
+	end
+	outline.Parent = indicatorFolder
+	return outline
+end
+
+local function clearIndicators()
+	for slotId, outline in indicators do
+		outline:Destroy()
+		indicators[slotId] = nil
+	end
+end
+
+local function getOccupied(plot: PlotClient.PlotClient): { [string]: Model }
+	local occupied: { [string]: Model } = {}
+	local folder = plot.model:FindFirstChild("PlacedItems")
+	if folder then
+		for _, child in folder:GetChildren() do
+			if child:IsA("Model") then
+				local slotId = child:GetAttribute("SlotId")
+				if typeof(slotId) == "string" then
+					occupied[slotId] = child
+				end
+			end
+		end
+	end
+	return occupied
+end
+
+local function updateInteraction()
+	updateEggPrompts()
+	local plot = getLocalPlot()
+	if plot ~= activePlot then
+		clearIndicators()
+		activePlot = plot
+	end
+	local currentPrompt = prompt
+	if not plot or not currentPrompt then
+		if currentPrompt then
+			currentPrompt.Parent = nil
+		end
+		promptSlotId = nil
+		promptMode = nil
+		return
+	end
+
+	local slots = plot.model:FindFirstChild("PlacementSlots")
+	if not slots then
+		return
+	end
+	local itemInstanceId, itemId = getEquippedItem()
+	local hammerEquipped = isHammerEquipped()
+	local occupied = getOccupied(plot)
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	local closestSlot: BasePart? = nil
+	local closestId: string? = nil
+	local closestDistance = math.huge
+
+	for _, slotId in SLOT_IDS do
+		local slot = slots:FindFirstChild(slotId)
+		if not slot or not slot:IsA("BasePart") then
+			continue
+		end
+		local placed = occupied[slotId]
+		if itemInstanceId and not placed then
+			if not indicators[slotId] then
+				indicators[slotId] = makeOutline(slot)
+			end
+		elseif indicators[slotId] then
+			indicators[slotId]:Destroy()
+			indicators[slotId] = nil
+		end
+
+		if root and root:IsA("BasePart") and ((itemInstanceId and not placed) or (hammerEquipped and placed and placed:GetAttribute("IncubatingEggId") == nil and (placed:GetAttribute("ContainedCrabCount") or 0) == 0)) then
+			local distance = (root.Position - slot.Position).Magnitude
+			if distance < closestDistance then
+				closestDistance = distance
+				closestSlot = slot
+				closestId = slotId
+			end
+		end
+	end
+
+	if not closestSlot or closestDistance > MAX_INTERACTION_DISTANCE then
+		currentPrompt.Parent = nil
+		promptSlotId = nil
+		promptMode = nil
+		return
+	end
+	local mode = if itemInstanceId then "place" else "pickup"
+	promptSlotId = closestId
+	promptMode = mode
+	currentPrompt.ActionText = if mode == "place" then "Place" else "Pick Up"
+	currentPrompt.ObjectText = if mode == "place" then (itemId :: string) else (occupied[closestId :: string]:GetAttribute("ItemId") :: string? or "Item")
+	if currentPrompt.Parent ~= closestSlot then
+		currentPrompt.Parent = closestSlot
+	end
+	currentPrompt.Enabled = true
+end
+
+function PlotServiceClient:init()
+	if initialized then
+		return
+	end
+	initialized = true
+
+	local networker = Networker.client.new("PlotPlacement", self)
+	sendPlace = function(instanceId, slotId)
+		networker:fire("place", instanceId, slotId)
+	end
+	sendPickup = function(slotId)
+		networker:fire("pickup", slotId)
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "LocalPlacementIndicators"
+	folder.Parent = Workspace
+	indicatorFolder = folder
+
+	local placePrompt = Instance.new("ProximityPrompt")
+	placePrompt.Name = "PlacementPrompt"
+	placePrompt.KeyboardKeyCode = Enum.KeyCode.E
+	placePrompt.ActionText = "Place"
+	placePrompt.ObjectText = "Item"
+	placePrompt.HoldDuration = 0
+	placePrompt.MaxActivationDistance = MAX_INTERACTION_DISTANCE
+	placePrompt.RequiresLineOfSight = false
+	placePrompt.Triggered:Connect(function()
+		local slotId = promptSlotId
+		if not slotId then
+			return
+		end
+		if promptMode == "place" then
+			local instanceId = getEquippedItem()
+			if instanceId and sendPlace then
+				sendPlace(instanceId, slotId)
+			end
+		elseif promptMode == "pickup" and isHammerEquipped() and sendPickup then
+			sendPickup(slotId)
+		end
+	end)
+	prompt = placePrompt
+
+	local spawnedPlots = Workspace:WaitForChild("SpawnedPlots") :: Folder
+	spawnedPlots.ChildAdded:Connect(addPlot)
+	spawnedPlots.ChildRemoved:Connect(removePlot)
+	for _, child in spawnedPlots:GetChildren() do
+		addPlot(child)
+	end
+
+	task.spawn(function()
+		while initialized do
+			updateInteraction()
+			task.wait(0.1)
+		end
+	end)
+end
+
+function PlotServiceClient:getPlot(index: number): PlotClient.PlotClient?
+	return plots[index]
+end
+
+function PlotServiceClient:getLocalPlot(): PlotClient.PlotClient?
+	return getLocalPlot()
+end
+
+return PlotServiceClient

@@ -5,8 +5,10 @@ const BASE_PATH = path.join(__dirname, "../src");
 
 const BLACKLISTED_DIRS = [toPosix(path.join(BASE_PATH, "startup"))];
 const NON_SERVER_NAMES = ["ServerTime"];
+const SERVER_ONLY_NAMES = new Set(["TankPlacement"]);
 const PASCAL_CASE_OVERRIDES = {
   robuxboard: "RobuxBoard",
+  eggconveyor: "EggConveyor",
 };
 
 // Tracks folders that are "claimed" by init.luau
@@ -29,10 +31,11 @@ function getVirtualPath(filepath) {
   const parts = relativePath.split(path.sep);
   const filename = path.basename(filepath, ".luau");
   const isServer =
-    filename.toLowerCase().includes("server") &&
-    !NON_SERVER_NAMES.some((name) =>
-      filename.toLowerCase().includes(name.toLowerCase()),
-    );
+    SERVER_ONLY_NAMES.has(filename) ||
+    (filename.toLowerCase().includes("server") &&
+      !NON_SERVER_NAMES.some((name) =>
+        filename.toLowerCase().includes(name.toLowerCase()),
+      ));
 
   const folderName =
     parts.length > 1 ? toPascalCase(parts[parts.length - 2]) : "";
@@ -69,16 +72,20 @@ const tree = {
     ReplicatedStorage: {
       Source: {
         $className: "Folder",
+        Assets: {
+          $className: "Folder",
+          UI: {
+            $className: "Folder",
+            ShopImages: { $path: "assets/UI/assets.luau" },
+          },
+        },
         Features: { $className: "Folder" },
         Core: { $className: "Folder" },
         Game: { $className: "Folder" },
-        StartUp: {
-          $className: "Folder",
-          MountUI: { $path: "src/startup/MountUI.luau" },
-        },
       },
       Packages: { $path: "Packages" },
     },
+
 
     StarterPlayer: {
       $properties: {
@@ -106,6 +113,13 @@ const tree = {
 
 const sharedRoot = tree.tree.ReplicatedStorage.Source;
 const serverRoot = tree.tree.ServerScriptService;
+
+if (fs.existsSync(path.join(BASE_PATH, "startup", "MountUI.luau"))) {
+  sharedRoot.StartUp = {
+    $className: "Folder",
+    MountUI: { $path: "src/startup/MountUI.luau" },
+  };
+}
 
 // Recursively walk all files
 function walk(dir, callback) {
@@ -157,14 +171,16 @@ const serverFeatures = serverRoot.Features;
 if (!serverFeatures.Monetization) serverFeatures.Monetization = { $className: "Folder" };
 serverFeatures.Monetization.Handlers = { $className: "Folder" };
 
-fs.readdirSync(monetizationHandlersPath, { withFileTypes: true }).forEach((entry) => {
-  if (!entry.isFile() || !entry.name.endsWith(".luau")) return;
+if (fs.existsSync(monetizationHandlersPath)) {
+  fs.readdirSync(monetizationHandlersPath, { withFileTypes: true }).forEach((entry) => {
+    if (!entry.isFile() || !entry.name.endsWith(".luau")) return;
 
-  const name = path.basename(entry.name, ".luau");
-  serverFeatures.Monetization.Handlers[name] = {
-    $path: toPosix(path.join("src", "features", "monetization", "handlers", entry.name)),
-  };
-});
+    const name = path.basename(entry.name, ".luau");
+    serverFeatures.Monetization.Handlers[name] = {
+      $path: toPosix(path.join("src", "features", "monetization", "handlers", entry.name)),
+    };
+  });
+}
 
 fs.writeFileSync("default.project.json", JSON.stringify(tree, null, 2));
 console.log("✅ default.project.json generated.");

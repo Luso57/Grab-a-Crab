@@ -49,11 +49,6 @@ function SerivcePlayerData.new<T>(dataTemplate: T, service: any?): ServicePlayer
 	local addedConn = Players.PlayerAdded:Connect(addPlayer)
 	local removeConn = Players.PlayerRemoving:Connect(removePlayer)
 
-	-- Handle players already present during startup or a Rojo live reload.
-	for _, player in Players:GetPlayers() do
-		addPlayer(player)
-	end
-
 	self.destroy = function(_)
 		addedConn:Disconnect()
 		removeConn:Disconnect()
