@@ -20,12 +20,27 @@ export type TankCrabAnimatorClient = typeof(setmetatable({} :: {
 	elapsed: number,
 	duration: number,
 	cycle: number,
-	offset: Vector2,
-	fromOffset: Vector2,
-	targetOffset: Vector2,
-	maxOffset: Vector2,
+	motionTime: number,
+	handstandCooldown: number,
+	bottomCooldown: number,
+	bottomMovesRemaining: number,
+	offset: Vector3,
+	fromOffset: Vector3,
+	targetOffset: Vector3,
+	controlOffset: Vector3,
+	trickOrigin: Vector3,
+	orientation: CFrame,
+	fromOrientation: CFrame,
+	targetOrientation: CFrame,
+	trickOrientation: CFrame,
+	minOffset: Vector3,
+	maxOffset: Vector3,
 	boxSize: Vector3,
 	boundsCorners: { Vector3 },
+	footCorners: { Vector3 },
+	feet: { BasePart },
+	floatMinOffsetY: number,
+	bottomFloorOffsetY: number,
 	roofHeight: number,
 	farElapsed: number,
 	destroyed: boolean,
@@ -44,12 +59,46 @@ local function getJoints(visual: Model): { [string]: Motor6D }
 	return joints
 end
 
+local function appendPartCorners(corners: { Vector3 }, part: BasePart, origin: CFrame)
+	local half = part.Size / 2
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			for _, z in { -1, 1 } do
+				local worldCorner = part.CFrame:PointToWorldSpace(Vector3.new(x * half.X, y * half.Y, z * half.Z))
+				table.insert(corners, origin:PointToObjectSpace(worldCorner))
+			end
+		end
+	end
+end
+
+local function lowestPartY(part: BasePart, floor: BasePart): number
+	local half = part.Size / 2
+	local lowest = math.huge
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			for _, z in { -1, 1 } do
+				local corner = part.CFrame:PointToWorldSpace(Vector3.new(x * half.X, y * half.Y, z * half.Z))
+				lowest = math.min(lowest, floor.CFrame:PointToObjectSpace(corner).Y)
+			end
+		end
+	end
+	return lowest
+end
+
 local function seedFromId(instanceId: string): number
 	local seed = 17
 	for index = 1, #instanceId do
 		seed = (seed * 33 + string.byte(instanceId, index)) % 2147483647
 	end
 	return seed
+end
+
+local function randomOrientation(random: Random): CFrame
+	return CFrame.Angles(
+		random:NextNumber(-math.pi, math.pi),
+		random:NextNumber(-math.pi, math.pi),
+		random:NextNumber(-math.pi, math.pi)
+	)
 end
 
 function TankCrabAnimatorClient.new(marker: BasePart, floor: BasePart, tankModel: Model): TankCrabAnimatorClient?
@@ -93,6 +142,19 @@ function TankCrabAnimatorClient.new(marker: BasePart, floor: BasePart, tankModel
 	visual.Parent = marker.Parent
 
 	local boxCFrame, boxSize = visual:GetBoundingBox()
+	local joints = getJoints(visual)
+	local feet: { BasePart } = {}
+	local footCorners: { Vector3 } = {}
+	for _, side in { "L", "R" } do
+		for index = 1, 4 do
+			local joint = joints[string.format("Leg_%s_%02d", side, index)]
+			if joint and joint.Part1 then
+				local foot = joint.Part1
+				table.insert(feet, foot)
+				appendPartCorners(footCorners, foot, marker.CFrame)
+			end
+		end
+	end
 	local half = boxSize / 2
 	local boundsCorners: { Vector3 } = {}
 	for _, x in { -1, 1 } do
@@ -110,77 +172,170 @@ function TankCrabAnimatorClient.new(marker: BasePart, floor: BasePart, tankModel
 			roofHeight = math.min(roofHeight, roofLocal.Y - descendant.Size.Y / 2)
 		end
 	end
+	if roofHeight == math.huge then
+		roofHeight = floor.Size.Y / 2 + math.max(2.5, boxSize.Y + 0.6)
+	end
 	local random = Random.new(seedFromId(instanceId))
-	local walkDuration = random:NextNumber(Config.walkDurationMin, Config.walkDurationMax)
+	local initialOrientation = randomOrientation(random)
+	visual:PivotTo(marker.CFrame * initialOrientation)
+	local driftDuration = random:NextNumber(Config.driftDurationMin, Config.driftDurationMax)
 	local self = setmetatable({
 		marker = marker,
 		floor = floor,
 		tankModel = tankModel,
 		visual = visual,
-		joints = getJoints(visual),
+		joints = joints,
 		random = random,
-		state = "Walk",
-		elapsed = random:NextNumber(0, walkDuration * 0.85),
-		duration = walkDuration,
+		state = "Drift",
+		elapsed = 0,
+		duration = driftDuration,
 		cycle = 0,
-		offset = Vector2.zero,
-		fromOffset = Vector2.zero,
-		targetOffset = Vector2.zero,
-		maxOffset = Vector2.zero,
+		motionTime = 0,
+		handstandCooldown = random:NextNumber(Config.handstandCooldownMin, Config.handstandCooldownMax),
+		bottomCooldown = random:NextNumber(Config.bottomCooldownMin, Config.bottomCooldownMax),
+		bottomMovesRemaining = 0,
+		offset = Vector3.zero,
+		fromOffset = Vector3.zero,
+		targetOffset = Vector3.zero,
+		controlOffset = Vector3.zero,
+		trickOrigin = Vector3.zero,
+		orientation = initialOrientation,
+		fromOrientation = initialOrientation,
+		targetOrientation = initialOrientation,
+		trickOrientation = initialOrientation,
+		minOffset = Vector3.zero,
+		maxOffset = Vector3.zero,
 		boxSize = boxSize,
 		boundsCorners = boundsCorners,
+		footCorners = footCorners,
+		feet = feet,
+		floatMinOffsetY = 0,
+		bottomFloorOffsetY = 0,
 		roofHeight = roofHeight,
 		farElapsed = 0,
 		destroyed = false,
 	}, TankCrabAnimatorClient) :: TankCrabAnimatorClient
 	self:updateBounds()
-	self:chooseWalkTarget()
+	self:chooseDriftTarget()
 	return self
 end
 
-function TankCrabAnimatorClient.updateBounds(self: TankCrabAnimatorClient)
-	local localHome = self.floor.CFrame:PointToObjectSpace(self.marker.Position)
-	local floorHalfX = self.floor.Size.X / 2
-	local floorHalfZ = self.floor.Size.Z / 2
-	local x = math.max(0, floorHalfX - math.abs(localHome.X) - self.boxSize.X / 2 - Config.edgePadding)
-	local z = math.max(0, floorHalfZ - math.abs(localHome.Z) - self.boxSize.Z / 2 - Config.edgePadding)
-	local capacity = self.tankModel:GetAttribute("TankCapacity")
-	if capacity == 2 then
-		x = math.min(x, 0.09)
-		z = math.min(z, 0.18)
-	elseif capacity == 3 then
-		x = math.min(x, 0.15)
-		z = math.min(z, 0.14)
-	else
-		x = math.min(x, 0.25)
-		z = math.min(z, 0.25)
-	end
-	self.maxOffset = Vector2.new(x, z)
+local function clampOffset(self: TankCrabAnimatorClient, value: Vector3): Vector3
+	return Vector3.new(
+		math.clamp(value.X, self.minOffset.X, self.maxOffset.X),
+		math.clamp(value.Y, self.minOffset.Y, self.maxOffset.Y),
+		math.clamp(value.Z, self.minOffset.Z, self.maxOffset.Z)
+	)
 end
 
-function TankCrabAnimatorClient.chooseWalkTarget(self: TankCrabAnimatorClient)
-	self.fromOffset = self.offset
-	self.targetOffset = Vector2.new(
-		self.random:NextNumber(-self.maxOffset.X, self.maxOffset.X),
-		self.random:NextNumber(-self.maxOffset.Y, self.maxOffset.Y)
+function TankCrabAnimatorClient.updateBounds(self: TankCrabAnimatorClient)
+	local home = self.floor.CFrame:PointToObjectSpace(self.marker.Position)
+	local minCorner = Vector3.new(math.huge, math.huge, math.huge)
+	local maxCorner = Vector3.new(-math.huge, -math.huge, -math.huge)
+	for _, corner in self.boundsCorners do
+		local localCorner = self.floor.CFrame:VectorToObjectSpace(self.marker.CFrame:VectorToWorldSpace(corner))
+		minCorner = Vector3.new(
+			math.min(minCorner.X, localCorner.X),
+			math.min(minCorner.Y, localCorner.Y),
+			math.min(minCorner.Z, localCorner.Z)
+		)
+		maxCorner = Vector3.new(
+			math.max(maxCorner.X, localCorner.X),
+			math.max(maxCorner.Y, localCorner.Y),
+			math.max(maxCorner.Z, localCorner.Z)
+		)
+	end
+	local halfX = self.floor.Size.X / 2 - Config.edgePadding
+	local halfZ = self.floor.Size.Z / 2 - Config.edgePadding
+	local minX = -halfX - home.X - minCorner.X
+	local maxX = halfX - home.X - maxCorner.X
+	local minZ = -halfZ - home.Z - minCorner.Z
+	local maxZ = halfZ - home.Z - maxCorner.Z
+	local minY = self.floor.Size.Y / 2 + 0.03 - home.Y - minCorner.Y
+	local maxY = self.roofHeight - Config.verticalPadding - home.Y - maxCorner.Y
+	local bottomY = minY
+	if #self.footCorners > 0 then
+		local lowestFoot = math.huge
+		local walkingRotation = CFrame.Angles(math.pi / 2, 0, 0)
+		for _, corner in self.footCorners do
+			local worldVector = self.marker.CFrame:VectorToWorldSpace(walkingRotation:VectorToWorldSpace(corner))
+			local floorVector = self.floor.CFrame:VectorToObjectSpace(worldVector)
+			lowestFoot = math.min(lowestFoot, floorVector.Y)
+		end
+		bottomY = self.floor.Size.Y / 2 + 0.02 - home.Y - lowestFoot
+	end
+	self.floatMinOffsetY = minY
+	self.bottomFloorOffsetY = bottomY
+	local lowestOffsetY = math.min(minY, bottomY)
+	self.minOffset = Vector3.new(
+		if minX <= maxX then minX else 0,
+		if lowestOffsetY <= maxY then lowestOffsetY else 0,
+		if minZ <= maxZ then minZ else 0
 	)
+	self.maxOffset = Vector3.new(
+		if minX <= maxX then maxX else 0,
+		if minY <= maxY then maxY else 0,
+		if minZ <= maxZ then maxZ else 0
+	)
+end
+
+function TankCrabAnimatorClient.chooseDriftTarget(self: TankCrabAnimatorClient)
+	self.fromOffset = clampOffset(self, self.offset)
+	self.fromOrientation = self.orientation
+	self.targetOrientation = randomOrientation(self.random)
+	local floatingMinY = math.min(self.maxOffset.Y, self.floatMinOffsetY + Config.verticalPadding)
+	self.targetOffset = Vector3.new(
+		self.random:NextNumber(self.minOffset.X, self.maxOffset.X),
+		self.random:NextNumber(floatingMinY, self.maxOffset.Y),
+		self.random:NextNumber(self.minOffset.Z, self.maxOffset.Z)
+	)
+	local delta = self.targetOffset - self.fromOffset
+	local sideways = Vector3.new(-delta.Z, 0, delta.X)
+	local bend = if sideways.Magnitude > 0.01
+		then sideways.Unit * self.random:NextNumber(-0.22, 0.22) else Vector3.zero
+	self.controlOffset = clampOffset(self, (self.fromOffset + self.targetOffset) / 2 + bend)
+end
+
+function TankCrabAnimatorClient.chooseBottomTarget(self: TankCrabAnimatorClient)
+	self.fromOffset = clampOffset(self, self.offset)
+	self.fromOrientation = self.orientation
+	self.targetOffset = Vector3.new(
+		self.random:NextNumber(self.minOffset.X, self.maxOffset.X),
+		self.bottomFloorOffsetY,
+		self.random:NextNumber(self.minOffset.Z, self.maxOffset.Z)
+	)
+	self.targetOrientation = CFrame.Angles(0, self.random:NextNumber(-math.pi, math.pi), 0)
+		* CFrame.Angles(math.pi / 2, 0, 0)
+	local delta = self.targetOffset - self.fromOffset
+	local sideways = Vector3.new(-delta.Z, 0, delta.X)
+	local bend = if sideways.Magnitude > 0.01
+		then sideways.Unit * self.random:NextNumber(-0.16, 0.16) else Vector3.zero
+	self.controlOffset = clampOffset(self, (self.fromOffset + self.targetOffset) / 2 + bend)
 end
 
 function TankCrabAnimatorClient.advanceState(self: TankCrabAnimatorClient)
 	self.elapsed = 0
-	if self.state == "Walk" then
+	if self.state == "Drift" and self.handstandCooldown <= 0 then
+		self.state = "Handstand"
+		self.duration = Config.handstandDuration
+		self.trickOrigin = self.offset
+		self.trickOrientation = self.orientation
+		self.handstandCooldown = self.random:NextNumber(Config.handstandCooldownMin, Config.handstandCooldownMax)
+	elseif self.state == "Drift" and self.bottomCooldown <= 0 then
+		self.state = "Bottom"
+		self.duration = self.random:NextNumber(Config.bottomMoveDurationMin, Config.bottomMoveDurationMax)
+		self.bottomMovesRemaining = self.random:NextInteger(3, 4)
+		self.bottomCooldown = self.random:NextNumber(Config.bottomCooldownMin, Config.bottomCooldownMax)
+		self:chooseBottomTarget()
+	elseif self.state == "Bottom" and self.bottomMovesRemaining > 1 then
+		self.bottomMovesRemaining -= 1
+		self.duration = self.random:NextNumber(Config.bottomMoveDurationMin, Config.bottomMoveDurationMax)
+		self:chooseBottomTarget()
+	else
+		self.state = "Drift"
+		self.duration = self.random:NextNumber(Config.driftDurationMin, Config.driftDurationMax)
 		self.cycle += 1
-		if self.cycle % 3 == 0 then
-			self.state = "Float"
-			self.duration = Config.floatDuration
-		else
-			self.state = "Clap"
-			self.duration = Config.clapDuration
-		end
-	elseif self.state == "Float" or self.state == "Clap" then
-		self.state = "Walk"
-		self.duration = self.random:NextNumber(Config.walkDurationMin, Config.walkDurationMax)
-		self:chooseWalkTarget()
+		self:chooseDriftTarget()
 	end
 end
 
@@ -207,76 +362,96 @@ function TankCrabAnimatorClient.step(self: TankCrabAnimatorClient, dt: number, c
 		self.farElapsed = 0
 	end
 
-	self.elapsed += math.min(dt, 0.15)
+	local animationDt = math.min(dt, 0.15)
+	self.elapsed += animationDt
+	self.motionTime += animationDt
+	if self.state == "Drift" then
+		self.handstandCooldown -= animationDt
+		self.bottomCooldown -= animationDt
+	end
+	self:updateBounds()
 	if self.elapsed >= self.duration then
 		self:advanceState()
 	end
-	self:updateBounds()
 
 	local progress = math.clamp(self.elapsed / self.duration, 0, 1)
 	local bodyBob = 0
-	local lift = 0
-	local yaw = 0
-	local gait = 0
-	local clap = 0
-	if self.state == "Walk" then
+	if self.state == "Drift" then
 		local blend = smoothstep(progress)
-		self.offset = self.fromOffset:Lerp(self.targetOffset, blend)
-		gait = math.sin(self.elapsed * 2 * math.pi * Config.walkSpeed * 2)
-		bodyBob = math.abs(gait) * 0.035
-		yaw = math.sin(self.elapsed * 2) * 0.08
-	elseif self.state == "Clap" then
-		clap = math.sin(math.pi * progress) ^ 2
-		bodyBob = clap * 0.04
+		local first = self.fromOffset:Lerp(self.controlOffset, blend)
+		local second = self.controlOffset:Lerp(self.targetOffset, blend)
+		self.offset = clampOffset(self, first:Lerp(second, blend))
+		self.orientation = self.fromOrientation:Lerp(self.targetOrientation, blend)
+		bodyBob = math.sin(self.motionTime * 2.6 + self.cycle) * 0.055
+	elseif self.state == "Bottom" then
+		local blend = smoothstep(math.clamp(progress / 0.82, 0, 1))
+		local first = self.fromOffset:Lerp(self.controlOffset, blend)
+		local second = self.controlOffset:Lerp(self.targetOffset, blend)
+		self.offset = clampOffset(self, first:Lerp(second, blend))
+		self.orientation = self.fromOrientation:Lerp(self.targetOrientation, blend)
+		bodyBob = math.sin(self.motionTime * 4) * 0.012
 	else
 		local capacity = self.tankModel:GetAttribute("TankCapacity")
-		yaw = if capacity == 2 then math.sin(progress * 2 * math.pi) * 0.35
+		local yaw = if capacity == 2 then math.sin(progress * 2 * math.pi) * 0.35
 			else 2 * math.pi * smoothstep(progress)
-		local orbit = math.min(self.maxOffset.X, self.maxOffset.Y, 0.08)
-		self.offset = Vector2.new(
-			math.sin(progress * 4 * math.pi) * orbit,
-			math.cos(progress * 4 * math.pi) * orbit
+		local enter = smoothstep(math.clamp(progress / 0.2, 0, 1))
+		local leave = smoothstep(math.clamp((1 - progress) / 0.2, 0, 1))
+		self.orientation = self.trickOrientation:Lerp(CFrame.Angles(0, yaw, 0), math.min(enter, leave))
+		local orbit = math.min(
+			(self.maxOffset.X - self.minOffset.X) / 2,
+			(self.maxOffset.Z - self.minOffset.Z) / 2,
+			0.08
 		)
+		self.offset = clampOffset(self, self.trickOrigin + Vector3.new(
+			math.sin(progress * 4 * math.pi) * orbit,
+			math.sin(math.pi * progress) * 0.18,
+			(math.cos(progress * 4 * math.pi) - 1) * orbit
+		))
 		bodyBob = math.sin(progress * 8 * math.pi) * 0.025
 	end
 
 	local home = self.marker.CFrame
-	local rotation = CFrame.Angles(0, yaw, 0)
-	local base = home * CFrame.new(self.offset.X, bodyBob, self.offset.Y) * rotation
+	local rotation = self.orientation
+	local base = home * CFrame.new(self.offset.X, self.offset.Y + bodyBob, self.offset.Z) * rotation
 	local lowest = math.huge
 	local highest = -math.huge
-	for _, corner in self.boundsCorners do
+	for _, corner in if self.state == "Bottom" and #self.footCorners > 0 then self.footCorners else self.boundsCorners do
 		local floorY = self.floor.CFrame:PointToObjectSpace(base:PointToWorldSpace(corner)).Y
 		lowest = math.min(lowest, floorY)
+	end
+	for _, corner in self.boundsCorners do
+		local floorY = self.floor.CFrame:PointToObjectSpace(base:PointToWorldSpace(corner)).Y
 		highest = math.max(highest, floorY)
 	end
 	local floorTop = self.floor.Size.Y / 2
-	local padding = if self.state == "Float" then 0.16 else 0.03
-	lift = math.max(0, floorTop + padding - lowest)
-	if self.state == "Float" then
-		lift += math.sin(math.pi * progress) * 0.18
-	end
-	lift = math.min(lift, math.max(0, self.roofHeight - highest - 0.12))
-	self.visual:PivotTo(home * CFrame.new(self.offset.X, bodyBob + lift, self.offset.Y) * rotation)
+	local padding = if self.state == "Handstand" then 0.16
+		elseif self.state == "Bottom" then 0.02 else 0.03
+	local lift = if self.state == "Bottom" then floorTop + padding - lowest
+		else math.max(0, floorTop + padding - lowest)
+	lift -= math.max(0, highest + lift - (self.roofHeight - 0.12))
+	self.visual:PivotTo(home * CFrame.new(self.offset.X, self.offset.Y + bodyBob + lift, self.offset.Z) * rotation)
 
 	for _, side in { "L", "R" } do
 		local sign = if side == "L" then 1 else -1
 		local arm = self.joints["Arm_" .. side]
 		local claw = self.joints["Claw_" .. side]
-		local armSway = if self.state == "Walk" then gait * 0.12
-			elseif self.state == "Float" then math.sin(self.elapsed * 9 + sign) * 0.16 else 0
+		local armSway = if self.state == "Drift" then math.sin(self.motionTime * 3 + sign) * 0.08
+			elseif self.state == "Bottom" then math.sin(self.motionTime * 5 + sign) * 0.07
+			else math.sin(self.elapsed * 9 + sign) * 0.16
 		if arm then
-			arm.Transform = CFrame.Angles(0, sign * (clap * 0.42 + armSway), sign * clap * 0.12)
+			arm.Transform = CFrame.Angles(0, sign * armSway, 0)
 		end
 		if claw then
-			claw.Transform = CFrame.Angles(0, sign * (clap * 0.24 + math.sin(self.elapsed * 5 + sign) * 0.05), 0)
+			claw.Transform = CFrame.Angles(0, sign * math.sin(self.motionTime * 4 + sign) * 0.06, 0)
 		end
 		for index = 1, 4 do
 			local leg = self.joints[string.format("Leg_%s_%02d", side, index)]
 			if leg then
-				local alternating = if (index % 2 == 0) then -1 else 1
-				local swing = if self.state == "Walk" then gait * alternating * sign * 0.15
-					elseif self.state == "Float" then math.sin(self.elapsed * 8 + index + sign) * 0.1 else 0
+				local swing = if self.state == "Drift"
+					then math.sin(self.motionTime * 3.5 + index + sign) * 0.07
+					elseif self.state == "Bottom"
+					then math.sin(self.motionTime * 6 + index + sign) * 0.11
+					else math.sin(self.elapsed * 8 + index + sign) * 0.1
 				leg.Transform = CFrame.Angles(swing, 0, swing * 0.35)
 			end
 		end
@@ -291,6 +466,7 @@ function TankCrabAnimatorClient.correctContainment(self: TankCrabAnimatorClient,
 	local boxCFrame, boxSize = self.visual:GetBoundingBox()
 	local half = boxSize / 2
 	local lowest = math.huge
+	local highest = -math.huge
 	local minX = math.huge
 	local maxX = -math.huge
 	local minZ = math.huge
@@ -301,6 +477,7 @@ function TankCrabAnimatorClient.correctContainment(self: TankCrabAnimatorClient,
 				local corner = boxCFrame:PointToWorldSpace(Vector3.new(x * half.X, y * half.Y, z * half.Z))
 				local floorY = self.floor.CFrame:PointToObjectSpace(corner).Y
 				lowest = math.min(lowest, floorY)
+				highest = math.max(highest, floorY)
 				local localCorner = self.floor.CFrame:PointToObjectSpace(corner)
 				minX = math.min(minX, localCorner.X)
 				maxX = math.max(maxX, localCorner.X)
@@ -309,14 +486,24 @@ function TankCrabAnimatorClient.correctContainment(self: TankCrabAnimatorClient,
 			end
 		end
 	end
-	local correctionY = math.max(0, self.floor.Size.Y / 2 + 0.02 - lowest)
+	if self.state == "Bottom" and #self.feet > 0 then
+		lowest = math.huge
+		for _, foot in self.feet do
+			lowest = math.min(lowest, lowestPartY(foot, self.floor))
+		end
+	end
+	local correctionY = if self.state == "Bottom" then self.floor.Size.Y / 2 + 0.02 - lowest
+		else math.max(0, self.floor.Size.Y / 2 + 0.02 - lowest)
+	correctionY -= math.max(0, highest + correctionY - (self.roofHeight - 0.02))
 	local halfX = self.floor.Size.X / 2 - 0.02
 	local halfZ = self.floor.Size.Z / 2 - 0.02
-	local correctionX = if minX < -halfX then -halfX - minX
+	local fitsX = maxX - minX <= halfX * 2
+	local fitsZ = maxZ - minZ <= halfZ * 2
+	local correctionX = if not fitsX then 0 elseif minX < -halfX then -halfX - minX
 		elseif maxX > halfX then halfX - maxX else 0
-	local correctionZ = if minZ < -halfZ then -halfZ - minZ
+	local correctionZ = if not fitsZ then 0 elseif minZ < -halfZ then -halfZ - minZ
 		elseif maxZ > halfZ then halfZ - maxZ else 0
-	if correctionX ~= 0 or correctionY > 0 or correctionZ ~= 0 then
+	if correctionX ~= 0 or correctionY ~= 0 or correctionZ ~= 0 then
 		local delta = self.floor.CFrame:VectorToWorldSpace(Vector3.new(correctionX, correctionY, correctionZ))
 		self.visual:PivotTo(CFrame.new(delta) * self.visual:GetPivot())
 	end

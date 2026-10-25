@@ -8,12 +8,13 @@ local UserInputService = game:GetService("UserInputService")
 local Data = require(ReplicatedStorage.Source.Game.Data).client
 local InventoryConfig = require(script.Parent.InventoryConfig)
 local ItemCatalog = require(ReplicatedStorage.Source.Game.Items.ItemCatalog)
+local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local HotbarRoot = require(script.Parent.UI.HotbarRoot)
 local InventoryRoot = require(script.Parent.UI.InventoryRoot)
 
-type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string? }
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, weightGrams: number? }
 type SavedInventory = { [string]: SavedItem }
 type DragState = {
 	instanceId: string,
@@ -35,6 +36,7 @@ local characterConnections: { RBXScriptConnection } = {}
 local selectedInventoryId: string? = nil
 local sendSlotMove: ((string, number) -> ())? = nil
 local sendSlotRemove: ((string) -> ())? = nil
+local sendHatchClaim: ((string) -> ())? = nil
 local dragState: DragState? = nil
 local dragLayer: ScreenGui? = nil
 local suppressedId: string? = nil
@@ -92,10 +94,39 @@ local function getDisplay(itemId: string): (string, string, string?)
 	return itemId, "", nil
 end
 
+local function isHotbarEligible(itemId: string): boolean
+	local definition = ItemCatalog.get(itemId)
+	return definition ~= nil and definition.hotbarEligible ~= false
+end
+
+local function getWeightText(item: SavedItem): string?
+	return if string.match(item.itemId, "^Crab%.[%w_]+$") then CrabWeights.format(item.weightGrams) else nil
+end
+
+local function isAvailable(item: SavedItem?): boolean
+	return typeof(item) == "table" and typeof(item.itemId) == "string"
+		and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil
+end
+
 local function render()
 	local inventory = Data.inventory() :: SavedInventory
 	local hotbar = Data.hotbar() :: { string }
+	local stackIds: { [string]: { string } } = {}
+	for instanceId, item in inventory do
+		if isAvailable(item) and ItemCatalog.isStackable(item.itemId) then
+			local ids = stackIds[item.itemId]
+			if not ids then
+				ids = {}
+				stackIds[item.itemId] = ids
+			end
+			table.insert(ids, instanceId)
+		end
+	end
+	for _, ids in stackIds do
+		table.sort(ids)
+	end
 	local assigned: { [string]: boolean } = {}
+	local assignedStackables: { [string]: boolean } = {}
 	local views: { HotbarRoot.SlotView } = {}
 
 	for index = 1, InventoryConfig.hotbarSize do
@@ -104,11 +135,19 @@ local function render()
 		local displayName = ""
 		local image = ""
 		local cardImage: string? = nil
+		local weightText: string? = nil
+		local count: number? = nil
 		local selected = false
 		local hasItem = false
-		if typeof(item) == "table" and typeof(item.itemId) == "string" and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil then
+		if isAvailable(item) and (not stackIds[item.itemId] or not assignedStackables[item.itemId]) then
 			assigned[instanceId] = true
 			displayName, image, cardImage = getDisplay(item.itemId)
+			weightText = getWeightText(item)
+			local ids = stackIds[item.itemId]
+			if ids then
+				assignedStackables[item.itemId] = true
+				count = #ids
+			end
 			local tool = findTool(instanceId)
 			selected = tool ~= nil and character ~= nil and tool.Parent == character
 			hasItem = true
@@ -120,6 +159,8 @@ local function render()
 				displayName = displayName,
 				image = image,
 				cardImage = cardImage,
+				weightText = weightText,
+				count = count,
 				selected = selected,
 			})
 		end
@@ -127,7 +168,7 @@ local function render()
 
 	local extras: { InventoryRoot.EntryView } = {}
 	for instanceId, item in inventory do
-		if not assigned[instanceId] and typeof(item) == "table" and typeof(item.itemId) == "string" and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil then
+		if not assigned[instanceId] and isAvailable(item) and not ItemCatalog.isStackable(item.itemId) then
 			local displayName, image, cardImage = getDisplay(item.itemId)
 			table.insert(extras, {
 				instanceId = instanceId,
@@ -135,18 +176,38 @@ local function render()
 				displayName = displayName,
 				image = image,
 				cardImage = cardImage,
+				weightText = getWeightText(item),
+				count = 1,
+			})
+		end
+	end
+	for itemId, ids in stackIds do
+		if not assignedStackables[itemId] then
+			local instanceId = if selectedInventoryId and table.find(ids, selectedInventoryId) then selectedInventoryId else ids[1]
+			local displayName, image, cardImage = getDisplay(itemId)
+			table.insert(extras, {
+				instanceId = instanceId,
+				itemId = itemId,
+				displayName = displayName,
+				image = image,
+				cardImage = cardImage,
+				count = #ids,
 			})
 		end
 	end
 	table.sort(extras, function(left, right)
 		if left.displayName == right.displayName then
+			if left.itemId ~= right.itemId then
+				return left.itemId < right.itemId
+			end
 			return left.instanceId < right.instanceId
 		end
 		return left.displayName < right.displayName
 	end)
 
-	if selectedInventoryId and (assigned[selectedInventoryId] or not inventory[selectedInventoryId]
-		or inventory[selectedInventoryId].incubatorInstanceId ~= nil or inventory[selectedInventoryId].tankInstanceId ~= nil) then
+	local selectedItem = if selectedInventoryId then inventory[selectedInventoryId] else nil
+	if selectedInventoryId and (assigned[selectedInventoryId] or not isAvailable(selectedItem)
+		or (ItemCatalog.isStackable(selectedItem.itemId) and assignedStackables[selectedItem.itemId])) then
 		selectedInventoryId = nil
 		render()
 		return
@@ -193,12 +254,15 @@ local function bindCharacter(newCharacter: Model?)
 end
 
 local function positionOf(input: InputObject): Vector2
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseMovement then
+		return UserInputService:GetMouseLocation()
+	end
 	return Vector2.new(input.Position.X, input.Position.Y)
 end
 
 local function beginDrag(instanceId: string, sourceSlot: number?, input: InputObject, card: ImageButton)
 	local item = (Data.inventory() :: SavedInventory)[instanceId]
-	if sourceSlot == InventoryConfig.hammerSlot or (item and item.itemId == InventoryConfig.hammerItemId) then
+	if sourceSlot == InventoryConfig.hammerSlot or not item or not isHotbarEligible(item.itemId) then
 		return
 	end
 	if dragState then
@@ -273,7 +337,9 @@ local function finishDrag(input: InputObject)
 
 	suppressedId = state.instanceId
 	suppressUntil = os.clock() + 0.2
-	local position = positionOf(input)
+	-- GuiObject.AbsolutePosition and InputObject.Position use the same inset-adjusted
+	-- coordinates. GetMouseLocation is for positioning the drag ghost on its ScreenGui.
+	local position = Vector2.new(input.Position.X, input.Position.Y)
 	local targetSlot = HotbarRoot.getSlotAt(position)
 	if targetSlot and targetSlot ~= InventoryConfig.hammerSlot and targetSlot ~= state.sourceSlot then
 		local move = sendSlotMove
@@ -327,6 +393,38 @@ local function selectSlot(index: number)
 	end
 end
 
+function InventoryServiceClient:equipHatchedCrab(instanceId: string)
+	if sendHatchClaim then
+		sendHatchClaim(instanceId)
+	end
+	local hatchCharacter = player.Character
+	if not hatchCharacter then
+		return
+	end
+	task.spawn(function()
+		local deadline = os.clock() + 3
+		repeat
+			if player.Character ~= hatchCharacter then
+				return
+			end
+			local item = (Data.inventory() :: SavedInventory)[instanceId]
+			local hotbar = Data.hotbar() :: { string }
+			if item and string.match(item.itemId, "^Crab%.[%w_]+$")
+				and table.find(hotbar, instanceId) then
+				local tool = findTool(instanceId)
+				local humanoid = hatchCharacter:FindFirstChildOfClass("Humanoid")
+				if tool and humanoid and humanoid.Health > 0 then
+					if tool.Parent == backpack then
+						humanoid:EquipTool(tool)
+					end
+					return
+				end
+			end
+			task.wait(0.05)
+		until os.clock() >= deadline
+	end)
+end
+
 function InventoryServiceClient:init()
 	if initialized then
 		return
@@ -339,6 +437,9 @@ function InventoryServiceClient:init()
 	end
 	sendSlotRemove = function(instanceId)
 		networker:fire("removeHotbarSlot", instanceId)
+	end
+	sendHatchClaim = function(instanceId)
+		networker:fire("claimHatchedCrab", instanceId)
 	end
 
 	local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
@@ -354,6 +455,10 @@ function InventoryServiceClient:init()
 	end)
 	InventoryRoot.mount(playerGui, function(instanceId)
 		if suppressClick(instanceId) then
+			return
+		end
+		local item = (Data.inventory() :: SavedInventory)[instanceId]
+		if not item or not isHotbarEligible(item.itemId) then
 			return
 		end
 		selectedInventoryId = if selectedInventoryId == instanceId then nil else instanceId

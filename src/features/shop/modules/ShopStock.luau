@@ -2,8 +2,7 @@
 
 type StockItem = {
 	id: string,
-	stockChance: number,
-	stockAmount: number,
+	stockOdds: { number },
 }
 
 export type Stock = { [string]: number }
@@ -14,7 +13,17 @@ function ShopStock.roll(items: { StockItem }, rng: Random): Stock
 	local stock: Stock = {}
 
 	for _, item in items do
-		stock[item.id] = if rng:NextNumber() < item.stockChance then item.stockAmount else 0
+		local roll = rng:NextNumber(0, 100)
+		local cumulative = 0
+		local amount = 0
+		for index, chance in item.stockOdds do
+			cumulative += chance
+			if roll < cumulative then
+				amount = index - 1
+				break
+			end
+		end
+		stock[item.id] = amount
 	end
 
 	return stock

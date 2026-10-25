@@ -26,6 +26,24 @@
               },
               "Crabs": {
                 "$path": "src/features/crabs/modules/Crabs.luau"
+              },
+              "CrabWeights": {
+                "$path": "src/features/crabs/modules/CrabWeights.luau"
+              }
+            }
+          },
+          "DecorShop": {
+            "$className": "Folder",
+            "DecorConfig": {
+              "$path": "src/features/decorShop/DecorConfig.luau"
+            },
+            "DecorShopServiceClient": {
+              "$path": "src/features/decorShop/DecorShopServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "DecorShopRoot": {
+                "$path": "src/features/decorShop/ui/DecorShopRoot.luau"
               }
             }
           },
@@ -48,6 +66,21 @@
             "$className": "Folder",
             "EggConveyorServiceClient": {
               "$path": "src/features/eggconveyor/EggConveyorServiceClient.luau"
+            },
+            "Modules": {
+              "$className": "Folder",
+              "LuckConfig": {
+                "$path": "src/features/eggconveyor/modules/LuckConfig.luau"
+              }
+            },
+            "UI": {
+              "$className": "Folder",
+              "EggMoneyWarning": {
+                "$path": "src/features/eggconveyor/ui/EggMoneyWarning.luau"
+              },
+              "LuckSign": {
+                "$path": "src/features/eggconveyor/ui/LuckSign.luau"
+              }
             }
           },
           "Incubators": {
@@ -63,8 +96,38 @@
             },
             "UI": {
               "$className": "Folder",
+              "HatchReveal": {
+                "$path": "src/features/incubators/ui/HatchReveal.luau"
+              },
               "IncubatorCountdown": {
                 "$path": "src/features/incubators/ui/IncubatorCountdown.luau"
+              }
+            }
+          },
+          "Index": {
+            "$className": "Folder",
+            "IndexServiceClient": {
+              "$path": "src/features/index/IndexServiceClient.luau"
+            },
+            "Modules": {
+              "$className": "Folder",
+              "CrabSizeIndex": {
+                "$path": "src/features/index/modules/CrabSizeIndex.luau"
+              },
+              "IndexMilestones": {
+                "$path": "src/features/index/modules/IndexMilestones.luau"
+              }
+            },
+            "UI": {
+              "$className": "Folder",
+              "GrowthLuckHud": {
+                "$path": "src/features/index/ui/GrowthLuckHud.luau"
+              },
+              "IndexButton": {
+                "$path": "src/features/index/ui/IndexButton.luau"
+              },
+              "IndexRoot": {
+                "$path": "src/features/index/ui/IndexRoot.luau"
               }
             }
           },
@@ -109,8 +172,23 @@
                 "$path": "src/features/plots/classes/PlotClient.luau"
               }
             },
+            "Modules": {
+              "$className": "Folder",
+              "PlotExtraSlots": {
+                "$path": "src/features/plots/modules/PlotExtraSlots.luau"
+              }
+            },
             "PlotServiceClient": {
               "$path": "src/features/plots/PlotServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "ExtraSlotSign": {
+                "$path": "src/features/plots/ui/ExtraSlotSign.luau"
+              },
+              "TravelBar": {
+                "$path": "src/features/plots/ui/TravelBar.luau"
+              }
             }
           },
           "Shop": {
@@ -132,8 +210,23 @@
               "ShopItemCard": {
                 "$path": "src/features/shop/ui/ShopItemCard.luau"
               },
+              "ShopPurchaseEffect": {
+                "$path": "src/features/shop/ui/ShopPurchaseEffect.luau"
+              },
+              "ShopRestockNotice": {
+                "$path": "src/features/shop/ui/ShopRestockNotice.luau"
+              },
               "ShopRoot": {
                 "$path": "src/features/shop/ui/ShopRoot.luau"
+              }
+            }
+          },
+          "Shopmono": {
+            "$className": "Folder",
+            "UI": {
+              "$className": "Folder",
+              "ShopMonoButton": {
+                "$path": "src/features/shopmono/ui/ShopMonoButton.luau"
               }
             }
           },
@@ -146,12 +239,18 @@
               },
               "TankCrabAnimatorClient": {
                 "$path": "src/features/tanks/classes/TankCrabAnimatorClient.luau"
+              },
+              "TankDecorationPlacementClient": {
+                "$path": "src/features/tanks/classes/TankDecorationPlacementClient.luau"
               }
             },
             "Modules": {
               "$className": "Folder",
               "TankAnimationConfig": {
                 "$path": "src/features/tanks/modules/TankAnimationConfig.luau"
+              },
+              "TankDecorationPlacement": {
+                "$path": "src/features/tanks/modules/TankDecorationPlacement.luau"
               },
               "Tanks": {
                 "$path": "src/features/tanks/modules/Tanks.luau"
@@ -170,6 +269,12 @@
               },
               "TankCrabBillboard": {
                 "$path": "src/features/tanks/ui/TankCrabBillboard.luau"
+              },
+              "TankEmptyWarning": {
+                "$path": "src/features/tanks/ui/TankEmptyWarning.luau"
+              },
+              "TankPickupEffect": {
+                "$path": "src/features/tanks/ui/TankPickupEffect.luau"
               },
               "TankPopupRoot": {
                 "$path": "src/features/tanks/ui/TankPopupRoot.luau"
@@ -208,7 +313,7 @@
     },
     "StarterPlayer": {
       "$properties": {
-        "CharacterWalkSpeed": 18
+        "CharacterWalkSpeed": 20
       },
       "StarterPlayerScripts": {
         "StartUp": {
@@ -228,6 +333,18 @@
             "$className": "Folder",
             "CrabServer": {
               "$path": "src/features/crabs/classes/CrabServer.luau"
+            }
+          }
+        },
+        "DecorShop": {
+          "$className": "Folder",
+          "DecorShopServiceServer": {
+            "$path": "src/features/decorShop/DecorShopServiceServer.luau"
+          },
+          "Modules": {
+            "$className": "Folder",
+            "DecorToolFactoryServer": {
+              "$path": "src/features/decorShop/modules/DecorToolFactoryServer.luau"
             }
           }
         },
@@ -265,6 +382,12 @@
           },
           "IncubatorServiceServer": {
             "$path": "src/features/incubators/IncubatorServiceServer.luau"
+          }
+        },
+        "Index": {
+          "$className": "Folder",
+          "IndexServiceServer": {
+            "$path": "src/features/index/IndexServiceServer.luau"
           }
         },
         "Inventory": {

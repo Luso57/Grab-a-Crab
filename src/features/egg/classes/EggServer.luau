@@ -49,8 +49,8 @@ function EggServer.new(template: Model, parent: Folder, spawnA: BasePart, spawnB
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "GetEggPrompt"
-	prompt.ActionText = "Get Egg"
 	local definition = Eggs.get(template.Name)
+	prompt.ActionText = if definition and definition.price > 0 then "Buy Egg" else "Get Egg"
 	prompt.ObjectText = if definition then definition.name else template.Name
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.HoldDuration = 0

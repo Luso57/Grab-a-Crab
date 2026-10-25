@@ -8,9 +8,9 @@ export type TankDefinition = {
 
 -- These IDs match the shop entries. Model templates live in ReplicatedStorage.Assets.Tanks.
 local definitions: { [string]: TankDefinition } = {
-	Small = { name = "Small Tank", modelName = "SmallTank", capacity = 1 },
-	Medium = { name = "Medium Tank", modelName = "MediumTank", capacity = 2 },
-	Large = { name = "Large Tank", modelName = "LargeTank", capacity = 3 },
+	Small = { name = "Small Tank", modelName = "SmallTank", capacity = 2 },
+	Medium = { name = "Medium Tank", modelName = "MediumTank", capacity = 3 },
+	Large = { name = "Large Tank", modelName = "LargeTank", capacity = 4 },
 }
 
 local Tanks = {}

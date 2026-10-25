@@ -1,3 +1,4 @@
+local FileSyncReplicationService = game:GetService("FileSyncReplicationService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataServiceTyped = require(ReplicatedStorage.Packages.DataServiceTyped)

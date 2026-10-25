@@ -14,6 +14,7 @@ local TankServiceServer = require(ServerScriptService.Features.Tanks.TankService
 local EggConveyorServiceServer = require(ServerScriptService.Features.EggConveyor.EggConveyorServiceServer)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotServer = require(script.Parent.Classes.PlotServer)
+local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
 
 type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string? }
@@ -27,6 +28,8 @@ local plots: { [number]: PlotServer.PlotServer } = {}
 local playerPlots: { [Player]: PlotServer.PlotServer } = {}
 local waiting: { Player } = {}
 local waitingSet: { [Player]: boolean } = {}
+local lastTravel: { [Player]: number } = {}
+local buyingExtraSlot: { [Player]: boolean } = {}
 
 local function getTemplate(itemId: string): Model?
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
@@ -104,6 +107,10 @@ end
 local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
 	local data = Data.Service:waitForData(player)
 	if not data or player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
+		return
+	end
+	if not plot:unlockThrough(PlotExtraSlots.normalizeCount(data.extraSlotsPurchased())) then
+		warn("Could not restore extra slots for", player.Name)
 		return
 	end
 	local inventory = data.inventory() :: SavedInventory
@@ -199,6 +206,8 @@ local function playerAdded(player: Player)
 end
 
 local function playerRemoving(player: Player)
+	lastTravel[player] = nil
+	buyingExtraSlot[player] = nil
 	if waitingSet[player] then
 		local position = table.find(waiting, player)
 		if position then
@@ -260,7 +269,7 @@ function PlotServiceServer:init()
 		end
 	end
 
-	Networker.server.new("PlotPlacement", self, { self.place, self.pickup })
+	Networker.server.new("PlotPlacement", self, { self.place, self.pickup, self.travel, self.buyExtraSlot })
 	initialized = true
 	Players.PlayerAdded:Connect(playerAdded)
 	Players.PlayerRemoving:Connect(playerRemoving)
@@ -273,6 +282,83 @@ function PlotServiceServer:getPlot(player: Player): PlotServer.PlotServer?
 	return playerPlots[player]
 end
 
+function PlotServiceServer:buyExtraSlot(player: Player)
+	if buyingExtraSlot[player] or player.Parent ~= Players then
+		return
+	end
+	buyingExtraSlot[player] = true
+	local ok, err = pcall(function()
+		local data = Data.Service:waitForData(player)
+		local plot = playerPlots[player]
+		if not data or player.Parent ~= Players or not plot or plot:getOwner() ~= player then
+			return
+		end
+		local sign = plot.model:FindFirstChild("ExtraSlotSign")
+		local panel = if sign then sign:FindFirstChild("FrontPanel") else nil
+		if not panel or not panel:IsA("BasePart") then
+			return
+		end
+		local count = PlotExtraSlots.normalizeCount(data.extraSlotsPurchased())
+		if not plot:unlockThrough(count) then
+			return
+		end
+		local price = PlotExtraSlots.getPrice(count)
+		local money = data.money()
+		if not price or typeof(money) ~= "number" or money ~= money or money < price then
+			return
+		end
+		if not plot:unlockNextSlot() then
+			return
+		end
+		data.money(money - price)
+		data.extraSlotsPurchased(count + 1)
+	end)
+	buyingExtraSlot[player] = nil
+	if not ok then
+		warn("Extra slot purchase failed for", player.Name, err)
+	end
+end
+
+function PlotServiceServer:travel(player: Player, destination: any)
+	if destination ~= "Home" and destination ~= "Shop" then
+		return
+	end
+	local plot = playerPlots[player]
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not plot or plot:getOwner() ~= player or not character or not humanoid or humanoid.Health <= 0
+		or not root or not root:IsA("BasePart") then
+		return
+	end
+	local now = os.clock()
+	if now - (lastTravel[player] or -math.huge) < 1 then
+		return
+	end
+	if destination == "Home" then
+		lastTravel[player] = now
+		plot:teleportCharacter(player, character)
+		return
+	end
+
+	local stand = Workspace:FindFirstChild("ShopStand")
+	local noob = if stand then stand:FindFirstChild("Noob") else nil
+	local torso = if noob then noob:FindFirstChild("Torso") else nil
+	if not torso or not torso:IsA("BasePart") then
+		return
+	end
+	local front = torso.Position + torso.CFrame.LookVector * 5
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { character }
+	local hit = Workspace:Raycast(front + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0), rayParams)
+	if not hit or hit.Normal.Y < 0.7 then
+		return
+	end
+	lastTravel[player] = now
+	local target = hit.Position + Vector3.new(0, 3.5, 0)
+	character:PivotTo(CFrame.lookAt(target, Vector3.new(torso.Position.X, target.Y, torso.Position.Z)))
+end
 function PlotServiceServer:place(player: Player, instanceId: any, slotId: any)
 	if typeof(instanceId) ~= "string" or typeof(slotId) ~= "string" then
 		return
@@ -320,18 +406,6 @@ function PlotServiceServer:place(player: Player, instanceId: any, slotId: any)
 	data.inventory[instanceId](updatedItem)
 	if item.itemId == "Incubator" then
 		IncubatorServiceServer:registerPlaced(player, plot.model, model, instanceId)
-	end
-	local hotbar = data.hotbar() :: { string }
-	local updatedHotbar = table.clone(hotbar)
-	local hotbarChanged = false
-	for index = 1, InventoryConfig.hotbarSize do
-		if updatedHotbar[index] == instanceId then
-			updatedHotbar[index] = InventoryConfig.emptySlot
-			hotbarChanged = true
-		end
-	end
-	if hotbarChanged then
-		data.hotbar(updatedHotbar)
 	end
 	InventoryServiceServer:refreshTools(player)
 end

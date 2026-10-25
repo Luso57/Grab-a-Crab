@@ -1,55 +1,150 @@
 --!strict
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
+local Data = require(ReplicatedStorage.Source.Game.Data).server
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
+local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
 local EggConveyorServer = require(ServerScriptService.Features.EggConveyor.Classes.EggConveyorServer)
 
 local EggConveyorServiceServer = {}
 local initialized = false
 local templates: { Model } = {}
 local active: { [Model]: EggConveyorServer.EggConveyorServer } = {}
+local buying: { [Player]: boolean } = {}
+local networker = nil
+
+local function getSavedLuck(player: Player, data: any): number
+    local luck = LuckConfig.normalizeLuck(data.conveyorLuck())
+    local profile = Data.Service:getProfile(player)
+    local saved = if profile then profile.Data else nil
+    local oldLevel = if typeof(saved) == "table" then saved.conveyorLevel else nil
+    if typeof(oldLevel) == "number" and oldLevel == oldLevel and oldLevel ~= math.huge and oldLevel ~= -math.huge then
+        if luck == 0 then
+            luck = LuckConfig.normalizeLuck((math.max(1, math.floor(oldLevel)) - 1) * LuckConfig.LUCK_PER_UPGRADE)
+        end
+        saved.conveyorLevel = nil
+    end
+    if data.conveyorLuck() ~= luck then
+        data.conveyorLuck(luck)
+    end
+    return luck
+end
+
+local function getOwnedPlot(player: Player): any
+    local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
+    local plot = PlotServiceServer:getPlot(player)
+    if plot and plot:getOwner() == player then
+        return plot
+    end
+    return nil
+end
+
+local function isNearSign(player: Player, plotModel: Model): boolean
+    local sign = plotModel:FindFirstChild("MoreLuckSign")
+    local panel = if sign then sign:FindFirstChild("FrontPanel") else nil
+    local character = player.Character
+    local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+    local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+    return panel ~= nil and panel:IsA("BasePart")
+        and root ~= nil and root:IsA("BasePart")
+        and humanoid ~= nil and humanoid.Health > 0
+        and (root.Position - panel.Position).Magnitude <= 18
+end
 
 function EggConveyorServiceServer:init()
-	if initialized then
-		return
-	end
-	templates = Eggs.getTemplates()
-	Networker.server.new("EggConveyor", self, { self.ready })
-	initialized = true
+    if initialized then
+        return
+    end
+    templates = Eggs.getTemplates()
+    networker = Networker.server.new("EggConveyor", self, { self.ready, self.buyUpgrade })
+    Players.PlayerRemoving:Connect(function(player)
+        buying[player] = nil
+    end)
+    initialized = true
 end
 
 function EggConveyorServiceServer:start(plotModel: Model)
-	if active[plotModel] then
-		return
-	end
-	if not initialized or #templates == 0 then
-		warn("Egg conveyor is unavailable: no egg templates loaded")
-		return
-	end
-	local conveyor = EggConveyorServer.new(plotModel, templates)
-	if not conveyor then
-		return
-	end
-	active[plotModel] = conveyor
-	conveyor:start()
+    if active[plotModel] then
+        return
+    end
+    if not initialized or #templates == 0 then
+        warn("Egg conveyor is unavailable: no egg templates loaded")
+        return
+    end
+    local conveyor = EggConveyorServer.new(plotModel, templates, function(player: Player)
+        if networker and player.Parent == Players then
+            networker:fire(player, "showNotEnoughMoney")
+        end
+    end, function(player: Player)
+        if networker and player.Parent == Players then
+            networker:fire(player, "eggPurchased")
+        end
+    end)
+    if not conveyor then
+        return
+    end
+    active[plotModel] = conveyor
+    conveyor:start()
 end
 
 function EggConveyorServiceServer:ready(player: Player)
-	local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
-	local plot = PlotServiceServer:getPlot(player)
-	if plot and plot:getOwner() == player then
-		self:start(plot.model)
-	end
+    local data = Data.Service:waitForData(player)
+    if not data or player.Parent ~= Players then
+        return
+    end
+    local plot = getOwnedPlot(player)
+    if plot then
+        plot.model:SetAttribute("ConveyorLuck", getSavedLuck(player, data))
+        self:start(plot.model)
+    end
 end
+
+function EggConveyorServiceServer:buyUpgrade(player: Player)
+    if buying[player] then
+        return
+    end
+    buying[player] = true
+    local ok, err = pcall(function()
+        local data = Data.Service:waitForData(player)
+        if not data or player.Parent ~= Players then
+            return
+        end
+        local plot = getOwnedPlot(player)
+        if not plot or not isNearSign(player, plot.model) then
+            return
+        end
+
+        local luck = getSavedLuck(player, data)
+        local price = LuckConfig.getUpgradePrice(luck)
+        if not price then
+            return
+        end
+        local money = data.money()
+        if typeof(money) ~= "number" or money ~= money or money < price then
+            return
+        end
+
+        data.money(money - price)
+        local newLuck = luck + LuckConfig.LUCK_PER_UPGRADE
+        data.conveyorLuck(newLuck)
+        plot.model:SetAttribute("ConveyorLuck", newLuck)
+    end)
+    buying[player] = nil
+    if not ok then
+        warn("Egg conveyor upgrade failed:", err)
+    end
+end
+
 function EggConveyorServiceServer:stop(plotModel: Model)
-	local conveyor = active[plotModel]
-	if conveyor then
-		active[plotModel] = nil
-		conveyor:stop()
-	end
+    local conveyor = active[plotModel]
+    if conveyor then
+        active[plotModel] = nil
+        conveyor:stop()
+    end
 end
 
 return EggConveyorServiceServer

@@ -23,6 +23,7 @@ export type PlacedIncubatorServer = typeof(setmetatable({} :: {
 	prompt: ProximityPrompt,
 	hatchPrompt: ProximityPrompt?,
 	eggInstanceId: string?,
+	eggId: string?,
 	hatchAtUnixMs: number?,
 	visual: Model?,
 	destroyed: boolean,
@@ -30,6 +31,26 @@ export type PlacedIncubatorServer = typeof(setmetatable({} :: {
 
 local function inventoryService()
 	return require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+end
+
+local function moneyPadSide(self: PlacedIncubatorServer): Vector3?
+	local slotId = self.model:GetAttribute("SlotId")
+	local slots = self.plotModel:FindFirstChild("PlacementSlots")
+	if typeof(slotId) ~= "string" or not slots then
+		return nil
+	end
+	local side = string.match(slotId, "^(Left)") or string.match(slotId, "^(Right)")
+	if not side then
+		return nil
+	end
+	local own = slots:FindFirstChild(side .. "1")
+	local opposite = slots:FindFirstChild((if side == "Left" then "Right" else "Left") .. "1")
+	if not own or not own:IsA("BasePart") or not opposite or not opposite:IsA("BasePart") then
+		return nil
+	end
+	local offset = opposite.Position - own.Position
+	local horizontal = Vector3.new(offset.X, 0, offset.Z)
+	return if horizontal.Magnitude > 0.01 then horizontal.Unit else nil
 end
 
 local function isOwnerInRange(self: PlacedIncubatorServer, player: Player): boolean
@@ -75,6 +96,7 @@ function PlacedIncubatorServer.new(owner: Player, plotModel: Model, model: Model
 		prompt = prompt,
 		hatchPrompt = nil :: ProximityPrompt?,
 		eggInstanceId = nil :: string?,
+		eggId = nil :: string?,
 		hatchAtUnixMs = nil :: number?,
 		visual = nil :: Model?,
 		destroyed = false,
@@ -146,8 +168,17 @@ function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: strin
 				or DateTime.now().UnixTimestampMillis < hatchAtUnixMs then
 				return
 			end
-			if inventoryService():completeIncubation(player, eggInstanceId, self.instanceId, hatchAtUnixMs) then
+			local completed, crabId, weightGrams = inventoryService():completeIncubation(player, eggInstanceId, self.instanceId, hatchAtUnixMs)
+			if completed then
+				local hatchedEggId = self.eggId
+				local eggVisual = self.visual
+				local eggPivot = if eggVisual then eggVisual:GetPivot() else nil
+				local eggScale = if eggVisual then eggVisual:GetScale() else nil
 				self:clear()
+				if crabId and weightGrams then
+					local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
+					IncubatorServiceServer:showHatch(player, crabId, weightGrams, hatchedEggId, eggPivot, eggScale, moneyPadSide(self), eggInstanceId)
+				end
 			end
 		end)
 		self.hatchPrompt = hatchPrompt
@@ -161,6 +192,7 @@ function PlacedIncubatorServer.clear(self: PlacedIncubatorServer)
 	end
 	self.hatchPrompt = nil
 	self.eggInstanceId = nil
+	self.eggId = nil
 	self.hatchAtUnixMs = nil
 	self.model:SetAttribute("IncubatingEggId", nil)
 	self.model:SetAttribute("IncubatingHatchAtUnixMs", nil)
@@ -172,6 +204,7 @@ function PlacedIncubatorServer.occupy(self: PlacedIncubatorServer, eggInstanceId
 		return
 	end
 	self.eggInstanceId = eggInstanceId
+	self.eggId = eggId
 	self.hatchAtUnixMs = hatchAtUnixMs
 	self.model:SetAttribute("IncubatingEggId", eggInstanceId)
 	self.model:SetAttribute("IncubatingHatchAtUnixMs", hatchAtUnixMs)

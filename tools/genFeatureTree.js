@@ -89,7 +89,7 @@ const tree = {
 
     StarterPlayer: {
       $properties: {
-        CharacterWalkSpeed: 18,
+        CharacterWalkSpeed: 20,
       },
       StarterPlayerScripts: {
         StartUp: {

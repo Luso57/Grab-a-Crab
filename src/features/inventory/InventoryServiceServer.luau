@@ -14,12 +14,39 @@ local TankServiceServer = require(ServerScriptService.Features.Tanks.TankService
 local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
+local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
+local CrabSizeIndex = require(ReplicatedStorage.Source.Features.Index.Modules.CrabSizeIndex)
+local IndexMilestones = require(ReplicatedStorage.Source.Features.Index.Modules.IndexMilestones)
 local CrabServer = require(ServerScriptService.Features.Crabs.Classes.CrabServer)
+local DecorToolFactoryServer = require(ServerScriptService.Features.DecorShop.Modules.DecorToolFactoryServer)
 
-type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number? }
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number?, weightGrams: number? }
 type SavedInventory = { [string]: SavedItem }
 
 local InventoryServiceServer = {}
+
+local function isHotbarEligible(itemId: string): boolean
+	local definition = ItemCatalog.get(itemId)
+	return definition ~= nil and definition.hotbarEligible ~= false
+end
+
+local function isAvailable(item: SavedItem?): boolean
+	return typeof(item) == "table" and typeof(item.itemId) == "string"
+		and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil
+		and isHotbarEligible(item.itemId)
+end
+
+local function findAvailableCopy(inventory: SavedInventory, itemId: string, used: { [string]: boolean }): string?
+	local firstId: string? = nil
+	for instanceId, item in inventory do
+		if not used[instanceId] and isAvailable(item) and item.itemId == itemId
+			and (not firstId or instanceId < firstId) then
+			firstId = instanceId
+		end
+	end
+	return firstId
+end
+
 local initialized = false
 local readyPlayers: { [Player]: boolean } = {}
 local syncQueued: { [Player]: boolean } = {}
@@ -45,15 +72,25 @@ local function normalizeHotbar(data: any, player: Player): { string }
 	local current = data.hotbar() :: { string }
 	local normalized: { string } = { hammerId }
 	local seen: { [string]: boolean } = { [hammerId] = true }
+	local seenStackable: { [string]: boolean } = {}
 	local changed = #current ~= InventoryConfig.hotbarSize or current[InventoryConfig.hammerSlot] ~= hammerId
 
 	for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
 		local instanceId = current[index]
 		local item = if typeof(instanceId) == "string" then inventory[instanceId] else nil
-		if typeof(item) == "table" and item.itemId ~= InventoryConfig.hammerItemId
-			and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil and not seen[instanceId] then
+		if typeof(item) == "table" and typeof(item.itemId) == "string"
+			and ItemCatalog.isStackable(item.itemId) and not isAvailable(item) then
+			instanceId = findAvailableCopy(inventory, item.itemId, seen) or InventoryConfig.emptySlot
+			item = inventory[instanceId]
+		end
+		local stackable = typeof(item) == "table" and ItemCatalog.isStackable(item.itemId)
+		if isAvailable(item) and item.itemId ~= InventoryConfig.hammerItemId
+			and not seen[instanceId] and (not stackable or not seenStackable[item.itemId]) then
 			normalized[index] = instanceId
 			seen[instanceId] = true
+			if stackable then
+				seenStackable[item.itemId] = true
+			end
 		else
 			normalized[index] = InventoryConfig.emptySlot
 		end
@@ -61,11 +98,15 @@ local function normalizeHotbar(data: any, player: Player): { string }
 
 	local displacedId = current[InventoryConfig.hammerSlot]
 	local displaced = if typeof(displacedId) == "string" then inventory[displacedId] else nil
-	if typeof(displaced) == "table" and displaced.itemId ~= InventoryConfig.hammerItemId
-		and displaced.placedSlotId == nil and displaced.incubatorInstanceId == nil and displaced.tankInstanceId == nil and not seen[displacedId] then
+	if isAvailable(displaced) and displaced.itemId ~= InventoryConfig.hammerItemId
+		and not seen[displacedId]
+		and (not ItemCatalog.isStackable(displaced.itemId) or not seenStackable[displaced.itemId]) then
 		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
 			if normalized[index] == InventoryConfig.emptySlot then
 				normalized[index] = displacedId
+				if ItemCatalog.isStackable(displaced.itemId) then
+					seenStackable[displaced.itemId] = true
+				end
 				break
 			end
 		end
@@ -139,7 +180,7 @@ local function createEggTool(player: Player, eggId: string, instanceId: string):
 	model.Parent = tool
 	return tool
 end
-local function createTool(player: Player, itemId: string, instanceId: string): Tool?
+local function createTool(player: Player, itemId: string, instanceId: string, weightGrams: number?): Tool?
 	if itemId == InventoryConfig.hammerItemId then
 		local template = ReplicatedStorage:FindFirstChild("Assets")
 		local tools = if template then template:FindFirstChild("Tools") else nil
@@ -157,6 +198,10 @@ local function createTool(player: Player, itemId: string, instanceId: string): T
 	if itemId == "Incubator" then
 		return IncubatorServiceServer:createTool(player, "Incubator", instanceId)
 	end
+	local decorId = string.match(itemId, "^Decor%.([%w_]+)$")
+	if decorId then
+		return DecorToolFactoryServer.createTool(player, decorId, instanceId)
+	end
 	local eggId = string.match(itemId, "^Egg%.([%w_]+)$")
 	if eggId then
 		return createEggTool(player, eggId, instanceId)
@@ -164,7 +209,7 @@ local function createTool(player: Player, itemId: string, instanceId: string): T
 
 	local crabId = string.match(itemId, "^Crab%.([%w_]+)$")
 	if crabId and Crabs.get(crabId) then
-		local crab = CrabServer.new(instanceId, crabId)
+		local crab = CrabServer.new(instanceId, crabId, weightGrams)
 		return if crab then crab.tool else nil
 	end
 
@@ -187,12 +232,12 @@ local function syncTools(player: Player)
 
 	local data = Data[player]
 	local inventory = data.inventory() :: SavedInventory
-	local hotbar = data.hotbar() :: { string }
+	local hotbar = normalizeHotbar(data, player)
 	local wanted: { [string]: string } = {}
 	for index = 1, InventoryConfig.hotbarSize do
 		local instanceId = hotbar[index]
 		local item = if typeof(instanceId) == "string" then inventory[instanceId] else nil
-		if typeof(item) == "table" and typeof(item.itemId) == "string" and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil and ItemCatalog.get(item.itemId) then
+		if typeof(item) == "table" and typeof(item.itemId) == "string" and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil and isHotbarEligible(item.itemId) then
 			wanted[instanceId] = item.itemId
 		end
 	end
@@ -223,7 +268,8 @@ local function syncTools(player: Player)
 
 	for instanceId, itemId in wanted do
 		if not found[instanceId] then
-			local tool = createTool(player, itemId, instanceId)
+			local savedItem = inventory[instanceId]
+			local tool = createTool(player, itemId, instanceId, if savedItem then savedItem.weightGrams else nil)
 			if tool then
 				tool.Parent = backpack
 			end
@@ -240,6 +286,48 @@ local function scheduleSync(player: Player)
 		syncQueued[player] = nil
 		syncTools(player)
 	end)
+end
+
+local function grantStarterItems(player: Player, data: any)
+	if data.starterItemsGranted() then
+		return
+	end
+
+	local hasIncubator = false
+	local ownedTanks: { [string]: boolean } = {}
+	local inventory = data.inventory() :: SavedInventory
+	for _, item in inventory do
+		if typeof(item) == "table" and typeof(item.itemId) == "string" then
+			hasIncubator = hasIncubator or item.itemId == "Incubator"
+			ownedTanks[item.itemId] = true
+		end
+	end
+
+	if not hasIncubator and not InventoryServiceServer:grantItem(player, "Incubator") then
+		return
+	end
+	for _, tankItemId in { "Tank.Small" } do
+		if not ownedTanks[tankItemId] and not InventoryServiceServer:grantItem(player, tankItemId) then
+			return
+		end
+	end
+	data.starterItemsGranted(true)
+end
+
+local function removeLegacyStarterCrabs(player: Player, data: any)
+	local prefix = `StarterBasicCrab:{player.UserId}:`
+	local inventory = data.inventory() :: SavedInventory
+	local removeIds = {}
+	for instanceId, item in inventory do
+		if string.sub(instanceId, 1, #prefix) == prefix
+			and typeof(item) == "table" and item.itemId == "Crab.BasicCrab"
+			and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil then
+			table.insert(removeIds, instanceId)
+		end
+	end
+	for _, instanceId in removeIds do
+		data.inventory[instanceId](nil)
+	end
 end
 
 local function setupPlayer(player: Player)
@@ -272,6 +360,42 @@ local function setupPlayer(player: Player)
 		if player.Parent ~= Players then
 			return
 		end
+		grantStarterItems(player, data)
+		removeLegacyStarterCrabs(player, data)
+		local sizeDiscoveries = table.clone(data.discoveredCrabSizes())
+		local hasNewDiscovery = false
+		for _, item in data.inventory() :: SavedInventory do
+			if typeof(item) ~= "table" or typeof(item.itemId) ~= "string" or typeof(item.weightGrams) ~= "number" then
+				continue
+			end
+			local crabId = string.match(item.itemId, "^Crab%.([%w_]+)$")
+			if crabId and Crabs.get(crabId) and item.weightGrams >= 0.01 and item.weightGrams <= 10000000000 then
+				local key = CrabSizeIndex.key(CrabSizeIndex.fromWeight(item.weightGrams), crabId)
+				if sizeDiscoveries[key] ~= true then
+					sizeDiscoveries[key] = true
+					hasNewDiscovery = true
+				end
+			end
+		end
+		for crabId, wasDiscovered in data.discoveredCrabs() do
+			if wasDiscovered ~= true or not Crabs.get(crabId) then
+				continue
+			end
+			local hasKnownSize = false
+			for _, sizeName in CrabSizeIndex.names do
+				if sizeDiscoveries[CrabSizeIndex.key(sizeName, crabId)] == true then
+					hasKnownSize = true
+					break
+				end
+			end
+			if not hasKnownSize then
+				sizeDiscoveries[CrabSizeIndex.key("Base", crabId)] = true
+				hasNewDiscovery = true
+			end
+		end
+		if hasNewDiscovery then
+			data.discoveredCrabSizes(sizeDiscoveries)
+		end
 		normalizeHotbar(data, player)
 		readyPlayers[player] = true
 		scheduleSync(player)
@@ -284,7 +408,7 @@ function InventoryServiceServer:init()
 	end
 	initialized = true
 
-	Networker.server.new("InventoryService", self, { self.setHotbarSlot, self.removeHotbarSlot })
+	Networker.server.new("InventoryService", self, { self.setHotbarSlot, self.removeHotbarSlot, self.claimHatchedCrab })
 	Players.PlayerAdded:Connect(setupPlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		readyPlayers[player] = nil
@@ -318,19 +442,116 @@ function InventoryServiceServer:grantItem(player: Player, itemId: string, canGra
 
 	local instanceId = HttpService:GenerateGUID(false)
 	data.inventory[instanceId]({ itemId = itemId })
-	local hotbar = normalizeHotbar(data, player)
-	for index = 1, InventoryConfig.hotbarSize do
-		if hotbar[index] == InventoryConfig.emptySlot then
-			local updated = table.clone(hotbar)
-			updated[index] = instanceId
-			data.hotbar(updated)
-			break
+	if isHotbarEligible(itemId) then
+		local hotbar = normalizeHotbar(data, player)
+		local alreadyAssigned = false
+		if ItemCatalog.isStackable(itemId) then
+			local currentInventory = data.inventory() :: SavedInventory
+			for _, assignedId in hotbar do
+				local assignedItem = currentInventory[assignedId]
+				if assignedItem and assignedItem.itemId == itemId then
+					alreadyAssigned = true
+					break
+				end
+			end
+		end
+		if not alreadyAssigned then
+			for index = 1, InventoryConfig.hotbarSize do
+				if hotbar[index] == InventoryConfig.emptySlot then
+					local updated = table.clone(hotbar)
+					updated[index] = instanceId
+					data.hotbar(updated)
+					break
+				end
+			end
 		end
 	end
 
 	readyPlayers[player] = true
 	scheduleSync(player)
 	return instanceId
+end
+
+function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: string): number?
+	if player.Parent ~= Players then
+		return nil
+	end
+	local data = Data[player]
+	if not data then
+		return nil
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[instanceId]
+	local itemId = if item then item.itemId else nil
+	local eggId = if typeof(itemId) == "string" then string.match(itemId, "^Egg%.([%w_]+)$") else nil
+	if not eggId or not Eggs.get(eggId) or not isAvailable(item) then
+		return nil
+	end
+
+	local hotbar = normalizeHotbar(data, player)
+	local equippedId: string? = nil
+	local character = player.Character
+	if character then
+		for _, child in character:GetChildren() do
+			if child:IsA("Tool") then
+				local currentId = child:GetAttribute("ItemInstanceId")
+				if typeof(currentId) == "string" then
+					equippedId = currentId
+					break
+				end
+			end
+		end
+	end
+
+	local targetId = instanceId
+	local targetSlot: number? = nil
+	for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
+		local assignedId = hotbar[index]
+		local assignedItem = inventory[assignedId]
+		if assignedItem and assignedItem.itemId == itemId then
+			targetId = assignedId
+			targetSlot = index
+			break
+		end
+	end
+	if not targetSlot then
+		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
+			if hotbar[index] == InventoryConfig.emptySlot then
+				targetSlot = index
+				break
+			end
+		end
+		if not targetSlot then
+			local heldSlot = if equippedId then table.find(hotbar, equippedId) else nil
+			targetSlot = if heldSlot and heldSlot > InventoryConfig.hammerSlot then heldSlot else InventoryConfig.hotbarSize
+		end
+		local updated = table.clone(hotbar)
+		updated[targetSlot :: number] = instanceId
+		data.hotbar(updated)
+	end
+
+	readyPlayers[player] = true
+	syncTools(player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if backpack and character and humanoid and humanoid.Health > 0 and character == player.Character then
+		local targetTool: Tool? = nil
+		for _, container in { backpack, character } do
+			for _, child in container:GetChildren() do
+				if child:IsA("Tool") and child:GetAttribute("ItemInstanceId") == targetId then
+					targetTool = child
+					break
+				end
+			end
+			if targetTool then
+				break
+			end
+		end
+		if targetTool and targetTool.Parent == backpack then
+			humanoid:EquipTool(targetTool)
+		end
+	end
+	return targetSlot
 end
 
 function InventoryServiceServer:setHotbarSlot(player: Player, instanceId: any, slotIndex: any)
@@ -340,17 +561,30 @@ function InventoryServiceServer:setHotbarSlot(player: Player, instanceId: any, s
 	if slotIndex % 1 ~= 0 or slotIndex <= InventoryConfig.hammerSlot or slotIndex > InventoryConfig.hotbarSize then
 		return
 	end
-	if not readyPlayers[player] or player.Parent ~= Players then
+	if player.Parent ~= Players then
 		return
 	end
 
-	local data = Data[player]
+	local data = Data.Service:waitForData(player)
+	if not data or player.Parent ~= Players then
+		return
+	end
+	readyPlayers[player] = true
 	local inventory = data.inventory() :: SavedInventory
 	local item = inventory[instanceId]
-	if typeof(item) ~= "table" or typeof(item.itemId) ~= "string" or item.placedSlotId ~= nil or item.incubatorInstanceId ~= nil or item.tankInstanceId ~= nil or item.itemId == InventoryConfig.hammerItemId or not ItemCatalog.get(item.itemId) then
+	if typeof(item) ~= "table" or typeof(item.itemId) ~= "string" or item.placedSlotId ~= nil or item.incubatorInstanceId ~= nil or item.tankInstanceId ~= nil or item.itemId == InventoryConfig.hammerItemId or not isHotbarEligible(item.itemId) then
 		return
 	end
 	local hotbar = normalizeHotbar(data, player)
+	if ItemCatalog.isStackable(item.itemId) then
+		for _, assignedId in hotbar do
+			local assignedItem = inventory[assignedId]
+			if assignedItem and assignedItem.itemId == item.itemId then
+				instanceId = assignedId
+				break
+			end
+		end
+	end
 	local sourceIndex: number? = nil
 	for index, assignedId in hotbar do
 		if assignedId == instanceId then
@@ -368,15 +602,20 @@ function InventoryServiceServer:setHotbarSlot(player: Player, instanceId: any, s
 	end
 	updated[slotIndex] = instanceId
 	data.hotbar(updated)
+	normalizeHotbar(data, player)
 	scheduleSync(player)
 end
 
 function InventoryServiceServer:removeHotbarSlot(player: Player, instanceId: any)
-	if typeof(instanceId) ~= "string" or not readyPlayers[player] or player.Parent ~= Players then
+	if typeof(instanceId) ~= "string" or player.Parent ~= Players then
 		return
 	end
 
-	local data = Data[player]
+	local data = Data.Service:waitForData(player)
+	if not data or player.Parent ~= Players then
+		return
+	end
+	readyPlayers[player] = true
 	local inventory = data.inventory() :: SavedInventory
 	if not inventory[instanceId] or inventory[instanceId].itemId == InventoryConfig.hammerItemId then
 		return
@@ -449,13 +688,6 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 		updated.incubatorInstanceId = incubatorInstanceId
 		updated.hatchAtUnixMs = hatchAtUnixMs
 		data.inventory[instanceId](updated)
-		local updatedHotbar = table.clone(hotbar)
-		for index, assignedId in updatedHotbar do
-			if assignedId == instanceId then
-				updatedHotbar[index] = InventoryConfig.emptySlot
-			end
-		end
-		data.hotbar(updatedHotbar)
 		child:Destroy()
 		scheduleSync(player)
 		return instanceId, eggId, hatchAtUnixMs
@@ -463,16 +695,16 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 	return nil, nil, nil
 end
 
-function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId: string, incubatorInstanceId: string, hatchAtUnixMs: number): boolean
+function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId: string, incubatorInstanceId: string, hatchAtUnixMs: number): (boolean, string?, number?)
 	if player.Parent ~= Players or DateTime.now().UnixTimestampMillis < hatchAtUnixMs then
-		return false
+		return false, nil, nil
 	end
 	local data = Data[player]
 	local inventory = data.inventory() :: SavedInventory
 	local item = inventory[eggInstanceId]
 	if typeof(item) ~= "table" or item.incubatorInstanceId ~= incubatorInstanceId
 		or item.hatchAtUnixMs ~= hatchAtUnixMs then
-		return false
+		return false, nil, nil
 	end
 	local eggId = string.match(item.itemId, "^Egg%.([%w_]+)$")
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
@@ -489,24 +721,77 @@ function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId
 		recovered.hatchAtUnixMs = nil
 		data.inventory[eggInstanceId](recovered)
 		scheduleSync(player)
-		return true
+		return true, nil, nil
 	end
 	local updated = table.clone(item)
 	updated.itemId = "Crab." .. crabId
-	updated.incubatorInstanceId = nil
+	local weightGrams = CrabWeights.roll(IndexMilestones.growthLuck(data.claimedIndexMilestones()))
+	updated.weightGrams = weightGrams
 	updated.hatchAtUnixMs = nil
 	data.inventory[eggInstanceId](updated)
+	local sizeName = CrabSizeIndex.fromWeight(weightGrams)
+	if data.discoveredCrabs()[crabId] ~= true then
+		data.discoveredCrabs[crabId](true)
+	end
+	local sizeKey = CrabSizeIndex.key(sizeName, crabId)
+	if data.discoveredCrabSizes()[sizeKey] ~= true then
+		data.discoveredCrabSizes[sizeKey](true)
+	end
+	normalizeHotbar(data, player)
+	scheduleSync(player)
+	return true, crabId, weightGrams
+end
+
+function InventoryServiceServer:claimHatchedCrab(player: Player, instanceId: any)
+	if typeof(instanceId) ~= "string" or #instanceId > 64 or player.Parent ~= Players then
+		return
+	end
+	local data = Data.Service:waitForData(player)
+	if not data or player.Parent ~= Players then
+		return
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[instanceId]
+	if typeof(item) ~= "table" or not string.match(item.itemId, "^Crab%.[%w_]+$")
+		or item.incubatorInstanceId == nil or item.hatchAtUnixMs ~= nil then
+		return
+	end
+	local updated = table.clone(item)
+	updated.incubatorInstanceId = nil
+	data.inventory[instanceId](updated)
 	local hotbar = normalizeHotbar(data, player)
-	for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
-		if hotbar[index] == InventoryConfig.emptySlot then
-			local updatedHotbar = table.clone(hotbar)
-			updatedHotbar[index] = eggInstanceId
-			data.hotbar(updatedHotbar)
-			break
+	local targetSlot = table.find(hotbar, instanceId)
+	if not targetSlot then
+		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
+			if hotbar[index] == InventoryConfig.emptySlot then
+				targetSlot = index
+				break
+			end
 		end
 	end
+	if not targetSlot then
+		local heldId: string? = nil
+		local character = player.Character
+		if character then
+			for _, child in character:GetChildren() do
+				if child:IsA("Tool") then
+					local currentId = child:GetAttribute("ItemInstanceId")
+					if typeof(currentId) == "string" then
+						heldId = currentId
+						break
+					end
+				end
+			end
+		end
+		local heldSlot = if heldId then table.find(hotbar, heldId) else nil
+		targetSlot = if heldSlot and heldSlot > InventoryConfig.hammerSlot then heldSlot else InventoryConfig.hotbarSize
+	end
+	if hotbar[targetSlot :: number] ~= instanceId then
+		local updatedHotbar = table.clone(hotbar)
+		updatedHotbar[targetSlot :: number] = instanceId
+		data.hotbar(updatedHotbar)
+	end
 	scheduleSync(player)
-	return true
 end
 
 function InventoryServiceServer:repairIncubations(player: Player, active: { [string]: string })
@@ -549,5 +834,31 @@ function InventoryServiceServer:refreshTools(player: Player)
 	end
 	normalizeHotbar(Data[player], player)
 	scheduleSync(player)
+end
+
+function InventoryServiceServer:getHotbarSlot(player: Player, instanceId: string): number?
+	local data = Data[player]
+	if not data then
+		return nil
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[instanceId]
+	if not item then
+		return nil
+	end
+	local hotbar = normalizeHotbar(data, player)
+	local directSlot = table.find(hotbar, instanceId)
+	if directSlot then
+		return directSlot
+	end
+	if ItemCatalog.isStackable(item.itemId) then
+		for index, assignedId in hotbar do
+			local assignedItem = inventory[assignedId]
+			if assignedItem and assignedItem.itemId == item.itemId then
+				return index
+			end
+		end
+	end
+	return nil
 end
 return InventoryServiceServer

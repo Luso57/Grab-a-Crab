@@ -9,6 +9,9 @@ export type Props = {
 	displayName: string,
 	image: string,
 	cardImage: string?,
+	weightText: string?,
+	weightAtTopRight: boolean?,
+	countText: string?,
 	selected: boolean,
 	onActivated: () -> (),
 	onPointerDown: ((InputObject, ImageButton) -> ())?,
@@ -95,6 +98,19 @@ function HotbarSlot.create(props: Props): ImageButton
 	local title = textLabel("ItemName", props.bottomText or props.displayName, UDim2.fromScale(0.07, 0.73), UDim2.fromScale(0.86, 0.24), 18, Enum.TextXAlignment.Right)
 	title.TextTruncate = Enum.TextTruncate.AtEnd
 	title.Parent = button
+
+	if props.weightText then
+		local topRight = props.weightAtTopRight == true
+		local position = if topRight then UDim2.fromScale(0.39, 0.02) else UDim2.fromScale(0.07, 0.73)
+		local size = if topRight then UDim2.fromScale(0.54, 0.28) else UDim2.fromScale(0.62, 0.24)
+		local alignment = if topRight then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
+		local weight = textLabel("CrabWeight", props.weightText, position, size, 14, alignment)
+		weight.Parent = button
+	end
+	if props.countText then
+		local count = textLabel("StackCount", props.countText, UDim2.fromScale(0.45, 0.02), UDim2.fromScale(0.48, 0.28), 14, Enum.TextXAlignment.Right)
+		count.Parent = button
+	end
 
 	if props.onPointerDown then
 		button.InputBegan:Connect(function(input)

@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
+local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
 local CrabRigBuilder = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabRigBuilder)
 
 local CrabServer = {}
@@ -13,7 +14,7 @@ export type CrabServer = typeof(setmetatable({} :: {
 	tool: Tool,
 }, CrabServer))
 
-function CrabServer.new(instanceId: string, crabId: string): CrabServer?
+function CrabServer.new(instanceId: string, crabId: string, weightGrams: number?): CrabServer?
 	local definition = Crabs.get(crabId)
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local models = if assets then assets:FindFirstChild("Crabs") else nil
@@ -34,7 +35,7 @@ function CrabServer.new(instanceId: string, crabId: string): CrabServer?
 		model:Destroy()
 		return nil
 	end
-	model:ScaleTo(model:GetScale() * 2 / height)
+	model:ScaleTo(model:GetScale() * 2 / height * CrabWeights.scale(weightGrams))
 
 	local tool = Instance.new("Tool")
 	tool.Name = definition.name
@@ -42,6 +43,7 @@ function CrabServer.new(instanceId: string, crabId: string): CrabServer?
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
 	tool:SetAttribute("CrabId", crabId)
+	tool:SetAttribute("WeightGrams", CrabWeights.normalize(weightGrams))
 	tool:SetAttribute("ItemId", "Crab." .. crabId)
 	tool:SetAttribute("ItemInstanceId", instanceId)
 

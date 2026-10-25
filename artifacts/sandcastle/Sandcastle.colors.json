@@ -1,0 +1,114 @@
+{
+  "Sandcastle_Base": {
+    "Color3_RGB": [
+      255,
+      216,
+      141
+    ],
+    "triangles": 52
+  },
+  "Sandcastle_Sand": {
+    "Color3_RGB": [
+      242,
+      188,
+      104
+    ],
+    "triangles": 192
+  },
+  "Sandcastle_SandLight": {
+    "Color3_RGB": [
+      255,
+      211,
+      135
+    ],
+    "triangles": 696
+  },
+  "Sandcastle_Brick": {
+    "Color3_RGB": [
+      203,
+      139,
+      69
+    ],
+    "triangles": 156
+  },
+  "Sandcastle_Wood": {
+    "Color3_RGB": [
+      139,
+      65,
+      29
+    ],
+    "triangles": 36
+  },
+  "Sandcastle_FlagRed": {
+    "Color3_RGB": [
+      245,
+      40,
+      34
+    ],
+    "triangles": 24
+  },
+  "Sandcastle_Arch": {
+    "Color3_RGB": [
+      218,
+      153,
+      77
+    ],
+    "triangles": 132
+  },
+  "Sandcastle_DoorShadow": {
+    "Color3_RGB": [
+      111,
+      61,
+      25
+    ],
+    "triangles": 40
+  },
+  "Sandcastle_Rock": {
+    "Color3_RGB": [
+      125,
+      125,
+      145
+    ],
+    "triangles": 100
+  },
+  "Sandcastle_SeaweedLight": {
+    "Color3_RGB": [
+      103,
+      183,
+      35
+    ],
+    "triangles": 336
+  },
+  "Sandcastle_Seaweed": {
+    "Color3_RGB": [
+      62,
+      148,
+      28
+    ],
+    "triangles": 168
+  },
+  "Sandcastle_BucketRed": {
+    "Color3_RGB": [
+      225,
+      37,
+      48
+    ],
+    "triangles": 178
+  },
+  "Sandcastle_WhiteHandle": {
+    "Color3_RGB": [
+      235,
+      239,
+      241
+    ],
+    "triangles": 64
+  },
+  "Sandcastle_Starfish": {
+    "Color3_RGB": [
+      255,
+      77,
+      40
+    ],
+    "triangles": 38
+  }
+}

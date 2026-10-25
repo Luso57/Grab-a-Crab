@@ -1,0 +1,66 @@
+{
+  "Starfish_Underside": {
+    "Color3_RGB": [
+      236,
+      70,
+      36
+    ],
+    "triangles": 25
+  },
+  "Starfish_GoldLight": {
+    "Color3_RGB": [
+      255,
+      210,
+      111
+    ],
+    "triangles": 208
+  },
+  "Starfish_RedEdge": {
+    "Color3_RGB": [
+      223,
+      55,
+      31
+    ],
+    "triangles": 50
+  },
+  "Starfish_Coral": {
+    "Color3_RGB": [
+      250,
+      79,
+      40
+    ],
+    "triangles": 30
+  },
+  "Starfish_Orange": {
+    "Color3_RGB": [
+      255,
+      106,
+      48
+    ],
+    "triangles": 81
+  },
+  "Starfish_OrangeLight": {
+    "Color3_RGB": [
+      255,
+      119,
+      54
+    ],
+    "triangles": 14
+  },
+  "Starfish_GoldShade": {
+    "Color3_RGB": [
+      246,
+      174,
+      65
+    ],
+    "triangles": 256
+  },
+  "Starfish_Gold": {
+    "Color3_RGB": [
+      255,
+      196,
+      84
+    ],
+    "triangles": 464
+  }
+}

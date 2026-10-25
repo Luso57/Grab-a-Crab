@@ -1,0 +1,98 @@
+{
+  "PearlShell_OuterPeach": {
+    "Color3_RGB": [
+      244,
+      157,
+      139
+    ],
+    "triangles": 132
+  },
+  "PearlShell_Pearl": {
+    "Color3_RGB": [
+      255,
+      226,
+      232
+    ],
+    "triangles": 80
+  },
+  "PearlShell_Sand": {
+    "Color3_RGB": [
+      255,
+      216,
+      138
+    ],
+    "triangles": 56
+  },
+  "PearlShell_Rock": {
+    "Color3_RGB": [
+      133,
+      125,
+      145
+    ],
+    "triangles": 100
+  },
+  "PearlShell_Seaweed": {
+    "Color3_RGB": [
+      78,
+      151,
+      25
+    ],
+    "triangles": 224
+  },
+  "PearlShell_SeaweedLight": {
+    "Color3_RGB": [
+      121,
+      181,
+      29
+    ],
+    "triangles": 112
+  },
+  "PearlShell_Starfish": {
+    "Color3_RGB": [
+      255,
+      78,
+      29
+    ],
+    "triangles": 38
+  },
+  "PearlShell_ShellPink": {
+    "Color3_RGB": [
+      242,
+      137,
+      144
+    ],
+    "triangles": 80
+  },
+  "PearlShell_ShellCoral": {
+    "Color3_RGB": [
+      225,
+      106,
+      117
+    ],
+    "triangles": 40
+  },
+  "PearlShell_ShellBlush": {
+    "Color3_RGB": [
+      255,
+      174,
+      172
+    ],
+    "triangles": 80
+  },
+  "PearlShell_CreamRim": {
+    "Color3_RGB": [
+      255,
+      221,
+      197
+    ],
+    "triangles": 240
+  },
+  "PearlShell_OuterCream": {
+    "Color3_RGB": [
+      255,
+      216,
+      191
+    ],
+    "triangles": 100
+  }
+}

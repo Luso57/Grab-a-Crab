@@ -4,13 +4,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
+local Vide = require(ReplicatedStorage.Packages.Vide)
+local Data = require(ReplicatedStorage.Source.Game.Data).client
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotClient = require(script.Parent.Classes.PlotClient)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+local ExtraSlotSign = require(script.Parent.UI.ExtraSlotSign)
+local TravelBar = require(script.Parent.UI.TravelBar)
 
-local SLOT_IDS = { "Left1", "Left2", "Left3", "Right1", "Right2", "Right3" }
 local MAX_INTERACTION_DISTANCE = 10
 
 local PlotServiceClient = {}
@@ -24,6 +27,7 @@ local promptSlotId: string? = nil
 local promptMode: string? = nil
 local sendPlace: ((string, string) -> ())? = nil
 local sendPickup: ((string) -> ())? = nil
+local mountedSigns: { [Model]: () -> () } = {}
 
 local function addPlot(instance: Instance)
 	if not instance:IsA("Model") then
@@ -222,11 +226,11 @@ local function updateInteraction()
 	local closestId: string? = nil
 	local closestDistance = math.huge
 
-	for _, slotId in SLOT_IDS do
-		local slot = slots:FindFirstChild(slotId)
-		if not slot or not slot:IsA("BasePart") then
+	for _, slot in slots:GetChildren() do
+		if not slot:IsA("BasePart") then
 			continue
 		end
+		local slotId = slot.Name
 		local placed = occupied[slotId]
 		if itemInstanceId and not placed then
 			if not indicators[slotId] then
@@ -277,6 +281,14 @@ function PlotServiceClient:init()
 	sendPickup = function(slotId)
 		networker:fire("pickup", slotId)
 	end
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
+	TravelBar.mount(playerGui, function(destination: string)
+		networker:fire("travel", destination)
+	end)
+	local balance = Vide.source(Data.money())
+	Data.money.Changed(function(value: number)
+		balance(value)
+	end)
 
 	local folder = Instance.new("Folder")
 	folder.Name = "LocalPlacementIndicators"
@@ -310,8 +322,28 @@ function PlotServiceClient:init()
 	local spawnedPlots = Workspace:WaitForChild("SpawnedPlots") :: Folder
 	spawnedPlots.ChildAdded:Connect(addPlot)
 	spawnedPlots.ChildRemoved:Connect(removePlot)
+	local function mountSign(instance: Instance)
+		if not instance:IsA("Model") or mountedSigns[instance] then
+			return
+		end
+		local cleanup = ExtraSlotSign.mount(instance, playerGui, balance, function()
+			networker:fire("buyExtraSlot")
+		end)
+		if cleanup then
+			mountedSigns[instance] = cleanup
+		end
+	end
+	local function unmountSign(instance: Instance)
+		if instance:IsA("Model") and mountedSigns[instance] then
+			mountedSigns[instance]()
+			mountedSigns[instance] = nil
+		end
+	end
+	spawnedPlots.ChildAdded:Connect(mountSign)
+	spawnedPlots.ChildRemoved:Connect(unmountSign)
 	for _, child in spawnedPlots:GetChildren() do
 		addPlot(child)
+		mountSign(child)
 	end
 
 	task.spawn(function()

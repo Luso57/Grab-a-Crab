@@ -1,5 +1,8 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
+
 local SLOT_IDS = {
 	Left1 = true,
 	Left2 = true,
@@ -18,6 +21,8 @@ export type PlotServer = typeof(setmetatable({} :: {
 	model: Model,
 	spawnBase: BasePart,
 	placementSlots: Folder,
+	floorModels: { [number]: Model },
+	extraSlotsPurchased: number,
 	placedFolder: Folder,
 	placedModels: { [string]: Model },
 	owner: Player?,
@@ -42,12 +47,29 @@ function PlotServer.new(index: number, spawn: BasePart, template: Model, parent:
 			return nil
 		end
 	end
+	local floorModels: { [number]: Model } = {}
+	for floorIndex, floorName in PlotExtraSlots.floorNames do
+		local floor = model:FindFirstChild(floorName)
+		local deck = if floor then floor:FindFirstChild("Deck") else nil
+		local mainDeck = if deck then deck:FindFirstChild("MainDeck") else nil
+		if not floor or not floor:IsA("Model") or not mainDeck or not mainDeck:IsA("BasePart") then
+			warn("Plot template needs " .. floorName .. ".Deck.MainDeck")
+			model:Destroy()
+			return nil
+		end
+		floorModels[floorIndex + 1] = floor
+	end
 
 	model.Name = "Plot_" .. index
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	model:PivotTo(spawn.CFrame)
+	for _, floor in floorModels do
+		floor.Parent = nil
+	end
 	model:SetAttribute("Index", index)
 	model:SetAttribute("OwnerUserId", 0)
+	model:SetAttribute("ConveyorLuck", 0)
+	model:SetAttribute("ExtraSlotsPurchased", 0)
 
 	local placedFolder = Instance.new("Folder")
 	placedFolder.Name = "PlacedItems"
@@ -60,6 +82,8 @@ function PlotServer.new(index: number, spawn: BasePart, template: Model, parent:
 		model = model,
 		spawnBase = spawnBase,
 		placementSlots = placementSlots,
+		floorModels = floorModels,
+		extraSlotsPurchased = 0,
 		placedFolder = placedFolder,
 		placedModels = {} :: { [string]: Model },
 		owner = nil :: Player?,
@@ -72,11 +96,51 @@ function PlotServer.getOwner(self: PlotServer): Player?
 end
 
 function PlotServer.getSlot(self: PlotServer, slotId: string): BasePart?
-	if not SLOT_IDS[slotId] then
+	local purchaseNumber = PlotExtraSlots.getPurchaseNumber(slotId)
+	if not SLOT_IDS[slotId] and (not purchaseNumber or purchaseNumber > self.extraSlotsPurchased) then
 		return nil
 	end
 	local slot = self.placementSlots:FindFirstChild(slotId)
 	return if slot and slot:IsA("BasePart") then slot else nil
+end
+
+function PlotServer.unlockNextSlot(self: PlotServer): boolean
+	local purchaseNumber = self.extraSlotsPurchased + 1
+	local floorNumber, baseId, slotId = PlotExtraSlots.getSlotInfo(purchaseNumber)
+	if not floorNumber or not baseId or not slotId then
+		return false
+	end
+	local floor = self.floorModels[floorNumber]
+	local deck = if floor then floor:FindFirstChild("Deck") else nil
+	local mainDeck = if deck then deck:FindFirstChild("MainDeck") else nil
+	local baseSlot = self.placementSlots:FindFirstChild(baseId)
+	if not floor or not mainDeck or not mainDeck:IsA("BasePart")
+		or not baseSlot or not baseSlot:IsA("BasePart") or self.placementSlots:FindFirstChild(slotId) then
+		return false
+	end
+
+	local slot = baseSlot:Clone()
+	slot.Name = slotId
+	local deckTop = mainDeck.Position.Y + mainDeck.Size.Y / 2
+	local baseTop = baseSlot.Position.Y + baseSlot.Size.Y / 2
+	slot.CFrame = baseSlot.CFrame + Vector3.new(0, deckTop - baseTop + 0.05, 0)
+	if floor.Parent ~= self.model then
+		floor.Parent = self.model
+	end
+	slot.Parent = self.placementSlots
+	self.extraSlotsPurchased = purchaseNumber
+	self.model:SetAttribute("ExtraSlotsPurchased", purchaseNumber)
+	return true
+end
+
+function PlotServer.unlockThrough(self: PlotServer, purchasedCount: number): boolean
+	local target = PlotExtraSlots.normalizeCount(purchasedCount)
+	while self.extraSlotsPurchased < target do
+		if not self:unlockNextSlot() then
+			return false
+		end
+	end
+	return true
 end
 
 function PlotServer.getPlaced(self: PlotServer, slotId: string): Model?
@@ -123,6 +187,7 @@ function PlotServer.claim(self: PlotServer, player: Player): boolean
 
 	self.owner = player
 	self.model:SetAttribute("OwnerUserId", player.UserId)
+	self.model:SetAttribute("ConveyorLuck", 0)
 	self.characterConnection = player.CharacterAdded:Connect(function(character)
 		task.spawn(PlotServer.teleportCharacter, self, player, character)
 	end)
@@ -140,12 +205,28 @@ function PlotServer.release(self: PlotServer)
 		self.characterConnection = nil
 	end
 	self:clearPlaced()
+	for purchaseNumber = 1, self.extraSlotsPurchased do
+		local _, _, slotId = PlotExtraSlots.getSlotInfo(purchaseNumber)
+		local slot = if slotId then self.placementSlots:FindFirstChild(slotId) else nil
+		if slot then
+			slot:Destroy()
+		end
+	end
+	for _, floor in self.floorModels do
+		floor.Parent = nil
+	end
+	self.extraSlotsPurchased = 0
 	self.owner = nil
 	self.model:SetAttribute("OwnerUserId", 0)
+	self.model:SetAttribute("ConveyorLuck", 0)
+	self.model:SetAttribute("ExtraSlotsPurchased", 0)
 end
 
 function PlotServer.destroy(self: PlotServer)
 	self:release()
+	for _, floor in self.floorModels do
+		floor:Destroy()
+	end
 	self.model:Destroy()
 end
 

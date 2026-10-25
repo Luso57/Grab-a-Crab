@@ -1,0 +1,47 @@
+{
+  "assets": [
+    {
+      "asset": "SkullTankDecoration",
+      "triangles": 736,
+      "meshes": 20,
+      "palette_colors": 8,
+      "embedded_palette_bytes": 449,
+      "geometry_names_transforms_preserved": true
+    },
+    {
+      "asset": "TreasureChestDecoration",
+      "triangles": 1467,
+      "meshes": 39,
+      "palette_colors": 16,
+      "embedded_palette_bytes": 495,
+      "geometry_names_transforms_preserved": true
+    },
+    {
+      "asset": "MiniBeachUmbrella",
+      "triangles": 668,
+      "meshes": 18,
+      "palette_colors": 11,
+      "embedded_palette_bytes": 468,
+      "geometry_names_transforms_preserved": true
+    }
+  ],
+  "source_blends_and_shipwreck_unchanged": true,
+  "validation": "FBX binary: identical geometry/topology, object names, transforms; one palette material, UVs on every mesh, exact PNG bytes embedded.",
+  "blender_reimport": [
+    {
+      "asset": "SkullTankDecoration",
+      "meshes": 20,
+      "reimported_image_pixels_match": true
+    },
+    {
+      "asset": "TreasureChestDecoration",
+      "meshes": 39,
+      "reimported_image_pixels_match": true
+    },
+    {
+      "asset": "MiniBeachUmbrella",
+      "meshes": 18,
+      "reimported_image_pixels_match": true
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "BeachRocks_StoneLight": {
+    "Color3_RGB": [
+      151,
+      145,
+      165
+    ],
+    "triangles": 47
+  },
+  "BeachRocks_Stone": {
+    "Color3_RGB": [
+      132,
+      129,
+      151
+    ],
+    "triangles": 172
+  },
+  "BeachRocks_StoneShade": {
+    "Color3_RGB": [
+      116,
+      115,
+      139
+    ],
+    "triangles": 34
+  },
+  "BeachRocks_StoneWarm": {
+    "Color3_RGB": [
+      143,
+      136,
+      157
+    ],
+    "triangles": 59
+  }
+}

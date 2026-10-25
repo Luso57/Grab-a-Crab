@@ -2,10 +2,15 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
+local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
 local Rarities = require(ReplicatedStorage.Source.Game.Items.Rarities)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
+local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local create = Vide.create
 
@@ -26,13 +31,13 @@ local function cardPosition(index: number, count: number): UDim2
 		return UDim2.fromScale(0.5, 0.34)
 	elseif count == 2 then
 		return UDim2.fromScale(if index == 1 then 0.25 else 0.75, 0.34)
-	elseif index == 3 then
+	elseif count == 3 and index == 3 then
 		return UDim2.fromScale(0.5, 0.59)
 	end
-	return UDim2.fromScale(if index == 1 then 0.25 else 0.75, 0.205)
+	return UDim2.fromScale(if index % 2 == 1 then 0.25 else 0.75, if index <= 2 then 0.205 else 0.59)
 end
 
-local function makeCard(index: number, cards: () -> { Card }): ImageLabel
+local function makeCard(index: number, cards: () -> { Card }, boostPercent: () -> number): (ImageLabel, UIScale)
 	local card = create "ImageLabel" {
 		Name = "CrabCard" .. index,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -49,7 +54,7 @@ local function makeCard(index: number, cards: () -> { Card }): ImageLabel
 			return cardPosition(index, #cards())
 		end,
 		Size = function()
-			return UDim2.fromScale(0.48, if #cards() == 3 then 0.32 else 0.48)
+			return UDim2.fromScale(0.48, if #cards() >= 3 then 0.32 else 0.48)
 		end,
 	}
 	local tile = create "ImageLabel" {
@@ -95,7 +100,9 @@ local function makeCard(index: number, cards: () -> { Card }): ImageLabel
 			local info = cards()[index]
 			return if info then info.rate else ""
 		end,
-		TextColor3 = Color3.new(1, 1, 1),
+		TextColor3 = function()
+			return if boostPercent() > 0 then Color3.fromRGB(80, 235, 88) else Color3.new(1, 1, 1)
+		end,
 		TextStrokeColor3 = Color3.new(0, 0, 0),
 		TextStrokeTransparency = 0.45,
 		TextScaled = true,
@@ -103,6 +110,8 @@ local function makeCard(index: number, cards: () -> { Card }): ImageLabel
 		Font = Enum.Font.BuilderSansExtraBold,
 	}
 	rate.Parent = card
+	local rateScale = create "UIScale" { Scale = 1 }
+	rateScale.Parent = rate
 	local rateStroke = create "UIStroke" {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
 		Color = Color3.new(0, 0, 0),
@@ -111,19 +120,45 @@ local function makeCard(index: number, cards: () -> { Card }): ImageLabel
 	rateStroke.Parent = rate
 	local rateLimit = create "UITextSizeConstraint" { MaxTextSize = 36 }
 	rateLimit.Parent = rate
-	return card
+	return card, rateScale
 end
 
 function TankCrabBillboard.attach(model: Model): () -> ()
 	local cards = Vide.source({} :: { Card })
+	local boostPercent = Vide.source(0)
 	local capacity = Vide.source(0)
 	local driver = Vide.source(model.PrimaryPart)
 	local topOffset = Vide.source(0)
+	local floorOccluded = Vide.source(false)
+	local floorRaycast = RaycastParams.new()
+	floorRaycast.FilterType = Enum.RaycastFilterType.Include
+	floorRaycast.IgnoreWater = true
+	local nextOcclusionCheck = 0
 	local connections: { RBXScriptConnection } = {}
 	local folderConnections: { RBXScriptConnection } = {}
 	local anchorConnections: { [BasePart]: { RBXScriptConnection } } = {}
 	local folder: Folder? = nil
 	local destroyed = false
+	local pulseScales: { [number]: UIScale } = {}
+	local pulseTweens: { [number]: Tween } = {}
+
+	local function refreshPulse()
+		for index, scale in pulseScales do
+			local shouldPulse = boostPercent() > 0 and cards()[index] ~= nil
+			local tween = pulseTweens[index]
+			if shouldPulse and not tween then
+				tween = TweenService:Create(scale, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+					Scale = 1.05,
+				})
+				pulseTweens[index] = tween
+				tween:Play()
+			elseif not shouldPulse and tween then
+				tween:Cancel()
+				pulseTweens[index] = nil
+				scale.Scale = 1
+			end
+		end
+	end
 
 	local function updateGeometry()
 		local primary = model.PrimaryPart
@@ -134,9 +169,48 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 		end
 	end
 
+	local function updateFloorOcclusion()
+		local now = os.clock()
+		if now < nextOcclusionCheck then
+			return
+		end
+		nextOcclusionCheck = now + 0.1
+
+		local camera = Workspace.CurrentCamera
+		local primary = model.PrimaryPart
+		local placedFolder = model.Parent
+		local plot = if placedFolder then placedFolder.Parent else nil
+		if not camera or not primary or not plot or not plot:IsA("Model") then
+			floorOccluded(false)
+			return
+		end
+
+		local decks: { Instance } = {}
+		for _, floorName in PlotExtraSlots.floorNames do
+			local floor = plot:FindFirstChild(floorName)
+			local deck = if floor then floor:FindFirstChild("Deck") else nil
+			local mainDeck = if deck then deck:FindFirstChild("MainDeck") else nil
+			if mainDeck and mainDeck:IsA("BasePart") then
+				table.insert(decks, mainDeck)
+			end
+		end
+		if #decks == 0 then
+			floorOccluded(false)
+			return
+		end
+
+		floorRaycast.FilterDescendantsInstances = decks
+		local target = primary.Position + Vector3.new(0, topOffset(), 0)
+		local cameraPosition = camera.CFrame.Position
+		floorOccluded(Workspace:Raycast(cameraPosition, target - cameraPosition, floorRaycast) ~= nil)
+	end
+
 	local function refresh()
 		local value = model:GetAttribute("TankCapacity")
 		capacity(if typeof(value) == "number" then value else 0)
+		local rawBoost = model:GetAttribute("TankIncomeBoostPercent")
+		local boost = if typeof(rawBoost) == "number" then rawBoost else 0
+		boostPercent(boost)
 		local nextCards: { Card } = {}
 		if folder then
 			for _, child in folder:GetChildren() do
@@ -149,7 +223,7 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 							instanceId = if typeof(instanceId) == "string" then instanceId else child.Name,
 							imageId = definition.imageId,
 							rarity = definition.rarity,
-							rate = CompactNumber.format(definition.incomePerSecond) .. "/s",
+							rate = CompactNumber.formatIncomeRate(CrabWeights.income(definition.incomePerSecond, child:GetAttribute("WeightGrams")) * (1 + boost / 100)) .. "/s",
 						})
 					end
 				end
@@ -159,6 +233,7 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 			return a.instanceId < b.instanceId
 		end)
 		cards(nextCards)
+		refreshPulse()
 	end
 
 	local function disconnectFolder()
@@ -182,6 +257,7 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 		anchorConnections[child] = {
 			child:GetAttributeChangedSignal("CrabId"):Connect(refresh),
 			child:GetAttributeChangedSignal("ItemInstanceId"):Connect(refresh),
+			child:GetAttributeChangedSignal("WeightGrams"):Connect(refresh),
 		}
 	end
 
@@ -219,11 +295,11 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 			Name = "TankCrabBillboard",
 			Adornee = driver,
 			Enabled = function()
-				return capacity() > 0 and driver() ~= nil
+				return capacity() > 0 and driver() ~= nil and not floorOccluded()
 			end,
 			Size = function()
 				local count = #cards()
-				return UDim2.fromScale(8.5, if count == 0 then 1 else if count == 3 then 3.9 else 2.6)
+				return UDim2.fromScale(8.5, if count == 0 then 1 else if count >= 3 then 3.9 else 2.6)
 			end,
 			SizeOffset = Vector2.new(0, 0.5),
 			StudsOffsetWorldSpace = function()
@@ -233,14 +309,16 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 			AlwaysOnTop = true,
 			LightInfluence = 0,
 		}
-		for index = 1, 3 do
-			makeCard(index, cards).Parent = gui
+		for index = 1, 4 do
+			local card, scale = makeCard(index, cards, boostPercent)
+			pulseScales[index] = scale
+			card.Parent = gui
 		end
 		local countLabel = create "TextLabel" {
 			Name = "OccupiedCount",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
-				return UDim2.fromScale(0.5, if #cards() == 0 then 0.5 else if #cards() == 3 then 0.91 else 0.84)
+				return UDim2.fromScale(0.5, if #cards() == 0 then 0.5 else if #cards() >= 3 then 0.91 else 0.84)
 			end,
 			Size = function()
 				return UDim2.fromScale(0.4, if #cards() == 0 then 0.75 else 0.20)
@@ -263,7 +341,9 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 	end, Players.LocalPlayer:WaitForChild("PlayerGui"))
 
 	table.insert(connections, model:GetAttributeChangedSignal("TankCapacity"):Connect(refresh))
+	table.insert(connections, model:GetAttributeChangedSignal("TankIncomeBoostPercent"):Connect(refresh))
 	table.insert(connections, model:GetPropertyChangedSignal("PrimaryPart"):Connect(updateGeometry))
+	table.insert(connections, RunService.RenderStepped:Connect(updateFloorOcclusion))
 	table.insert(connections, model.ChildAdded:Connect(function(child)
 		if child.Name == "ContainedCrabs" then
 			bindFolder(child)
@@ -275,6 +355,7 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 		end
 	end))
 	updateGeometry()
+	updateFloorOcclusion()
 	bindFolder(model:FindFirstChild("ContainedCrabs"))
 
 	return function()
@@ -285,6 +366,10 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 		for _, connection in connections do
 			connection:Disconnect()
 		end
+		for _, tween in pulseTweens do
+			tween:Cancel()
+		end
+		table.clear(pulseTweens)
 		disconnectFolder()
 		unmount()
 		if billboard then

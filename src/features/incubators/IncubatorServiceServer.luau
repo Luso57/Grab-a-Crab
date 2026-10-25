@@ -2,6 +2,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Networker = require(ReplicatedStorage.Packages.Networker)
 
 local IncubatorServer = require(script.Parent.Classes.IncubatorServer)
 local PlacedIncubatorServer = require(script.Parent.Classes.PlacedIncubatorServer)
@@ -9,6 +10,7 @@ local Incubators = require(ReplicatedStorage.Source.Features.Incubators.Modules.
 
 local IncubatorServiceServer = {}
 local initialized = false
+local networker = nil
 local ownedIncubators: { [Player]: { [string]: IncubatorServer.IncubatorServer } } = {}
 local placedIncubators: { [Model]: PlacedIncubatorServer.PlacedIncubatorServer } = {}
 
@@ -41,7 +43,23 @@ function IncubatorServiceServer:init()
 		return
 	end
 	initialized = true
+	networker = Networker.server.new("IncubatorService", self)
 	Players.PlayerRemoving:Connect(playerRemoving)
+end
+
+function IncubatorServiceServer:showHatch(
+	player: Player,
+	crabId: string,
+	weightGrams: number,
+	eggId: string?,
+	eggPivot: CFrame?,
+	eggScale: number?,
+	viewDirection: Vector3?,
+	instanceId: string
+)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showHatch", crabId, weightGrams, eggId, eggPivot, eggScale, viewDirection, instanceId)
+	end
 end
 
 function IncubatorServiceServer:createTool(player: Player, incubatorId: string, instanceId: string): Tool?

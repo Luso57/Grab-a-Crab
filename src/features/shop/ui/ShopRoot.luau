@@ -11,8 +11,8 @@ local create = Vide.create
 export type ItemView = {
 	id: string,
 	name: string?,
-	stock: number?,
-	price: string?,
+	price: number?,
+	boostPercent: number?,
 	imageId: number?,
 	imageScale: number?,
 	imageOffsetX: number?,
@@ -20,16 +20,24 @@ export type ItemView = {
 
 export type Props = {
 	items: { ItemView },
+	stock: (string) -> number,
 	isOpen: () -> boolean,
-	refreshSeconds: () -> number,
+	refreshSeconds: (() -> number)?,
+	refreshLabel: string?,
+	title: string?,
+	menuName: string?,
+	titleMaxTextSize: number?,
 	onClose: () -> (),
-	onBuy: (string) -> (),
+	onBuy: (string, Vector2) -> boolean,
 }
 
 local function ShopRoot(props: Props): Instance
 	local cards: { ImageLabel } = {}
+	local wideTitle = #(props.title or "SHOP") > 6
 	for _, item in props.items do
-		table.insert(cards, ShopItemCard({ id = item.id, name = item.name, stock = item.stock, price = item.price, imageId = item.imageId, imageScale = item.imageScale, imageOffsetX = item.imageOffsetX, onBuy = props.onBuy }))
+		table.insert(cards, ShopItemCard({ id = item.id, name = item.name, stock = function()
+			return props.stock(item.id)
+		end, price = item.price, boostPercent = item.boostPercent, imageId = item.imageId, imageScale = item.imageScale, imageOffsetX = item.imageOffsetX, onBuy = props.onBuy }))
 	end
 
 	local visible = Vide.source(false)
@@ -57,8 +65,12 @@ local function ShopRoot(props: Props): Instance
 	end
 
 	local refreshText = Vide.derive(function()
-		local remaining = props.refreshSeconds()
-		return string.format("Shop Refresh %02d:%02d", math.floor(remaining / 60), remaining % 60)
+		local getRefreshSeconds = props.refreshSeconds
+		if not getRefreshSeconds then
+			return ""
+		end
+		local remaining = getRefreshSeconds()
+		return string.format("%s %02d:%02d", props.refreshLabel or "Shop Refresh", math.floor(remaining / 60), remaining % 60)
 	end)
 	local timerLabel = create "TextLabel" {
 		Name = "RefreshTimer",
@@ -66,6 +78,7 @@ local function ShopRoot(props: Props): Instance
 		Position = UDim2.fromScale(0.88, 0.085),
 		Size = UDim2.fromScale(0.5, 0.13),
 		BackgroundTransparency = 1,
+		Visible = props.refreshSeconds ~= nil,
 		Text = refreshText,
 		TextColor3 = Color3.new(1, 1, 1),
 		TextStrokeColor3 = Color3.new(0, 0, 0),
@@ -83,7 +96,7 @@ local function ShopRoot(props: Props): Instance
 	}
 	timerStroke.Parent = timerLabel
 	local screenGui = create "ScreenGui" {
-		Name = "ShopMenu",
+		Name = props.menuName or "ShopMenu",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -110,29 +123,29 @@ local function ShopRoot(props: Props): Instance
 			create "ImageLabel" {
 				Name = "ShopSign",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.08, 0.05),
-				Size = UDim2.fromScale(0.4, 0.26),
+				Position = UDim2.fromScale(if wideTitle then 0.20 else 0.14, 0.015),
+				Size = UDim2.fromScale(if wideTitle then 0.42 else 0.32, 0.17),
 				BackgroundTransparency = 1,
-				Image = `rbxassetid://{assets.WoodenPlankShop}`,
-				ScaleType = Enum.ScaleType.Fit,
+				Image = `rbxassetid://{assets.TopBarCard}`,
+				ImageColor3 = Color3.fromRGB(255, 176, 72),
+				ScaleType = Enum.ScaleType.Stretch,
 
 				create "TextLabel" {
 					Name = "Title",
 					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 0.85),
-					Position = UDim2.fromScale(0, 0.02),
-					Text = "SHOP",
+					Size = UDim2.fromScale(0.90, 0.76),
+					Position = UDim2.fromScale(0.05, 0.04),
+					Text = props.title or "SHOP",
 					TextColor3 = Color3.fromRGB(255, 255, 255),
 					TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
-					TextStrokeTransparency = 1,
+					TextStrokeTransparency = 0,
 					Font = Enum.Font.BuilderSansExtraBold,
 					TextScaled = true,
-					Rotation = -8,
-					create "UITextSizeConstraint" { MaxTextSize = 84 },
+					create "UITextSizeConstraint" { MaxTextSize = props.titleMaxTextSize or 52 },
 					create "UIStroke" {
 						ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
 						Color = Color3.fromRGB(0, 0, 0),
-						Thickness = 5,
+						Thickness = 3,
 					},
 				},
 			},

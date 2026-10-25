@@ -45,4 +45,15 @@ function CompactNumber.format(value: number, decimalPlaces: number?, lowercaseSu
 	return tostring(math.floor(value))
 end
 
+function CompactNumber.formatIncomeRate(value: number): string
+	if value ~= value or value == math.huge or value == -math.huge or math.abs(value) >= 1000 then
+		return CompactNumber.format(value, 2)
+	end
+
+	local decimals = if math.abs(value) < 1 then 4 else 2
+	local formatted = string.format("%." .. tostring(decimals) .. "f", value)
+	formatted = string.gsub(formatted, "0+$", "")
+	return string.gsub(formatted, "%.$", "")
+end
+
 return CompactNumber

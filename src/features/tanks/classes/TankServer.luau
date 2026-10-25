@@ -4,7 +4,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
+local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
 local CrabRigBuilder = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabRigBuilder)
+local DecorConfig = require(ReplicatedStorage.Source.Features.DecorShop.DecorConfig)
+local DecorPlacement = require(ReplicatedStorage.Source.Features.Tanks.Modules.TankDecorationPlacement)
 
 local TankServer = {}
 TankServer.__index = TankServer
@@ -19,7 +22,10 @@ export type TankServer = typeof(setmetatable({} :: {
 	capacity: number,
 	prompt: ProximityPrompt,
 	visualFolder: Folder,
+	decorFolder: Folder,
+	decorations: { [number]: { instanceId: string, decorId: string, model: Model, x: number, z: number, width: number, depth: number } },
 	moneyPad: Model?,
+	baseIncomePerSecond: number,
 	incomePerSecond: number,
 	displayedEarnings: number,
 	lastIncomeUpdate: number,
@@ -40,10 +46,18 @@ local function positions(count: number, floor: BasePart): { Vector2 }
 	end
 	local x = floor.Size.X * 0.23
 	local z = floor.Size.Z * 0.2
+	if count == 3 then
+		return {
+			Vector2.new(-x, z),
+			Vector2.new(x, z),
+			Vector2.new(0, -z),
+		}
+	end
 	return {
 		Vector2.new(-x, z),
 		Vector2.new(x, z),
-		Vector2.new(0, -z),
+		Vector2.new(-x, -z),
+		Vector2.new(x, -z),
 	}
 end
 
@@ -131,6 +145,9 @@ function TankServer.new(owner: Player, plotModel: Model, instanceId: string, tan
 	local visualFolder = Instance.new("Folder")
 	visualFolder.Name = "ContainedCrabs"
 	visualFolder.Parent = model
+	local decorFolder = Instance.new("Folder")
+	decorFolder.Name = "ContainedDecorations"
+	decorFolder.Parent = model
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "PlaceCrabPrompt"
@@ -145,6 +162,7 @@ function TankServer.new(owner: Player, plotModel: Model, instanceId: string, tan
 	model:SetAttribute("TankCapacity", capacity)
 	model:SetAttribute("ContainedCrabCount", 0)
 	model:SetAttribute("IncomePerSecond", 0)
+	model:SetAttribute("TankIncomeBoostPercent", 0)
 	model:SetAttribute("MoneyPadBaseAmount", 0)
 	model:SetAttribute("MoneyPadCollectionSerial", 0)
 	local now = Workspace:GetServerTimeNow()
@@ -161,7 +179,10 @@ function TankServer.new(owner: Player, plotModel: Model, instanceId: string, tan
 		capacity = capacity,
 		prompt = prompt,
 		visualFolder = visualFolder,
+		decorFolder = decorFolder,
+		decorations = {},
 		moneyPad = moneyPad,
+		baseIncomePerSecond = 0,
 		incomePerSecond = 0,
 		displayedEarnings = 0,
 		lastIncomeUpdate = now,
@@ -176,12 +197,92 @@ function TankServer.new(owner: Player, plotModel: Model, instanceId: string, tan
 	return self
 end
 
+local function settleIncome(self: TankServer)
+	local now = Workspace:GetServerTimeNow()
+	self.displayedEarnings += self.incomePerSecond * math.max(0, now - self.lastIncomeUpdate)
+	self.lastIncomeUpdate = now
+	self.model:SetAttribute("MoneyPadBaseAmount", self.displayedEarnings)
+	self.model:SetAttribute("MoneyPadUpdatedAt", now)
+end
+
+local function refreshIncome(self: TankServer)
+	local decorIds: { string } = {}
+	for _, placed in self.decorations do
+		table.insert(decorIds, placed.decorId)
+	end
+	local boostPercent = DecorConfig.getTankBoostPercent(decorIds)
+	self.incomePerSecond = self.baseIncomePerSecond * (1 + boostPercent / 100)
+	self.model:SetAttribute("IncomePerSecond", self.incomePerSecond)
+	self.model:SetAttribute("TankIncomeBoostPercent", boostPercent)
+end
+
 function TankServer.canAdd(self: TankServer): boolean
 	return not self.destroyed and #self.crabIds < self.capacity
 end
 
 function TankServer.isOccupied(self: TankServer): boolean
-	return #self.crabIds > 0
+	return #self.crabIds > 0 or next(self.decorations) ~= nil
+end
+
+function TankServer.addDecoration(self: TankServer, slot: number, instanceId: string, decorId: string, x: number, z: number, rotation: number): boolean
+	if self.destroyed or not DecorPlacement.isRotation(rotation) or slot % 1 ~= 0
+		or slot < 1 or slot > DecorPlacement.slotCount or self.decorations[slot]
+		or not DecorConfig.get(decorId) then
+		return false
+	end
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local templates = if assets then assets:FindFirstChild("Decorations") else nil
+	local template = if templates then templates:FindFirstChild(decorId) else nil
+	if not template or not template:IsA("Model") then
+		return false
+	end
+	local model = template:Clone()
+	local size = DecorPlacement.prepare(model, self.floor)
+	if not size or not DecorPlacement.fits(self.floor, size, x, z, rotation) then
+		model:Destroy()
+		return false
+	end
+	local width, depth = DecorPlacement.footprint(size, rotation)
+	for _, placed in self.decorations do
+		if DecorPlacement.overlaps(x, z, width, depth, placed.x, placed.z, placed.width, placed.depth) then
+			model:Destroy()
+			return false
+		end
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanTouch = false
+			part.CanQuery = false
+		end
+	end
+	model.Name = "ContainedDecoration"
+	model:SetAttribute("ItemInstanceId", instanceId)
+	model:SetAttribute("DecorId", decorId)
+	model:SetAttribute("DecorSlot", slot)
+	model:SetAttribute("DecorX", x)
+	model:SetAttribute("DecorZ", z)
+	model:SetAttribute("DecorWidth", width)
+	model:SetAttribute("DecorDepth", depth)
+	model:PivotTo(DecorPlacement.pivotOnFloor(model, self.floor, x, z, rotation))
+	model.Parent = self.decorFolder
+	settleIncome(self)
+	self.decorations[slot] = { instanceId = instanceId, decorId = decorId, model = model, x = x, z = z, width = width, depth = depth }
+	refreshIncome(self)
+	return true
+end
+
+function TankServer.removeDecoration(self: TankServer, slot: number, instanceId: string): boolean
+	local placed = self.decorations[slot]
+	if self.destroyed or not placed or placed.instanceId ~= instanceId then
+		return false
+	end
+	settleIncome(self)
+	self.decorations[slot] = nil
+	placed.model:Destroy()
+	refreshIncome(self)
+	return true
 end
 
 function TankServer.enteredMoneyPad(self: TankServer): boolean
@@ -232,7 +333,7 @@ function TankServer.relayout(self: TankServer)
 	end
 end
 
-function TankServer.addCrab(self: TankServer, crabInstanceId: string, crabId: string): boolean
+function TankServer.addCrab(self: TankServer, crabInstanceId: string, crabId: string, weightGrams: number?): boolean
 	if not self:canAdd() or self.visuals[crabInstanceId] then
 		return false
 	end
@@ -258,7 +359,7 @@ function TankServer.addCrab(self: TankServer, crabInstanceId: string, crabId: st
 	end
 	local footprint = maxFootprint(self)
 	local scale = math.min(footprint / size.X, 2 / size.Y, footprint / size.Z)
-	sample:ScaleTo(sample:GetScale() * scale)
+	sample:ScaleTo(sample:GetScale() * scale * CrabWeights.scale(weightGrams))
 	local boxCFrame, boxSize = sample:GetBoundingBox()
 	local pivotToBottom = sample:GetPivot().Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
 	local displayScale = sample:GetScale()
@@ -276,6 +377,7 @@ function TankServer.addCrab(self: TankServer, crabInstanceId: string, crabId: st
 	anchor:SetAttribute("ItemInstanceId", crabInstanceId)
 	anchor:SetAttribute("CrabId", crabId)
 	anchor:SetAttribute("DisplayScale", displayScale)
+	anchor:SetAttribute("WeightGrams", CrabWeights.normalize(weightGrams))
 	anchor:SetAttribute("PivotToBottom", pivotToBottom)
 	anchor.Parent = self.visualFolder
 
@@ -283,18 +385,9 @@ function TankServer.addCrab(self: TankServer, crabInstanceId: string, crabId: st
 	table.insert(self.crabIds, crabInstanceId)
 	self:relayout()
 	self.model:SetAttribute("ContainedCrabCount", #self.crabIds)
-	local now = Workspace:GetServerTimeNow()
-	if self.incomePerSecond > 0 then
-		local completedSeconds = math.max(0, math.floor(now - self.lastIncomeUpdate))
-		self.displayedEarnings += self.incomePerSecond * completedSeconds
-		self.lastIncomeUpdate += completedSeconds
-	else
-		self.lastIncomeUpdate = now
-	end
-	self.model:SetAttribute("MoneyPadBaseAmount", self.displayedEarnings)
-	self.model:SetAttribute("MoneyPadUpdatedAt", self.lastIncomeUpdate)
-	self.incomePerSecond += definition.incomePerSecond
-	self.model:SetAttribute("IncomePerSecond", self.incomePerSecond)
+	settleIncome(self)
+	self.baseIncomePerSecond += CrabWeights.income(definition.incomePerSecond, weightGrams)
+	refreshIncome(self)
 	self.prompt.Enabled = self:canAdd()
 	return true
 end
@@ -307,20 +400,15 @@ function TankServer.removeCrab(self: TankServer, crabInstanceId: string, crabId:
 		return false
 	end
 
-	local now = Workspace:GetServerTimeNow()
-	local completedSeconds = math.max(0, math.floor(now - self.lastIncomeUpdate))
-	self.displayedEarnings += self.incomePerSecond * completedSeconds
-	self.lastIncomeUpdate = now
-	self.incomePerSecond = math.max(0, self.incomePerSecond - definition.incomePerSecond)
+	settleIncome(self)
+	self.baseIncomePerSecond = math.max(0, self.baseIncomePerSecond - CrabWeights.income(definition.incomePerSecond, anchor:GetAttribute("WeightGrams")))
 
 	self.visuals[crabInstanceId] = nil
 	table.remove(self.crabIds, index)
 	anchor:Destroy()
 	self:relayout()
 	self.model:SetAttribute("ContainedCrabCount", #self.crabIds)
-	self.model:SetAttribute("MoneyPadBaseAmount", self.displayedEarnings)
-	self.model:SetAttribute("MoneyPadUpdatedAt", now)
-	self.model:SetAttribute("IncomePerSecond", self.incomePerSecond)
+	refreshIncome(self)
 	self.prompt.Enabled = self:canAdd()
 	return true
 end
@@ -340,6 +428,7 @@ function TankServer.destroy(self: TankServer)
 		self.moneyPad = nil
 	end
 	self.visualFolder:Destroy()
+	self.decorFolder:Destroy()
 	table.clear(self.visuals)
 	table.clear(self.crabIds)
 end

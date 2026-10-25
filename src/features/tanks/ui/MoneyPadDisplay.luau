@@ -22,6 +22,12 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 	local rate = 0
 	local baseAmount = 0
 	local updatedAt = 0
+	local alive = true
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.IgnoreWater = true
+	local nextVisibilityCheck = 0
+	local hasLineOfSight = false
 
 	local function refreshIncome()
 		local value = model:GetAttribute("IncomePerSecond")
@@ -33,12 +39,17 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 	end
 
 	local function refreshPad()
+		local pad = model:FindFirstChild("MoneyPad")
+		local green = if pad then pad:FindFirstChild("GreenInnerCircle") else nil
+		if anchor and green ~= nil and anchor.Parent == green then
+			return
+		end
 		if anchor then
 			anchor:Destroy()
 			anchor = nil
 		end
-		local pad = model:FindFirstChild("MoneyPad")
-		local green = if pad then pad:FindFirstChild("GreenInnerCircle") else nil
+		nextVisibilityCheck = 0
+		hasLineOfSight = false
 		if green and green:IsA("BasePart") then
 			local displayAnchor = Instance.new("Attachment")
 			displayAnchor.Name = "MoneyPadDisplayAnchor"
@@ -117,7 +128,7 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 		local green = if target then target.Parent else nil
 		local pad = if green then green.Parent else nil
 		local blue = if pad then pad:FindFirstChild("BlueOuterCircle") else nil
-		if not row or not scale or not target or not camera or not blue or not blue:IsA("BasePart") then
+		if not row or not scale or not target or not camera or not pad or not blue or not blue:IsA("BasePart") then
 			if row then
 				row.Visible = false
 			end
@@ -125,8 +136,21 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 		end
 		local worldPosition = target.WorldPosition
 		local screenPosition, onScreen = camera:WorldToViewportPoint(worldPosition)
-		row.Visible = onScreen and screenPosition.Z > 0
-			and (camera.CFrame.Position - worldPosition).Magnitude <= 50
+		local cameraPosition = camera.CFrame.Position
+		if not onScreen or screenPosition.Z <= 0 or (cameraPosition - worldPosition).Magnitude > 50 then
+			row.Visible = false
+			nextVisibilityCheck = 0
+			return
+		end
+		local now = os.clock()
+		if now >= nextVisibilityCheck then
+			local character = Players.LocalPlayer.Character
+			raycastParams.FilterDescendantsInstances = if character then { character } else {}
+			local hit = Workspace:Raycast(cameraPosition, worldPosition - cameraPosition, raycastParams)
+			hasLineOfSight = hit == nil or hit.Instance:IsDescendantOf(pad)
+			nextVisibilityCheck = now + 0.1
+		end
+		row.Visible = hasLineOfSight
 		if row.Visible then
 			local focalLength = camera.ViewportSize.Y / (2 * math.tan(math.rad(camera.FieldOfView) / 2))
 			local padDiameter = focalLength * blue.Size.Y / screenPosition.Z
@@ -138,14 +162,18 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 	table.insert(connections, model:GetAttributeChangedSignal("IncomePerSecond"):Connect(refreshIncome))
 	table.insert(connections, model:GetAttributeChangedSignal("MoneyPadBaseAmount"):Connect(refreshIncome))
 	table.insert(connections, model:GetAttributeChangedSignal("MoneyPadUpdatedAt"):Connect(refreshIncome))
-	table.insert(connections, model.ChildAdded:Connect(function(child)
-		if child.Name == "MoneyPad" then
+	table.insert(connections, model.DescendantAdded:Connect(function(child)
+		if child.Name == "MoneyPad" or child.Name == "GreenInnerCircle" then
 			refreshPad()
 		end
 	end))
-	table.insert(connections, model.ChildRemoved:Connect(function(child)
-		if child.Name == "MoneyPad" then
-			refreshPad()
+	table.insert(connections, model.DescendantRemoving:Connect(function(child)
+		if child.Name == "MoneyPad" or child.Name == "GreenInnerCircle" then
+			task.defer(function()
+				if alive then
+					refreshPad()
+				end
+			end)
 		end
 	end))
 	table.insert(connections, RunService.RenderStepped:Connect(updateDisplay))
@@ -154,6 +182,7 @@ function MoneyPadDisplay.attach(model: Model): () -> ()
 	updateDisplay()
 
 	return function()
+		alive = false
 		for _, connection in connections do
 			connection:Disconnect()
 		end

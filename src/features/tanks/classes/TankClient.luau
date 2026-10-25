@@ -14,6 +14,7 @@ export type TankClient = typeof(setmetatable({} :: {
 	instanceId: string,
 	model: Model,
 	onOpen: (Model) -> (),
+	onCollect: () -> (),
 	animators: { [BasePart]: TankCrabAnimatorClient.TankCrabAnimatorClient },
 	destroyBillboard: () -> (),
 	destroyMoneyPadDisplay: () -> (),
@@ -24,11 +25,12 @@ export type TankClient = typeof(setmetatable({} :: {
 	pulseTween: Tween?,
 }, TankClient))
 
-function TankClient.new(instanceId: string, model: Model, onOpen: (Model) -> ()): TankClient
+function TankClient.new(instanceId: string, model: Model, onOpen: (Model) -> (), onCollect: () -> ()): TankClient
 	local self = setmetatable({
 		instanceId = instanceId,
 		model = model,
 		onOpen = onOpen,
+		onCollect = onCollect,
 		animators = {} :: { [BasePart]: TankCrabAnimatorClient.TankCrabAnimatorClient },
 		destroyBillboard = TankCrabBillboard.attach(model),
 		destroyMoneyPadDisplay = MoneyPadDisplay.attach(model),
@@ -43,6 +45,7 @@ function TankClient.new(instanceId: string, model: Model, onOpen: (Model) -> ())
 		local serial = model:GetAttribute("MoneyPadCollectionSerial")
 		if typeof(serial) == "number" and typeof(lastCollectionSerial) == "number" and serial > lastCollectionSerial then
 			self:playMoneyPadPulse()
+			self.onCollect()
 		end
 		lastCollectionSerial = serial
 	end)
@@ -128,7 +131,7 @@ function TankClient.syncCrabs(self: TankClient)
 	end
 end
 
-function TankClient.update(self: TankClient, hasCrabEquipped: boolean)
+function TankClient.update(self: TankClient, hasCrabEquipped: boolean, isPlacingDecoration: boolean)
 	self:syncCrabs()
 	local floor = self.model:FindFirstChild("InsideFloor", true)
 	if not floor or not floor:IsA("BasePart") then
@@ -141,7 +144,7 @@ function TankClient.update(self: TankClient, hasCrabEquipped: boolean)
 		prompt.ObjectText = "Tank"
 		prompt.KeyboardKeyCode = Enum.KeyCode.E
 		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = 6
+		prompt.MaxActivationDistance = 10
 		prompt.RequiresLineOfSight = false
 		prompt.Enabled = false
 		prompt.Parent = floor
@@ -157,13 +160,14 @@ function TankClient.update(self: TankClient, hasCrabEquipped: boolean)
 	local plotModel = if placedFolder then placedFolder.Parent else nil
 	local isOwner = placedFolder ~= nil and placedFolder.Name == "PlacedItems"
 		and plotModel ~= nil and plotModel:GetAttribute("OwnerUserId") == Players.LocalPlayer.UserId
-	self.openPrompt.Enabled = isOwner and not hasCrabEquipped
+	local capacity = self.model:GetAttribute("TankCapacity")
+	local count = self.model:GetAttribute("ContainedCrabCount")
+	local isFull = typeof(capacity) == "number" and typeof(count) == "number" and count >= capacity
+	self.openPrompt.Enabled = isOwner and not isPlacingDecoration and (not hasCrabEquipped or isFull)
 
 	local placePrompt = self.model:FindFirstChild("PlaceCrabPrompt", true)
 	if placePrompt and placePrompt:IsA("ProximityPrompt") then
-		local capacity = self.model:GetAttribute("TankCapacity")
-		local count = self.model:GetAttribute("ContainedCrabCount")
-		placePrompt.Enabled = isOwner and hasCrabEquipped
+		placePrompt.Enabled = isOwner and hasCrabEquipped and not isPlacingDecoration
 			and typeof(capacity) == "number" and typeof(count) == "number" and count < capacity
 	end
 end

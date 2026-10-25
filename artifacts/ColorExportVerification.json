@@ -1,0 +1,26 @@
+{
+  "Sandcastle": {
+    "mesh_count": 14,
+    "fbx_roundtrip_color_samples": "every UV matches original RGB",
+    "glb_embedded_texture": true,
+    "roblox_verified": false
+  },
+  "PearlShell": {
+    "mesh_count": 12,
+    "fbx_roundtrip_color_samples": "every UV matches original RGB",
+    "glb_embedded_texture": true,
+    "roblox_verified": false
+  },
+  "Starfish": {
+    "mesh_count": 8,
+    "fbx_roundtrip_color_samples": "every UV matches original RGB",
+    "glb_embedded_texture": true,
+    "roblox_verified": false
+  },
+  "BeachRocks": {
+    "mesh_count": 4,
+    "fbx_roundtrip_color_samples": "every UV matches original RGB",
+    "glb_embedded_texture": true,
+    "roblox_verified": false
+  }
+}

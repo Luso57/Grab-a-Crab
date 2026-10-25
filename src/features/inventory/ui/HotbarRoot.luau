@@ -8,6 +8,8 @@ export type SlotView = {
 	displayName: string,
 	image: string,
 	cardImage: string?,
+	weightText: string?,
+	count: number?,
 	selected: boolean,
 }
 
@@ -111,6 +113,9 @@ function HotbarRoot.render(slots: { SlotView })
 			displayName = slot.displayName,
 			image = slot.image,
 			cardImage = slot.cardImage,
+			weightText = slot.weightText,
+			weightAtTopRight = true,
+			countText = if slot.count then "x" .. tostring(slot.count) else nil,
 			selected = slot.selected,
 			onPointerDown = if slot.instanceId and onDragStart then function(input, card)
 				onDragStart(slot.instanceId :: string, slotIndex, input, card)

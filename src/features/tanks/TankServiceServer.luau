@@ -10,6 +10,8 @@ local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.Inve
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+local DecorConfig = require(ReplicatedStorage.Source.Features.DecorShop.DecorConfig)
+local DecorPlacement = require(ReplicatedStorage.Source.Features.Tanks.Modules.TankDecorationPlacement)
 local TankServer = require(script.Parent.Classes.TankServer)
 
 type SavedItem = {
@@ -17,11 +19,17 @@ type SavedItem = {
 	placedSlotId: string?,
 	incubatorInstanceId: string?,
 	tankInstanceId: string?,
+	decorSlot: number?,
+	decorX: number?,
+	decorZ: number?,
+	decorRotation: number?,
+	weightGrams: number?,
 }
 type SavedInventory = { [string]: SavedItem }
 
 local TankServiceServer = {}
 local initialized = false
+local networker = nil
 local placedByPlayer: { [Player]: { [string]: TankServer.TankServer } } = {}
 local placedByModel: { [Model]: TankServer.TankServer } = {}
 
@@ -61,7 +69,7 @@ function TankServiceServer:init()
 		return
 	end
 	initialized = true
-	Networker.server.new("TankService", self, { self.pickupCrab })
+	networker = Networker.server.new("TankService", self, { self.addInventoryCrab, self.pickupCrab, self.sellCrab, self.placeDecoration, self.pickupDecoration })
 	Players.PlayerRemoving:Connect(function(player)
 		self:clearPlacedForPlayer(player)
 	end)
@@ -273,7 +281,7 @@ function TankServiceServer:placeCrab(player: Player, model: Model)
 	end
 	local hotbar = data.hotbar() :: { string }
 	local tool, crabInstanceId, crabId = equippedCrab(player, inventory, hotbar)
-	if not tool or not crabInstanceId or not crabId or not tank:addCrab(crabInstanceId, crabId) then
+	if not tool or not crabInstanceId or not crabId or not tank:addCrab(crabInstanceId, crabId, inventory[crabInstanceId].weightGrams) then
 		return
 	end
 
@@ -334,18 +342,241 @@ function TankServiceServer:pickupCrab(player: Player, tankInstanceId: any, crabI
 	data.inventory[crabInstanceId](updatedCrab)
 
 	local hotbar = data.hotbar() :: { string }
-	if table.find(hotbar, crabInstanceId) == nil then
+	local destinationSlot = table.find(hotbar, crabInstanceId)
+	if destinationSlot == nil then
 		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
 			if hotbar[index] == InventoryConfig.emptySlot then
 				local updatedHotbar = table.clone(hotbar)
 				updatedHotbar[index] = crabInstanceId
 				data.hotbar(updatedHotbar)
+				destinationSlot = index
 				break
 			end
 		end
 	end
 	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 	InventoryServiceServer:refreshTools(player)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showPickedUpItem", crabInstanceId, destinationSlot or 0)
+	end
+end
+
+function TankServiceServer:sellCrab(player: Player, tankInstanceId: any, crabInstanceId: any)
+	if typeof(tankInstanceId) ~= "string" or typeof(crabInstanceId) ~= "string"
+		or player.Parent ~= Players then
+		return
+	end
+	local tank = self:getPlacedTank(player, tankInstanceId)
+	if not tank or tank.destroyed or not tank.model:IsDescendantOf(tank.plotModel)
+		or not inRange(player, tank.floor) then
+		return
+	end
+
+	local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
+	local plot = PlotServiceServer:getPlot(player)
+	local slotId = tank.model:GetAttribute("SlotId")
+	if not plot or plot:getOwner() ~= player or plot.model ~= tank.plotModel
+		or typeof(slotId) ~= "string" or plot:getPlaced(slotId) ~= tank.model then
+		return
+	end
+
+	local data = Data[player]
+	if not data then
+		return
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local savedTank = inventory[tankInstanceId]
+	local savedCrab = inventory[crabInstanceId]
+	local crabId = if typeof(savedCrab) == "table" and typeof(savedCrab.itemId) == "string"
+		then string.match(savedCrab.itemId, "^Crab%.([%w_]+)$") else nil
+	local sellValue = if crabId then Crabs.sellValue(crabId) else nil
+	if typeof(savedTank) ~= "table" or savedTank.itemId ~= "Tank." .. tank.tankId
+		or savedTank.placedSlotId ~= slotId or typeof(savedCrab) ~= "table"
+		or savedCrab.tankInstanceId ~= tankInstanceId or savedCrab.placedSlotId ~= nil
+		or savedCrab.incubatorInstanceId ~= nil or not crabId or not sellValue or sellValue <= 0
+		or not tank:removeCrab(crabInstanceId, crabId) then
+		return
+	end
+
+	data.inventory[crabInstanceId](nil)
+	local hotbar = data.hotbar() :: { string }
+	if table.find(hotbar, crabInstanceId) then
+		local updatedHotbar = table.clone(hotbar)
+		for index, assignedId in updatedHotbar do
+			if assignedId == crabInstanceId then
+				updatedHotbar[index] = InventoryConfig.emptySlot
+			end
+		end
+		data.hotbar(updatedHotbar)
+	end
+	data.money(function(balance: number)
+		return balance + sellValue
+	end)
+
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	InventoryServiceServer:refreshTools(player)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showSaleCoins")
+	end
+end
+
+local function verifiedTank(player: Player, tankInstanceId: string): TankServer.TankServer?
+	local tank = TankServiceServer:getPlacedTank(player, tankInstanceId)
+	if not tank or tank.destroyed or not tank.model:IsDescendantOf(tank.plotModel) then
+		return nil
+	end
+	local PlotServiceServer = require(ServerScriptService.Features.Plots.PlotServiceServer)
+	local plot = PlotServiceServer:getPlot(player)
+	local slotId = tank.model:GetAttribute("SlotId")
+	if not plot or plot:getOwner() ~= player or plot.model ~= tank.plotModel
+		or typeof(slotId) ~= "string" or plot:getPlaced(slotId) ~= tank.model then
+		return nil
+	end
+	local data = Data[player]
+	local item = if data then (data.inventory() :: SavedInventory)[tankInstanceId] else nil
+	if not item or item.itemId ~= "Tank." .. tank.tankId or item.placedSlotId ~= slotId then
+		return nil
+	end
+	return tank
+end
+
+function TankServiceServer:addInventoryCrab(player: Player, tankInstanceId: any, crabInstanceId: any)
+	if typeof(tankInstanceId) ~= "string" or typeof(crabInstanceId) ~= "string" or player.Parent ~= Players then
+		return
+	end
+	local function result(success: boolean, message: string)
+		if networker and player.Parent == Players then
+			networker:fire(player, "crabPlacementResult", tankInstanceId, crabInstanceId, success, message)
+		end
+	end
+	local tank = verifiedTank(player, tankInstanceId)
+	if not tank or not inRange(player, tank.floor) then
+		result(false, "MOVE CLOSER TO THE TANK")
+		return
+	end
+	if not tank:canAdd() then
+		result(false, "TANK IS FULL")
+		return
+	end
+	local data = Data[player]
+	if not data then
+		result(false, "CRAB IS UNAVAILABLE")
+		return
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[crabInstanceId]
+	local crabId = if typeof(item) == "table" and typeof(item.itemId) == "string"
+		then string.match(item.itemId, "^Crab%.([%w_]+)$") else nil
+	if not crabId or not Crabs.get(crabId) or item.placedSlotId ~= nil
+		or item.incubatorInstanceId ~= nil or item.tankInstanceId ~= nil then
+		result(false, "CRAB IS UNAVAILABLE")
+		return
+	end
+	if not tank:addCrab(crabInstanceId, crabId, item.weightGrams) then
+		result(false, "COULD NOT ADD CRAB")
+		return
+	end
+	local updated = table.clone(item)
+	updated.tankInstanceId = tankInstanceId
+	data.inventory[crabInstanceId](updated)
+	local hotbar = data.hotbar() :: { string }
+	local updatedHotbar = table.clone(hotbar)
+	for index, assignedId in updatedHotbar do
+		if assignedId == crabInstanceId then
+			updatedHotbar[index] = InventoryConfig.emptySlot
+		end
+	end
+	data.hotbar(updatedHotbar)
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	InventoryServiceServer:refreshTools(player)
+	result(true, "")
+end
+
+function TankServiceServer:placeDecoration(player: Player, tankInstanceId: any, itemInstanceId: any, slot: any, x: any, z: any, rotation: any)
+	local function reject()
+		if networker and player.Parent == Players and typeof(tankInstanceId) == "string"
+			and typeof(itemInstanceId) == "string" then
+			networker:fire(player, "decorationPlacementRejected", tankInstanceId, itemInstanceId)
+		end
+	end
+	if player.Parent ~= Players or typeof(tankInstanceId) ~= "string" or typeof(itemInstanceId) ~= "string"
+		or typeof(slot) ~= "number" or slot % 1 ~= 0 or slot < 1 or slot > DecorPlacement.slotCount
+		or not DecorPlacement.isFinite(x) or not DecorPlacement.isFinite(z)
+		or not DecorPlacement.isRotation(rotation) then
+		reject()
+		return
+	end
+	local tank = verifiedTank(player, tankInstanceId)
+	local data = Data[player]
+	if not tank or not data then
+		reject()
+		return
+	end
+	local item = (data.inventory() :: SavedInventory)[itemInstanceId]
+	local decorId = if item and typeof(item.itemId) == "string" then string.match(item.itemId, "^Decor%.([%w_]+)$") else nil
+	if not item or not decorId or not DecorConfig.get(decorId) or item.tankInstanceId ~= nil
+		or item.placedSlotId ~= nil or item.incubatorInstanceId ~= nil then
+		reject()
+		return
+	end
+	if not tank:addDecoration(slot, itemInstanceId, decorId, x, z, rotation) then
+		reject()
+		return
+	end
+	local updated = table.clone(item)
+	updated.tankInstanceId = tankInstanceId
+	updated.decorSlot = slot
+	updated.decorX = x
+	updated.decorZ = z
+	updated.decorRotation = rotation
+	data.inventory[itemInstanceId](updated)
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	InventoryServiceServer:refreshTools(player)
+	if networker then
+		networker:fire(player, "decorationPlaced", tankInstanceId, itemInstanceId)
+	end
+end
+
+function TankServiceServer:pickupDecoration(player: Player, tankInstanceId: any, itemInstanceId: any)
+	if player.Parent ~= Players or typeof(tankInstanceId) ~= "string" or typeof(itemInstanceId) ~= "string" then
+		return
+	end
+	local tank = verifiedTank(player, tankInstanceId)
+	local data = Data[player]
+	if not tank or not data then
+		return
+	end
+	local item = (data.inventory() :: SavedInventory)[itemInstanceId]
+	local decorId = if item and typeof(item.itemId) == "string" then string.match(item.itemId, "^Decor%.([%w_]+)$") else nil
+	if not item or not decorId or not DecorConfig.get(decorId) or item.tankInstanceId ~= tankInstanceId
+		or typeof(item.decorSlot) ~= "number" or not tank:removeDecoration(item.decorSlot, itemInstanceId) then
+		return
+	end
+	local updated = table.clone(item)
+	updated.tankInstanceId = nil
+	updated.decorSlot = nil
+	updated.decorX = nil
+	updated.decorZ = nil
+	updated.decorRotation = nil
+	data.inventory[itemInstanceId](updated)
+	local hotbar = data.hotbar() :: { string }
+	local destinationSlot = table.find(hotbar, itemInstanceId)
+	if not destinationSlot then
+		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
+			if hotbar[index] == InventoryConfig.emptySlot then
+				local updatedHotbar = table.clone(hotbar)
+				updatedHotbar[index] = itemInstanceId
+				data.hotbar(updatedHotbar)
+				destinationSlot = index
+				break
+			end
+		end
+	end
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	InventoryServiceServer:refreshTools(player)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showPickedUpItem", itemInstanceId, InventoryServiceServer:getHotbarSlot(player, itemInstanceId) or 0)
+	end
 end
 
 function TankServiceServer:restoreContents(player: Player)
@@ -355,27 +586,36 @@ function TankServiceServer:restoreContents(player: Player)
 		return
 	end
 	local inventory = data.inventory() :: SavedInventory
-	local crabInstanceIds = {}
+	local containedInstanceIds = {}
 	for instanceId, item in inventory do
 		if typeof(item) == "table" and item.tankInstanceId ~= nil then
-			table.insert(crabInstanceIds, instanceId)
+			table.insert(containedInstanceIds, instanceId)
 		end
 	end
-	table.sort(crabInstanceIds)
+	table.sort(containedInstanceIds)
 
 	local repaired = {}
-	for _, instanceId in crabInstanceIds do
+	for _, instanceId in containedInstanceIds do
 		local item = inventory[instanceId]
 		local tank = if typeof(item.tankInstanceId) == "string" and playerTanks then playerTanks[item.tankInstanceId] else nil
 		local tankItem = if tank then inventory[tank.instanceId] else nil
 		local crabId = if typeof(item.itemId) == "string" then string.match(item.itemId, "^Crab%.([%w_]+)$") else nil
+		local decorId = if typeof(item.itemId) == "string" then string.match(item.itemId, "^Decor%.([%w_]+)$") else nil
 		local slotId = if tank then tank.model:GetAttribute("SlotId") else nil
 		if not tank or not tankItem or tankItem.itemId ~= "Tank." .. tank.tankId
-			or tankItem.placedSlotId ~= slotId or not crabId or not Crabs.get(crabId)
+			or tankItem.placedSlotId ~= slotId
 			or item.placedSlotId ~= nil or item.incubatorInstanceId ~= nil
-			or not tank:addCrab(instanceId, crabId) then
+			or not ((crabId and Crabs.get(crabId) and tank:addCrab(instanceId, crabId, item.weightGrams))
+				or (decorId and DecorConfig.get(decorId) and typeof(item.decorSlot) == "number"
+					and DecorPlacement.isFinite(item.decorX) and DecorPlacement.isFinite(item.decorZ)
+					and DecorPlacement.isRotation(item.decorRotation)
+					and tank:addDecoration(item.decorSlot, instanceId, decorId, item.decorX, item.decorZ, item.decorRotation))) then
 			local updated = table.clone(item)
 			updated.tankInstanceId = nil
+			updated.decorSlot = nil
+			updated.decorX = nil
+			updated.decorZ = nil
+			updated.decorRotation = nil
 			data.inventory[instanceId](updated)
 			table.insert(repaired, instanceId)
 		end

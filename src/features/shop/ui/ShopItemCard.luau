@@ -4,21 +4,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
+local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 
 local create = Vide.create
 
 export type Props = {
 	id: string,
 	name: string?,
-	stock: number?,
-	price: string?,
+	stock: () -> number,
+	price: number?,
+	boostPercent: number?,
 	imageId: number?,
 	imageScale: number?,
 	imageOffsetX: number?,
-	onBuy: (string) -> (),
+	onBuy: (string, Vector2) -> boolean,
 }
 
-local function outlinedText(name: string, value: string, color: Color3, position: UDim2, size: UDim2, maxTextSize: number, strokeThickness: number?): TextLabel
+local function outlinedText(name: string, value: string | (() -> string), color: Color3, position: UDim2, size: UDim2, maxTextSize: number, strokeThickness: number?): TextLabel
 	local label = create "TextLabel" {
 		Name = name,
 		BackgroundTransparency = 1,
@@ -79,7 +81,17 @@ local function ShopItemCard(props: Props): ImageLabel
 	icon.Parent = iconBackground
 
 	outlinedText("ItemName", props.name, Color3.new(1, 1, 1), UDim2.fromScale(0.31, 0.02), UDim2.fromScale(0.55, 0.34), 58, 4).Parent = paper
-	outlinedText("Stock", `Stock: {props.stock}`, Color3.fromRGB(255, 255, 0), UDim2.fromScale(0.31, 0.37), UDim2.fromScale(0.48, 0.30), 52, 4).Parent = paper
+	outlinedText("Stock", function()
+		return `Stock: {props.stock()}`
+	end, Color3.fromRGB(255, 255, 0), UDim2.fromScale(0.31, 0.37), UDim2.fromScale(if props.boostPercent then 0.34 else 0.48, 0.30), 52, 4).Parent = paper
+
+	if props.boostPercent then
+		local boost = outlinedText("TankIncomeBoost", `+{props.boostPercent}% Tank Income Boost`,
+			Color3.fromRGB(80, 235, 88), UDim2.fromScale(0.68, 0.37), UDim2.fromScale(0.30, 0.22), 24, 3)
+		boost.TextWrapped = true
+		boost.TextXAlignment = Enum.TextXAlignment.Center
+		boost.Parent = paper
+	end
 	local priceIcon = create "ImageLabel" {
 		Name = "PriceIcon",
 		BackgroundTransparency = 1,
@@ -89,7 +101,7 @@ local function ShopItemCard(props: Props): ImageLabel
 		ScaleType = Enum.ScaleType.Fit,
 	}
 	priceIcon.Parent = paper
-	outlinedText("Price", props.price, Color3.new(1, 1, 1), UDim2.fromScale(0.38, 0.66), UDim2.fromScale(0.37, 0.30), 55, 4).Parent = paper
+	outlinedText("Price", CompactNumber.format(props.price :: number, if props.boostPercent then 1 else 0), Color3.new(1, 1, 1), UDim2.fromScale(0.38, 0.66), UDim2.fromScale(0.37, 0.30), 55, 4).Parent = paper
 
 	local buyButtonPosition = UDim2.fromScale(0.83, 0.76)
 	local random = Random.new()
@@ -166,10 +178,12 @@ local function ShopItemCard(props: Props): ImageLabel
 			tweenBuyScale(1, 0.12)
 		end,
 		Activated = function()
+			if props.stock() <= 0 or not props.onBuy(props.id, icon.AbsolutePosition + icon.AbsoluteSize / 2) then
+				return
+			end
 			buySound.TimePosition = 0
 			buySound:Play()
 			showConfetti()
-			props.onBuy(props.id)
 			local pressTween = tweenBuyScale(0.94, 0.07)
 			pressTween.Completed:Once(function(state)
 				if state == Enum.PlaybackState.Completed then
@@ -182,7 +196,12 @@ local function ShopItemCard(props: Props): ImageLabel
 	buyScale.Parent = buyButton
 	buySound.Parent = buyButton
 
-	local buyText = outlinedText("BuyText", "BUY", Color3.new(1, 1, 1), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 43)
+	local buyText = outlinedText("BuyText", function()
+		if props.stock() <= 0 then
+			return "SOLD OUT"
+		end
+		return "BUY"
+	end, Color3.new(1, 1, 1), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 43)
 	buyText.TextXAlignment = Enum.TextXAlignment.Center
 	buyText.Parent = buyButton
 

@@ -8,6 +8,8 @@ export type EntryView = {
 	displayName: string,
 	image: string,
 	cardImage: string?,
+	weightText: string?,
+	count: number,
 }
 
 local InventoryRoot = {}
@@ -18,6 +20,7 @@ local searchBox: TextBox? = nil
 local onSelect: ((string) -> ())? = nil
 local startDrag: ((string, InputObject, ImageButton) -> ())? = nil
 local onPanelClosed: (() -> ())? = nil
+local toggleSound: Sound? = nil
 local currentEntries: { EntryView } = {}
 local currentSelectedId: string? = nil
 
@@ -31,6 +34,14 @@ end
 
 local function setOpen(open: boolean)
 	if panel then
+		if panel.Visible == open then
+			return
+		end
+		local sound = toggleSound
+		if sound then
+			sound.TimePosition = 0
+			sound:Play()
+		end
 		panel.Visible = open
 		if toggleButton then
 			toggleButton.Visible = not open
@@ -55,6 +66,13 @@ function InventoryRoot.mount(playerGui: PlayerGui, onItemSelected: (string) -> (
 	screen.IgnoreGuiInset = true
 	screen.DisplayOrder = 11
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+	local sound = Instance.new("Sound")
+	sound.Name = "BackpackToggleSound"
+	sound.SoundId = "rbxassetid://132948338000932"
+	sound.Volume = 1
+	sound.Parent = screen
+	toggleSound = sound
 
 	local toggle = Instance.new("TextButton")
 	toggle.Name = "InventoryToggle"
@@ -222,10 +240,11 @@ function InventoryRoot.render(entries: { EntryView }, selectedId: string?)
 				displayName = entry.displayName,
 				image = entry.image,
 				cardImage = entry.cardImage,
+				weightText = entry.weightText,
 				selected = selectedId == instanceId,
 				showNumber = false,
 				topText = entry.displayName,
-				bottomText = "x1",
+				bottomText = "x" .. tostring(entry.count),
 				onPointerDown = if startDrag then function(input, draggedCard)
 					startDrag(instanceId, input, draggedCard)
 				end else nil,
