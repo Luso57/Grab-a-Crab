@@ -8,18 +8,18 @@ local MAX_WEIGHT_GRAMS = 10000000000
 
 -- Chances are out of 5,000,000; bounds are hundredths of a gram.
 local tiers = {
-    { chance = 25000, minimum = 1, maximum = 99 },
-    { chance = 4000000, minimum = 100, maximum = 199 },
-    { chance = 600000, minimum = 200, maximum = 299 },
-    { chance = 200000, minimum = 300, maximum = 499 },
-    { chance = 100000, minimum = 500, maximum = 999 },
-    { chance = 50000, minimum = 1000, maximum = 9999 },
-    { chance = 17500, minimum = 10000, maximum = 99999 },
-    { chance = 6000, minimum = 100000, maximum = 999999 },
-    { chance = 1250, minimum = 1000000, maximum = 99999999 },
-    { chance = 200, minimum = 100000000, maximum = 999999999 },
-    { chance = 40, minimum = 1000000000, maximum = 9999999999 },
-    { chance = 9, minimum = 10000000000, maximum = 99999999999 },
+    { chance = 100000, minimum = 1, maximum = 99 },
+    { chance = 2341500, minimum = 100, maximum = 199 },
+    { chance = 936600, minimum = 200, maximum = 299 },
+    { chance = 749280, minimum = 300, maximum = 499 },
+    { chance = 655620, minimum = 500, maximum = 999 },
+    { chance = 200000, minimum = 1000, maximum = 9999 },
+    { chance = 10000, minimum = 10000, maximum = 99999 },
+    { chance = 5000, minimum = 100000, maximum = 999999 },
+    { chance = 1667, minimum = 1000000, maximum = 99999999 },
+    { chance = 267, minimum = 100000000, maximum = 999999999 },
+    { chance = 53, minimum = 1000000000, maximum = 9999999999 },
+    { chance = 12, minimum = 10000000000, maximum = 99999999999 },
     { chance = 1, minimum = 100000000000, maximum = 1000000000000 },
 }
 

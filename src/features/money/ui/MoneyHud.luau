@@ -11,7 +11,6 @@ local random = Random.new()
 
 export type Props = {
 	balance: () -> number,
-	countingDown: () -> boolean,
 }
 
 local function MoneyHud(props: Props): (ScreenGui, () -> ())
@@ -59,7 +58,7 @@ local function MoneyHud(props: Props): (ScreenGui, () -> ())
 		AutomaticSize = Enum.AutomaticSize.X,
 		LayoutOrder = 2,
 		Text = function()
-			return CompactNumber.format(props.balance(), if props.countingDown() then 3 else nil)
+			return CompactNumber.format(props.balance())
 		end,
 		TextColor3 = Color3.new(1, 1, 1),
 		TextStrokeColor3 = Color3.new(0, 0, 0),

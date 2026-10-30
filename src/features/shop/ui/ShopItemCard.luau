@@ -101,7 +101,7 @@ local function ShopItemCard(props: Props): ImageLabel
 		ScaleType = Enum.ScaleType.Fit,
 	}
 	priceIcon.Parent = paper
-	outlinedText("Price", CompactNumber.format(props.price :: number, if props.boostPercent then 1 else 0), Color3.new(1, 1, 1), UDim2.fromScale(0.38, 0.66), UDim2.fromScale(0.37, 0.30), 55, 4).Parent = paper
+	outlinedText("Price", CompactNumber.format(props.price :: number), Color3.new(1, 1, 1), UDim2.fromScale(0.38, 0.66), UDim2.fromScale(0.37, 0.30), 55, 4).Parent = paper
 
 	local buyButtonPosition = UDim2.fromScale(0.83, 0.76)
 	local random = Random.new()

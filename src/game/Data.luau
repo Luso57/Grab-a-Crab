@@ -8,6 +8,6 @@ return DataServiceTyped({
 	template = DataTemplate,
 	profileStoreIndex = "TEST",
 	useMock = false,
-	resetData = false,
+	resetData = true,
 	dontSave = false,
 })

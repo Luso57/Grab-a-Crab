@@ -23,7 +23,7 @@ function CompactNumber.format(value: number, decimalPlaces: number?, lowercaseSu
 		return "-inf"
 	end
 
-	local decimals = math.clamp(math.floor(decimalPlaces or 1), 0, 3)
+	local decimals = math.clamp(math.floor(decimalPlaces or 0), 0, 3)
 	if math.abs(value) >= 1e36 then
 		return string.format(`%.{decimals}e`, value)
 	end

@@ -310,8 +310,8 @@ local function IndexRoot(props: Props): Instance
 
 	local showcase = create "ImageLabel" {
 		Name = "Showcase",
-		Position = UDim2.fromScale(0.67, 0.11),
-		Size = UDim2.fromScale(0.28, 0.50),
+		Position = UDim2.fromScale(0.655, 0.11),
+		Size = UDim2.fromScale(0.325, 0.50),
 		BackgroundTransparency = 1,
 		Image = image(assets.IndexShowcaseCard),
 		ScaleType = Enum.ScaleType.Stretch,
@@ -352,13 +352,13 @@ local function IndexRoot(props: Props): Instance
 	local sizeRange = label("SizeRange", function()
 		local sizeName = selectedSize()
 		return string.upper(sizeName) .. " (" .. CrabSizeIndex.rangeText[sizeName] .. ")"
-	end, UDim2.fromScale(0.67, 0.035), UDim2.fromScale(0.28, 0.065), 22)
+	end, UDim2.fromScale(0.655, 0.035), UDim2.fromScale(0.325, 0.065), 22)
 	sizeRange.Parent = panel
 
 	local rewards = create "ImageLabel" {
 		Name = "Rewards",
-		Position = UDim2.fromScale(0.67, 0.62),
-		Size = UDim2.fromScale(0.28, 0.33),
+		Position = UDim2.fromScale(0.655, 0.62),
+		Size = UDim2.fromScale(0.325, 0.33),
 		BackgroundTransparency = 1,
 		Image = image(assets.IndexRewardCard),
 		ScaleType = Enum.ScaleType.Stretch,
@@ -497,24 +497,24 @@ local function IndexRoot(props: Props): Instance
 			sizeTabs.Position = UDim2.new(0, 6, 0.13, 0)
 			gridBackground.Position = UDim2.fromScale(0.15, 0.13)
 			gridBackground.Size = UDim2.fromScale(0.79, 0.45)
-			sizeRange.Position = UDim2.fromScale(0.06, 0.59)
-			sizeRange.Size = UDim2.fromScale(0.42, 0.035)
-			showcase.Position = UDim2.fromScale(0.06, 0.63)
-			showcase.Size = UDim2.fromScale(0.42, 0.22)
-			rewards.Position = UDim2.fromScale(0.52, 0.615)
-			rewards.Size = UDim2.fromScale(0.42, 0.235)
+			sizeRange.Position = UDim2.fromScale(0.04, 0.59)
+			sizeRange.Size = UDim2.fromScale(0.45, 0.035)
+			showcase.Position = UDim2.fromScale(0.04, 0.63)
+			showcase.Size = UDim2.fromScale(0.45, 0.22)
+			rewards.Position = UDim2.fromScale(0.51, 0.615)
+			rewards.Size = UDim2.fromScale(0.45, 0.235)
 			progress.Position = UDim2.fromScale(0.08, 0.87)
 			progress.Size = UDim2.fromScale(0.84, 0.10)
 		else
 			sizeTabs.Position = UDim2.new(0, -tabSize - 12, 0.5, -math.floor(sizeTabs.Size.Y.Offset / 2) + 12)
 			gridBackground.Position = UDim2.fromScale(0.03, 0.12)
 			gridBackground.Size = UDim2.fromScale(0.61, 0.725)
-			sizeRange.Position = UDim2.fromScale(0.67, 0.035)
-			sizeRange.Size = UDim2.fromScale(0.28, 0.065)
-			showcase.Position = UDim2.fromScale(0.67, 0.11)
-			showcase.Size = UDim2.fromScale(0.28, 0.50)
-			rewards.Position = UDim2.fromScale(0.67, 0.62)
-			rewards.Size = UDim2.fromScale(0.28, 0.33)
+			sizeRange.Position = UDim2.fromScale(0.655, 0.035)
+			sizeRange.Size = UDim2.fromScale(0.325, 0.065)
+			showcase.Position = UDim2.fromScale(0.655, 0.11)
+			showcase.Size = UDim2.fromScale(0.325, 0.50)
+			rewards.Position = UDim2.fromScale(0.655, 0.62)
+			rewards.Size = UDim2.fromScale(0.325, 0.33)
 			progress.Position = UDim2.fromScale(0.045, 0.87)
 			progress.Size = UDim2.fromScale(0.595, 0.11)
 		end

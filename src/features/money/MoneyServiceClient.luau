@@ -20,7 +20,6 @@ function MoneyServiceClient:init()
 
 	local initialBalance = Data.money()
 	local balance = Vide.source(initialBalance)
-	local countingDown = Vide.source(false)
 	local displayedBalance = initialBalance
 	local savedBalance = initialBalance
 	local startBalance = initialBalance
@@ -36,11 +35,10 @@ function MoneyServiceClient:init()
 				animationConnection:Disconnect()
 				animationConnection = nil
 			end
-			countingDown(false)
 		end
 	end
 	Vide.mount(function()
-		local gui, play = MoneyHud({ balance = balance, countingDown = countingDown })
+		local gui, play = MoneyHud({ balance = balance })
 		playCollection = play
 		return gui
 	end, Players.LocalPlayer:WaitForChild("PlayerGui"))
@@ -56,7 +54,6 @@ function MoneyServiceClient:init()
 			startBalance = displayedBalance
 			targetBalance = value
 			startTime = now
-			countingDown(true)
 			if not animationConnection then
 				animationConnection = RunService.RenderStepped:Connect(function()
 					updateCountdown(os.clock())

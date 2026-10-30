@@ -191,6 +191,21 @@
               }
             }
           },
+          "SellStand": {
+            "$className": "Folder",
+            "SellConfig": {
+              "$path": "src/features/sellStand/SellConfig.luau"
+            },
+            "SellStandServiceClient": {
+              "$path": "src/features/sellStand/SellStandServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "SellDialogue": {
+                "$path": "src/features/sellStand/ui/SellDialogue.luau"
+              }
+            }
+          },
           "Shop": {
             "$className": "Folder",
             "Modules": {
@@ -406,6 +421,18 @@
           },
           "PlotServiceServer": {
             "$path": "src/features/plots/PlotServiceServer.luau"
+          }
+        },
+        "SellStand": {
+          "$className": "Folder",
+          "Modules": {
+            "$className": "Folder",
+            "SellStandBuilderServer": {
+              "$path": "src/features/sellStand/modules/SellStandBuilderServer.luau"
+            }
+          },
+          "SellStandServiceServer": {
+            "$path": "src/features/sellStand/SellStandServiceServer.luau"
           }
         },
         "Shop": {

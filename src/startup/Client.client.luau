@@ -7,6 +7,9 @@ local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 
 local ShopServiceClient = require(ReplicatedStorage.Source.Features.Shop.ShopServiceClient)
 local DecorShopServiceClient = require(ReplicatedStorage.Source.Features.DecorShop.DecorShopServiceClient)
+local sellStandFolder = ReplicatedStorage.Source.Features:FindFirstChild("SellStand")
+local sellStandModule = if sellStandFolder then sellStandFolder:FindFirstChild("SellStandServiceClient") else nil
+local SellStandServiceClient = if sellStandModule then require(sellStandModule) else nil
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
 local EggConveyorServiceClient = require(ReplicatedStorage.Source.Features.EggConveyor.EggConveyorServiceClient)
 local TankServiceClient = require(ReplicatedStorage.Source.Features.Tanks.TankServiceClient)
@@ -48,6 +51,11 @@ IndexServiceClient:init()
 
 ShopServiceClient:init()
 DecorShopServiceClient:init()
+if SellStandServiceClient then
+	SellStandServiceClient:init()
+else
+	warn("SellStand client modules have not synced to Studio yet")
+end
 PlotServiceClient:init()
 EggConveyorServiceClient:init()
 MoneyServiceClient:init()
