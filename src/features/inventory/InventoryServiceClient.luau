@@ -13,8 +13,9 @@ local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local HotbarRoot = require(script.Parent.UI.HotbarRoot)
 local InventoryRoot = require(script.Parent.UI.InventoryRoot)
+local ShopRestockNotice = require(ReplicatedStorage.Source.Features.Shop.UI.ShopRestockNotice)
 
-type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, weightGrams: number? }
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, weightGrams: number?, isGiganticEgg: boolean? }
 type SavedInventory = { [string]: SavedItem }
 type DragState = {
 	instanceId: string,
@@ -42,6 +43,7 @@ local dragLayer: ScreenGui? = nil
 local suppressedId: string? = nil
 local suppressUntil = 0
 local renderPending = false
+local showFullNotice: (() -> ())? = nil
 
 local keyToIndex = {
 	[Enum.KeyCode.One] = 1,
@@ -85,11 +87,11 @@ local cardImages: { [string]: number } = {
 	Mythic = assets.MythicInventoryCard,
 }
 
-local function getDisplay(itemId: string): (string, string, string?)
+local function getDisplay(itemId: string, isGiganticEgg: boolean?): (string, string, string?)
 	local definition = ItemCatalog.get(itemId)
 	if definition then
 		local cardId = if definition.rarity then cardImages[definition.rarity] else nil
-		return definition.shortName, `rbxassetid://{definition.imageId}`, if cardId then `rbxassetid://{cardId}` else nil
+		return (if isGiganticEgg then "Gigantic " else "") .. definition.shortName, `rbxassetid://{definition.imageId}`, if cardId then `rbxassetid://{cardId}` else nil
 	end
 	return itemId, "", nil
 end
@@ -108,12 +110,22 @@ local function isAvailable(item: SavedItem?): boolean
 		and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil
 end
 
+local function isStackable(item: SavedItem?): boolean
+	return typeof(item) == "table" and item.isGiganticEgg ~= true and ItemCatalog.isStackable(item.itemId)
+end
+
 local function render()
 	local inventory = Data.inventory() :: SavedInventory
+	local usedCount = 0
+	for _, item in inventory do
+		if isAvailable(item) and item.itemId ~= InventoryConfig.hammerItemId then
+			usedCount += 1
+		end
+	end
 	local hotbar = Data.hotbar() :: { string }
 	local stackIds: { [string]: { string } } = {}
 	for instanceId, item in inventory do
-		if isAvailable(item) and ItemCatalog.isStackable(item.itemId) then
+		if isAvailable(item) and isStackable(item) then
 			local ids = stackIds[item.itemId]
 			if not ids then
 				ids = {}
@@ -141,7 +153,7 @@ local function render()
 		local hasItem = false
 		if isAvailable(item) and (not stackIds[item.itemId] or not assignedStackables[item.itemId]) then
 			assigned[instanceId] = true
-			displayName, image, cardImage = getDisplay(item.itemId)
+			displayName, image, cardImage = getDisplay(item.itemId, item.isGiganticEgg)
 			weightText = getWeightText(item)
 			local ids = stackIds[item.itemId]
 			if ids then
@@ -168,8 +180,8 @@ local function render()
 
 	local extras: { InventoryRoot.EntryView } = {}
 	for instanceId, item in inventory do
-		if not assigned[instanceId] and isAvailable(item) and not ItemCatalog.isStackable(item.itemId) then
-			local displayName, image, cardImage = getDisplay(item.itemId)
+		if not assigned[instanceId] and isAvailable(item) and not isStackable(item) then
+			local displayName, image, cardImage = getDisplay(item.itemId, item.isGiganticEgg)
 			table.insert(extras, {
 				instanceId = instanceId,
 				itemId = item.itemId,
@@ -207,13 +219,13 @@ local function render()
 
 	local selectedItem = if selectedInventoryId then inventory[selectedInventoryId] else nil
 	if selectedInventoryId and (assigned[selectedInventoryId] or not isAvailable(selectedItem)
-		or (ItemCatalog.isStackable(selectedItem.itemId) and assignedStackables[selectedItem.itemId])) then
+		or (isStackable(selectedItem) and assignedStackables[selectedItem.itemId])) then
 		selectedInventoryId = nil
 		render()
 		return
 	end
 	HotbarRoot.render(views)
-	InventoryRoot.render(extras, selectedInventoryId)
+	InventoryRoot.render(extras, selectedInventoryId, usedCount, InventoryConfig.getCapacity(Data.inventoryCapacityPurchases()))
 end
 
 local function scheduleRender()
@@ -443,6 +455,7 @@ function InventoryServiceClient:init()
 	end
 
 	local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
+	showFullNotice = ShopRestockNotice.mount(playerGui, "INVENTORY FULL!", "InventoryFullNotice", true)
 	local dragGui = Instance.new("ScreenGui")
 	dragGui.Name = "InventoryDragLayer"
 	dragGui.ResetOnSpawn = false
@@ -490,6 +503,7 @@ function InventoryServiceClient:init()
 	end)
 
 	Data.inventory.Changed(scheduleRender)
+	Data.inventoryCapacityPurchases.Changed(scheduleRender)
 	Data.hotbar.Changed(scheduleRender)
 	scheduleRender()
 
@@ -521,6 +535,13 @@ function InventoryServiceClient:init()
 		end
 		warn("Could not hide the default Backpack bar")
 	end)
+end
+
+function InventoryServiceClient:showInventoryFull()
+	local show = showFullNotice
+	if show then
+		show()
+	end
 end
 
 return InventoryServiceClient

@@ -13,6 +13,7 @@ local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
 local DecorConfig = require(ReplicatedStorage.Source.Features.DecorShop.DecorConfig)
 local DecorPlacement = require(ReplicatedStorage.Source.Features.Tanks.Modules.TankDecorationPlacement)
 local TankServer = require(script.Parent.Classes.TankServer)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
 type SavedItem = {
 	itemId: string,
@@ -75,15 +76,22 @@ function TankServiceServer:init()
 	end)
 
 	local elapsed = 0
+	local autoElapsed = 0
 	RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
-		if elapsed < 0.05 then
-			return
+		autoElapsed += dt
+		if elapsed >= 0.05 then
+			elapsed = 0
+			for _, tank in placedByModel do
+				if tank:enteredMoneyPad() then
+					self:collectMoneyPad(tank)
+				end
+			end
 		end
-		elapsed = 0
-		for _, tank in placedByModel do
-			if tank:enteredMoneyPad() then
-				self:collectMoneyPad(tank)
+		if autoElapsed >= 1 then
+			autoElapsed = 0
+			for player in placedByPlayer do
+				self:collectAllMoneyPads(player)
 			end
 		end
 	end)
@@ -214,7 +222,18 @@ function TankServiceServer:clearPlacedForPlayer(player: Player)
 	placedByPlayer[player] = nil
 end
 
-function TankServiceServer:collectMoneyPad(tank: TankServer.TankServer)
+function TankServiceServer:collectAllMoneyPads(player: Player)
+	local data = Data[player]
+	local playerTanks = placedByPlayer[player]
+	if not data or not data.autoCollectOwned() or not playerTanks then
+		return
+	end
+	for _, tank in playerTanks do
+		self:collectMoneyPad(tank, true)
+	end
+end
+
+function TankServiceServer:collectMoneyPad(tank: TankServer.TankServer, silent: boolean?)
 	local player = tank.owner
 	local model = tank.model
 	if tank.destroyed or placedByModel[model] ~= tank or player.Parent ~= Players
@@ -245,6 +264,9 @@ function TankServiceServer:collectMoneyPad(tank: TankServer.TankServer)
 		return balance + amount
 	end)
 	tank:resetMoneyPad(now)
+	if silent then
+		return
+	end
 	model:SetAttribute("MoneyPadCollectionSerial", (model:GetAttribute("MoneyPadCollectionSerial") or 0) + 1)
 	local pad = tank.moneyPad
 	local green = if pad then pad:FindFirstChild("GreenInnerCircle") else nil
@@ -289,6 +311,7 @@ function TankServiceServer:placeCrab(player: Player, model: Model)
 	local updatedCrab = table.clone(crabItem)
 	updatedCrab.tankInstanceId = tank.instanceId
 	data.inventory[crabInstanceId](updatedCrab)
+	TutorialServiceServer:crabPlaced(player, crabInstanceId, slotId)
 
 	local updatedHotbar = table.clone(hotbar)
 	for index, assignedId in updatedHotbar do
@@ -332,8 +355,15 @@ function TankServiceServer:pickupCrab(player: Player, tankInstanceId: any, crabI
 	if typeof(savedTank) ~= "table" or savedTank.itemId ~= "Tank." .. tank.tankId
 		or savedTank.placedSlotId ~= slotId or typeof(savedCrab) ~= "table"
 		or savedCrab.tankInstanceId ~= tankInstanceId or savedCrab.placedSlotId ~= nil
-		or savedCrab.incubatorInstanceId ~= nil or not crabId or not Crabs.get(crabId)
-		or not tank:removeCrab(crabInstanceId, crabId) then
+		or savedCrab.incubatorInstanceId ~= nil or not crabId or not Crabs.get(crabId) then
+		return
+	end
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	if InventoryServiceServer:isFull(player) then
+		InventoryServiceServer:showInventoryFull(player)
+		return
+	end
+	if not tank:removeCrab(crabInstanceId, crabId) then
 		return
 	end
 
@@ -354,7 +384,6 @@ function TankServiceServer:pickupCrab(player: Player, tankInstanceId: any, crabI
 			end
 		end
 	end
-	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 	InventoryServiceServer:refreshTools(player)
 	if networker and player.Parent == Players then
 		networker:fire(player, "showPickedUpItem", crabInstanceId, destinationSlot or 0)
@@ -479,6 +508,7 @@ function TankServiceServer:addInventoryCrab(player: Player, tankInstanceId: any,
 	local updated = table.clone(item)
 	updated.tankInstanceId = tankInstanceId
 	data.inventory[crabInstanceId](updated)
+	TutorialServiceServer:crabPlaced(player, crabInstanceId, tank.model:GetAttribute("SlotId"))
 	local hotbar = data.hotbar() :: { string }
 	local updatedHotbar = table.clone(hotbar)
 	for index, assignedId in updatedHotbar do
@@ -549,7 +579,15 @@ function TankServiceServer:pickupDecoration(player: Player, tankInstanceId: any,
 	local item = (data.inventory() :: SavedInventory)[itemInstanceId]
 	local decorId = if item and typeof(item.itemId) == "string" then string.match(item.itemId, "^Decor%.([%w_]+)$") else nil
 	if not item or not decorId or not DecorConfig.get(decorId) or item.tankInstanceId ~= tankInstanceId
-		or typeof(item.decorSlot) ~= "number" or not tank:removeDecoration(item.decorSlot, itemInstanceId) then
+		or typeof(item.decorSlot) ~= "number" then
+		return
+	end
+	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+	if InventoryServiceServer:isFull(player) then
+		InventoryServiceServer:showInventoryFull(player)
+		return
+	end
+	if not tank:removeDecoration(item.decorSlot, itemInstanceId) then
 		return
 	end
 	local updated = table.clone(item)
@@ -572,7 +610,6 @@ function TankServiceServer:pickupDecoration(player: Player, tankInstanceId: any,
 			end
 		end
 	end
-	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 	InventoryServiceServer:refreshTools(player)
 	if networker and player.Parent == Players then
 		networker:fire(player, "showPickedUpItem", itemInstanceId, InventoryServiceServer:getHotbarSlot(player, itemInstanceId) or 0)

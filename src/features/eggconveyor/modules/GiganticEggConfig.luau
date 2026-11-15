@@ -1,0 +1,7 @@
+--!strict
+
+return {
+	EGGS_PER_GIGANTIC = 500,
+	VISUAL_SCALE = 2,
+	GROWTH_LUCK_MULTIPLIER = 2,
+}

@@ -41,7 +41,7 @@ local placementItemId: string? = nil
 local cardSignature = ""
 local pendingPickups: { [string]: { imageId: number, position: Vector2 } } = {}
 local playPickup: ((number, Vector2, number?) -> ())? = nil
-local showEmptyWarning: (() -> ())? = nil
+local showEmptyWarning: ((string?) -> ())? = nil
 
 local function queuePickupAnimation(instanceId: string, imageId: number, position: Vector2)
 	local origin = { imageId = imageId, position = position }
@@ -160,13 +160,17 @@ local function refreshPopup()
 				if definition then
 					local instanceId = child:GetAttribute("ItemInstanceId")
 					local key = if typeof(instanceId) == "string" then instanceId else child.Name
+					local sellValue = Crabs.sellValue(crabId)
 					table.insert(nextCards, {
 						instanceId = key,
 						name = definition.name,
 						imageId = definition.imageId,
 						weight = string.upper(CrabWeights.format(child:GetAttribute("WeightGrams"))),
-						income = CompactNumber.formatIncomeRate(CrabWeights.income(definition.incomePerSecond, child:GetAttribute("WeightGrams")) * (1 + boostPercent / 100)) .. "/s",
-						sellPrice = CompactNumber.format(Crabs.sellValue(crabId) or 0),
+						income = if definition.tankIncomeMultiplier then string.format("x%g BOOST", definition.tankIncomeMultiplier)
+							else CompactNumber.formatIncomeRate(CrabWeights.income(definition.incomePerSecond, child:GetAttribute("WeightGrams")) * (1 + boostPercent / 100)) .. "/s",
+						isBoost = definition.tankIncomeMultiplier ~= nil,
+						sellPrice = CompactNumber.format(sellValue or 0),
+						canSell = sellValue ~= nil,
 					})
 					table.insert(signatureParts, key .. ":" .. crabId .. ":" .. tostring(child:GetAttribute("WeightGrams")))
 				end
@@ -220,6 +224,17 @@ local function openTank(model: Model)
 	cardSignature = "#"
 	refreshPopup()
 	popupOpen(true)
+end
+
+function TankServiceClient:showPickupWarning(message: string)
+	local show = showEmptyWarning
+	if show then
+		show(message)
+	end
+end
+
+function TankServiceClient:isPopupOpen(): boolean
+	return popupOpen()
 end
 
 local function hasCrabEquipped(): boolean
@@ -444,7 +459,9 @@ function TankServiceClient:init()
 				end
 				for _, card in popupCards() do
 					if card.instanceId == crabInstanceId then
-						networker:fire("sellCrab", tank.instanceId, crabInstanceId)
+						if card.canSell then
+							networker:fire("sellCrab", tank.instanceId, crabInstanceId)
+						end
 						return
 					end
 				end

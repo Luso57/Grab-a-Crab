@@ -10,6 +10,7 @@ local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.Inve
 local ItemCatalog = require(ReplicatedStorage.Source.Game.Items.ItemCatalog)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+local Incubators = require(ReplicatedStorage.Source.Features.Incubators.Modules.Incubators)
 local TankServiceServer = require(ServerScriptService.Features.Tanks.TankServiceServer)
 local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
@@ -17,10 +18,13 @@ local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
 local CrabWeights = require(ReplicatedStorage.Source.Features.Crabs.Modules.CrabWeights)
 local CrabSizeIndex = require(ReplicatedStorage.Source.Features.Index.Modules.CrabSizeIndex)
 local IndexMilestones = require(ReplicatedStorage.Source.Features.Index.Modules.IndexMilestones)
+local ServerLuck = require(ReplicatedStorage.Source.Features.Monotization.Modules.LuckBoost)
+local GiganticEggConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.GiganticEggConfig)
 local CrabServer = require(ServerScriptService.Features.Crabs.Classes.CrabServer)
 local DecorToolFactoryServer = require(ServerScriptService.Features.DecorShop.Modules.DecorToolFactoryServer)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
-type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number?, weightGrams: number? }
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number?, weightGrams: number?, hatchedEggId: string?, isGiganticEgg: boolean?, firstGiganticEggBonus: boolean? }
 type SavedInventory = { [string]: SavedItem }
 
 local InventoryServiceServer = {}
@@ -36,10 +40,14 @@ local function isAvailable(item: SavedItem?): boolean
 		and isHotbarEligible(item.itemId)
 end
 
+local function isStackable(item: SavedItem?): boolean
+	return typeof(item) == "table" and item.isGiganticEgg ~= true and ItemCatalog.isStackable(item.itemId)
+end
+
 local function findAvailableCopy(inventory: SavedInventory, itemId: string, used: { [string]: boolean }): string?
 	local firstId: string? = nil
 	for instanceId, item in inventory do
-		if not used[instanceId] and isAvailable(item) and item.itemId == itemId
+		if not used[instanceId] and isAvailable(item) and isStackable(item) and item.itemId == itemId
 			and (not firstId or instanceId < firstId) then
 			firstId = instanceId
 		end
@@ -48,8 +56,17 @@ local function findAvailableCopy(inventory: SavedInventory, itemId: string, used
 end
 
 local initialized = false
+local networker = nil
 local readyPlayers: { [Player]: boolean } = {}
 local syncQueued: { [Player]: boolean } = {}
+local preparingStarterItems: { [Player]: boolean } = {}
+local sessionStartedAt: { [Player]: number } = {}
+local NEW_PLAYER_BONUS_PLAY_SECONDS = 180
+local NEW_PLAYER_BONUS_MIN_WEIGHT_HUNDREDTHS = 2500
+local NEW_PLAYER_BONUS_MAX_WEIGHT_HUNDREDTHS = 5000
+local FIRST_GIGANTIC_MIN_WEIGHT_HUNDREDTHS = 5000
+local FIRST_GIGANTIC_MAX_WEIGHT_HUNDREDTHS = 10000
+local bonusWeightRandom = Random.new()
 
 local function ensureHammer(data: any, player: Player): string
 	local hammerId = InventoryConfig.hammerInstanceId(player.UserId)
@@ -79,11 +96,11 @@ local function normalizeHotbar(data: any, player: Player): { string }
 		local instanceId = current[index]
 		local item = if typeof(instanceId) == "string" then inventory[instanceId] else nil
 		if typeof(item) == "table" and typeof(item.itemId) == "string"
-			and ItemCatalog.isStackable(item.itemId) and not isAvailable(item) then
+			and isStackable(item) and not isAvailable(item) then
 			instanceId = findAvailableCopy(inventory, item.itemId, seen) or InventoryConfig.emptySlot
 			item = inventory[instanceId]
 		end
-		local stackable = typeof(item) == "table" and ItemCatalog.isStackable(item.itemId)
+		local stackable = isStackable(item)
 		if isAvailable(item) and item.itemId ~= InventoryConfig.hammerItemId
 			and not seen[instanceId] and (not stackable or not seenStackable[item.itemId]) then
 			normalized[index] = instanceId
@@ -100,11 +117,11 @@ local function normalizeHotbar(data: any, player: Player): { string }
 	local displaced = if typeof(displacedId) == "string" then inventory[displacedId] else nil
 	if isAvailable(displaced) and displaced.itemId ~= InventoryConfig.hammerItemId
 		and not seen[displacedId]
-		and (not ItemCatalog.isStackable(displaced.itemId) or not seenStackable[displaced.itemId]) then
+		and (not isStackable(displaced) or not seenStackable[displaced.itemId]) then
 		for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
 			if normalized[index] == InventoryConfig.emptySlot then
 				normalized[index] = displacedId
-				if ItemCatalog.isStackable(displaced.itemId) then
+				if isStackable(displaced) then
 					seenStackable[displaced.itemId] = true
 				end
 				break
@@ -123,7 +140,7 @@ local function normalizeHotbar(data: any, player: Player): { string }
 	return normalized
 end
 
-local function createEggTool(player: Player, eggId: string, instanceId: string): Tool?
+local function createEggTool(player: Player, eggId: string, instanceId: string, isGiganticEgg: boolean?): Tool?
 	local definition = Eggs.get(eggId)
 	if not definition or player.Parent ~= Players then
 		return nil
@@ -142,16 +159,17 @@ local function createEggTool(player: Player, eggId: string, instanceId: string):
 		model:Destroy()
 		return nil
 	end
-	model:ScaleTo(model:GetScale() * 2 / height)
+	model:ScaleTo(model:GetScale() * 2 * (if isGiganticEgg then GiganticEggConfig.VISUAL_SCALE else 1) / height)
 
 	local tool = Instance.new("Tool")
-	tool.Name = definition.name
+	tool.Name = (if isGiganticEgg then "Gigantic " else "") .. definition.name
 	tool.TextureId = "rbxassetid://" .. definition.imageId
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
 	tool:SetAttribute("EggId", eggId)
 	tool:SetAttribute("ItemId", "Egg." .. eggId)
 	tool:SetAttribute("ItemInstanceId", instanceId)
+	tool:SetAttribute("IsGiganticEgg", isGiganticEgg == true)
 
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
@@ -180,7 +198,7 @@ local function createEggTool(player: Player, eggId: string, instanceId: string):
 	model.Parent = tool
 	return tool
 end
-local function createTool(player: Player, itemId: string, instanceId: string, weightGrams: number?): Tool?
+local function createTool(player: Player, itemId: string, instanceId: string, weightGrams: number?, isGiganticEgg: boolean?): Tool?
 	if itemId == InventoryConfig.hammerItemId then
 		local template = ReplicatedStorage:FindFirstChild("Assets")
 		local tools = if template then template:FindFirstChild("Tools") else nil
@@ -195,8 +213,9 @@ local function createTool(player: Player, itemId: string, instanceId: string, we
 		tool:SetAttribute("ItemInstanceId", instanceId)
 		return tool
 	end
-	if itemId == "Incubator" then
-		return IncubatorServiceServer:createTool(player, "Incubator", instanceId)
+	local incubatorId = if itemId == "Incubator" then "Incubator" else string.match(itemId, "^Incubator%.([%w_]+)$")
+	if incubatorId and Incubators.get(incubatorId) then
+		return IncubatorServiceServer:createTool(player, incubatorId, instanceId)
 	end
 	local decorId = string.match(itemId, "^Decor%.([%w_]+)$")
 	if decorId then
@@ -204,7 +223,7 @@ local function createTool(player: Player, itemId: string, instanceId: string, we
 	end
 	local eggId = string.match(itemId, "^Egg%.([%w_]+)$")
 	if eggId then
-		return createEggTool(player, eggId, instanceId)
+		return createEggTool(player, eggId, instanceId, isGiganticEgg)
 	end
 
 	local crabId = string.match(itemId, "^Crab%.([%w_]+)$")
@@ -269,7 +288,7 @@ local function syncTools(player: Player)
 	for instanceId, itemId in wanted do
 		if not found[instanceId] then
 			local savedItem = inventory[instanceId]
-			local tool = createTool(player, itemId, instanceId, if savedItem then savedItem.weightGrams else nil)
+			local tool = createTool(player, itemId, instanceId, if savedItem then savedItem.weightGrams else nil, if savedItem then savedItem.isGiganticEgg else nil)
 			if tool then
 				tool.Parent = backpack
 			end
@@ -288,30 +307,75 @@ local function scheduleSync(player: Player)
 	end)
 end
 
-local function grantStarterItems(player: Player, data: any)
-	if data.starterItemsGranted() then
-		return
+function InventoryServiceServer:prepareStarterItems(player: Player, data: any?): boolean
+	data = data or Data.Service:waitForData(player)
+	if not data or player.Parent ~= Players then
+		return false
 	end
-
-	local hasIncubator = false
-	local ownedTanks: { [string]: boolean } = {}
-	local inventory = data.inventory() :: SavedInventory
-	for _, item in inventory do
-		if typeof(item) == "table" and typeof(item.itemId) == "string" then
-			hasIncubator = hasIncubator or item.itemId == "Incubator"
-			ownedTanks[item.itemId] = true
+	while preparingStarterItems[player] do
+		task.wait()
+		if player.Parent ~= Players then
+			return false
 		end
 	end
-
-	if not hasIncubator and not InventoryServiceServer:grantItem(player, "Incubator") then
-		return
-	end
-	for _, tankItemId in { "Tank.Small" } do
-		if not ownedTanks[tankItemId] and not InventoryServiceServer:grantItem(player, tankItemId) then
-			return
+	preparingStarterItems[player] = true
+	local succeeded, result = pcall(function(): boolean
+		local profile = Data.Service:getProfile(player)
+		local isFirstJoin = profile ~= nil and profile.SessionLoadCount == 1 and not data.starterItemsGranted()
+		if data.newPlayerHatchStatus() == "Uninitialized" then
+			data.newPlayerHatchStatus(if isFirstJoin then "Pending" else "Ineligible")
 		end
+		if data.starterItemsGranted() then
+			return true
+		end
+
+		local function findStarter(itemId: string, excludeId: string?): string?
+			local firstId: string? = nil
+			for instanceId, item in data.inventory() :: SavedInventory do
+				if instanceId ~= excludeId and typeof(item) == "table" and item.itemId == itemId
+					and (not firstId or instanceId < firstId) then
+					firstId = instanceId
+				end
+			end
+			return firstId or self:grantItem(player, itemId, nil, true)
+		end
+
+		local tankId = findStarter("Tank.Small")
+		local secondTankId = if isFirstJoin and tankId then findStarter("Tank.Small", tankId) else nil
+		local incubatorId = findStarter("Incubator")
+		if not tankId or (isFirstJoin and not secondTankId) or not incubatorId then
+			return false
+		end
+		if isFirstJoin then
+			for _, placement in { { secondTankId, "Right1" }, { tankId, "Right2" }, { incubatorId, "Right3" } } do
+				local instanceId, slotId = placement[1], placement[2]
+				local inventory = data.inventory() :: SavedInventory
+				local item = inventory[instanceId]
+				local occupied = false
+				for otherId, other in inventory do
+					if otherId ~= instanceId and typeof(other) == "table" and other.placedSlotId == slotId then
+						occupied = true
+						break
+					end
+				end
+				if item and item.placedSlotId == nil and not occupied then
+					local updated = table.clone(item)
+					updated.placedSlotId = slotId
+					data.inventory[instanceId](updated)
+				end
+			end
+		end
+		data.starterItemsGranted(true)
+		normalizeHotbar(data, player)
+		scheduleSync(player)
+		return true
+	end)
+	preparingStarterItems[player] = nil
+	if not succeeded then
+		warn("Could not prepare starter items for", player.Name, result)
+		return false
 	end
-	data.starterItemsGranted(true)
+	return result
 end
 
 local function removeLegacyStarterCrabs(player: Player, data: any)
@@ -331,6 +395,7 @@ local function removeLegacyStarterCrabs(player: Player, data: any)
 end
 
 local function setupPlayer(player: Player)
+	sessionStartedAt[player] = os.clock()
 	local function watchToolRemoval(container: Instance)
 		container.ChildRemoved:Connect(function(child)
 			if child:IsA("Tool") and child:GetAttribute("ItemId") == InventoryConfig.hammerItemId then
@@ -360,7 +425,7 @@ local function setupPlayer(player: Player)
 		if player.Parent ~= Players then
 			return
 		end
-		grantStarterItems(player, data)
+		InventoryServiceServer:prepareStarterItems(player, data)
 		removeLegacyStarterCrabs(player, data)
 		local sizeDiscoveries = table.clone(data.discoveredCrabSizes())
 		local hasNewDiscovery = false
@@ -408,18 +473,53 @@ function InventoryServiceServer:init()
 	end
 	initialized = true
 
-	Networker.server.new("InventoryService", self, { self.setHotbarSlot, self.removeHotbarSlot, self.claimHatchedCrab })
+	networker = Networker.server.new("InventoryService", self, { self.setHotbarSlot, self.removeHotbarSlot, self.claimHatchedCrab })
+	Data.Service:addPlayerRemovingCallback(function(player, savedData)
+		local startedAt = sessionStartedAt[player]
+		if startedAt and savedData.newPlayerHatchStatus == "Pending" then
+			savedData.newPlayerPlaySeconds = math.min(
+				NEW_PLAYER_BONUS_PLAY_SECONDS,
+				(savedData.newPlayerPlaySeconds or 0) + math.max(0, os.clock() - startedAt)
+			)
+		end
+	end)
 	Players.PlayerAdded:Connect(setupPlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		readyPlayers[player] = nil
 		syncQueued[player] = nil
+		task.defer(function()
+			sessionStartedAt[player] = nil
+		end)
 	end)
 	for _, player in Players:GetPlayers() do
 		setupPlayer(player)
 	end
 end
 
-function InventoryServiceServer:grantItem(player: Player, itemId: string, canGrant: (() -> boolean)?): string?
+local function inventoryIsFull(inventory: SavedInventory, capacity: number): boolean
+	local count = 0
+	for _, item in inventory do
+		if typeof(item) == "table" and typeof(item.itemId) == "string"
+			and item.itemId ~= InventoryConfig.hammerItemId
+			and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil then
+			count += 1
+		end
+	end
+	return count >= capacity
+end
+
+function InventoryServiceServer:isFull(player: Player): boolean
+	local data = Data[player]
+	return data ~= nil and inventoryIsFull(data.inventory() :: SavedInventory, InventoryConfig.getCapacity(data.inventoryCapacityPurchases()))
+end
+
+function InventoryServiceServer:showInventoryFull(player: Player)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showInventoryFull")
+	end
+end
+
+function InventoryServiceServer:grantItem(player: Player, itemId: string, canGrant: (() -> boolean)?, allowPaidOverflow: boolean?, isGiganticEgg: boolean?): string?
 	if itemId == InventoryConfig.hammerItemId or not ItemCatalog.get(itemId) or player.Parent ~= Players then
 		return nil
 	end
@@ -430,26 +530,25 @@ function InventoryServiceServer:grantItem(player: Player, itemId: string, canGra
 	end
 
 	local inventory = data.inventory() :: SavedInventory
-	local count = 0
-	for _, item in inventory do
-		if typeof(item) == "table" and item.itemId ~= InventoryConfig.hammerItemId then
-			count += 1
-		end
-	end
-	if count >= InventoryConfig.maxItems then
+	if not allowPaidOverflow and inventoryIsFull(inventory, InventoryConfig.getCapacity(data.inventoryCapacityPurchases())) then
 		return nil
 	end
 
 	local instanceId = HttpService:GenerateGUID(false)
-	data.inventory[instanceId]({ itemId = itemId })
+	local isGiganticEggItem = string.match(itemId, "^Egg%.") ~= nil and isGiganticEgg == true
+	local firstGiganticEgg = isGiganticEggItem and not data.firstGiganticEggReceived()
+	data.inventory[instanceId]({ itemId = itemId, isGiganticEgg = if isGiganticEggItem then true else nil, firstGiganticEggBonus = if firstGiganticEgg then true else nil })
+	if firstGiganticEgg then
+		data.firstGiganticEggReceived(true)
+	end
 	if isHotbarEligible(itemId) then
 		local hotbar = normalizeHotbar(data, player)
 		local alreadyAssigned = false
-		if ItemCatalog.isStackable(itemId) then
+		if ItemCatalog.isStackable(itemId) and not isGiganticEgg then
 			local currentInventory = data.inventory() :: SavedInventory
 			for _, assignedId in hotbar do
 				local assignedItem = currentInventory[assignedId]
-				if assignedItem and assignedItem.itemId == itemId then
+				if isStackable(assignedItem) and assignedItem.itemId == itemId then
 					alreadyAssigned = true
 					break
 				end
@@ -472,7 +571,7 @@ function InventoryServiceServer:grantItem(player: Player, itemId: string, canGra
 	return instanceId
 end
 
-function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: string): number?
+function InventoryServiceServer:equipGrantedItem(player: Player, instanceId: string): number?
 	if player.Parent ~= Players then
 		return nil
 	end
@@ -483,8 +582,7 @@ function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: stri
 	local inventory = data.inventory() :: SavedInventory
 	local item = inventory[instanceId]
 	local itemId = if item then item.itemId else nil
-	local eggId = if typeof(itemId) == "string" then string.match(itemId, "^Egg%.([%w_]+)$") else nil
-	if not eggId or not Eggs.get(eggId) or not isAvailable(item) then
+	if typeof(itemId) ~= "string" or not ItemCatalog.get(itemId) or not isAvailable(item) then
 		return nil
 	end
 
@@ -508,7 +606,7 @@ function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: stri
 	for index = InventoryConfig.hammerSlot + 1, InventoryConfig.hotbarSize do
 		local assignedId = hotbar[index]
 		local assignedItem = inventory[assignedId]
-		if assignedItem and assignedItem.itemId == itemId then
+		if assignedId == instanceId or (isStackable(item) and assignedItem and assignedItem.itemId == itemId) then
 			targetId = assignedId
 			targetSlot = index
 			break
@@ -554,6 +652,14 @@ function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: stri
 	return targetSlot
 end
 
+function InventoryServiceServer:equipGrantedEgg(player: Player, instanceId: string): number?
+	local data = Data[player]
+	local inventory = if data then data.inventory() :: SavedInventory else nil
+	local item = if inventory then inventory[instanceId] else nil
+	local eggId = if item then string.match(item.itemId, "^Egg%.([%w_]+)$") else nil
+	return if eggId and Eggs.get(eggId) then self:equipGrantedItem(player, instanceId) else nil
+end
+
 function InventoryServiceServer:setHotbarSlot(player: Player, instanceId: any, slotIndex: any)
 	if typeof(instanceId) ~= "string" or typeof(slotIndex) ~= "number" then
 		return
@@ -576,10 +682,10 @@ function InventoryServiceServer:setHotbarSlot(player: Player, instanceId: any, s
 		return
 	end
 	local hotbar = normalizeHotbar(data, player)
-	if ItemCatalog.isStackable(item.itemId) then
+	if isStackable(item) then
 		for _, assignedId in hotbar do
 			local assignedItem = inventory[assignedId]
-			if assignedItem and assignedItem.itemId == item.itemId then
+			if isStackable(assignedItem) and assignedItem.itemId == item.itemId then
 				instanceId = assignedId
 				break
 			end
@@ -640,7 +746,10 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 	local data = Data[player]
 	local inventory = data.inventory() :: SavedInventory
 	local incubatorItem = inventory[incubatorInstanceId]
-	if typeof(incubatorItem) ~= "table" or incubatorItem.itemId ~= "Incubator"
+	local incubatorId = if typeof(incubatorItem) == "table" and incubatorItem.itemId == "Incubator" then "Incubator"
+		elseif typeof(incubatorItem) == "table" then string.match(incubatorItem.itemId, "^Incubator%.([%w_]+)$") else nil
+	local incubatorDefinition = if incubatorId then Incubators.get(incubatorId) else nil
+	if typeof(incubatorItem) ~= "table" or not incubatorDefinition
 		or typeof(incubatorItem.placedSlotId) ~= "string" then
 		return nil, nil, nil
 	end
@@ -674,7 +783,8 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 		local eggs = if assets then assets:FindFirstChild("Eggs") else nil
 		local template = if eggs then eggs:FindFirstChild(eggId) else nil
 		local crabId = if template then template:GetAttribute("CrabId") else nil
-		if typeof(crabId) ~= "string" or not Crabs.get(crabId) then
+		local crabDefinition = if typeof(crabId) == "string" then Crabs.get(crabId) else nil
+		if not crabDefinition then
 			return nil, nil, nil
 		end
 		local crabs = if assets then assets:FindFirstChild("Crabs") else nil
@@ -683,7 +793,11 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 			return nil, nil, nil
 		end
 
-		local hatchAtUnixMs = DateTime.now().UnixTimestampMillis + 3000
+		local hatchDurationMs = Incubators.getHatchDurationMs(incubatorId :: string, eggId, crabDefinition.rarity)
+		if not hatchDurationMs then
+			return nil, nil, nil
+		end
+		local hatchAtUnixMs = DateTime.now().UnixTimestampMillis + hatchDurationMs
 		local updated = table.clone(item)
 		updated.incubatorInstanceId = incubatorInstanceId
 		updated.hatchAtUnixMs = hatchAtUnixMs
@@ -695,8 +809,8 @@ function InventoryServiceServer:startIncubation(player: Player, incubatorInstanc
 	return nil, nil, nil
 end
 
-function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId: string, incubatorInstanceId: string, hatchAtUnixMs: number): (boolean, string?, number?)
-	if player.Parent ~= Players or DateTime.now().UnixTimestampMillis < hatchAtUnixMs then
+function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId: string, incubatorInstanceId: string, hatchAtUnixMs: number, receiptConfirmed: boolean?): (boolean, string?, number?)
+	if player.Parent ~= Players or (not receiptConfirmed and DateTime.now().UnixTimestampMillis < hatchAtUnixMs) then
 		return false, nil, nil
 	end
 	local data = Data[player]
@@ -725,10 +839,28 @@ function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId
 	end
 	local updated = table.clone(item)
 	updated.itemId = "Crab." .. crabId
-	local weightGrams = CrabWeights.roll(IndexMilestones.growthLuck(data.claimedIndexMilestones()))
+	local giganticMultiplier = if item.isGiganticEgg == true then GiganticEggConfig.GROWTH_LUCK_MULTIPLIER else 1
+	local weightGrams = CrabWeights.roll(IndexMilestones.growthLuck(data.claimedIndexMilestones(), data.starterPackClaimed()) * giganticMultiplier * ServerLuck.getMultiplier())
+	local startedAt = sessionStartedAt[player]
+	local bonusReady = data.newPlayerHatchStatus() == "Pending" and startedAt ~= nil
+		and data.newPlayerPlaySeconds() + math.max(0, os.clock() - startedAt) >= NEW_PLAYER_BONUS_PLAY_SECONDS
+	local firstGiganticBonus = item.isGiganticEgg == true and item.firstGiganticEggBonus == true
+	if firstGiganticBonus then
+		weightGrams = bonusWeightRandom:NextInteger(FIRST_GIGANTIC_MIN_WEIGHT_HUNDREDTHS, FIRST_GIGANTIC_MAX_WEIGHT_HUNDREDTHS) / 100
+	elseif bonusReady then
+		weightGrams = bonusWeightRandom:NextInteger(NEW_PLAYER_BONUS_MIN_WEIGHT_HUNDREDTHS, NEW_PLAYER_BONUS_MAX_WEIGHT_HUNDREDTHS) / 100
+	end
 	updated.weightGrams = weightGrams
+	updated.firstGiganticEggBonus = nil
+	updated.hatchedEggId = eggId
 	updated.hatchAtUnixMs = nil
 	data.inventory[eggInstanceId](updated)
+	data.biggestCrabGrams(function(previous: number)
+		return math.max(previous, weightGrams)
+	end)
+	if bonusReady and not firstGiganticBonus then
+		data.newPlayerHatchStatus("Claimed")
+	end
 	local sizeName = CrabSizeIndex.fromWeight(weightGrams)
 	if data.discoveredCrabs()[crabId] ~= true then
 		data.discoveredCrabs[crabId](true)
@@ -740,6 +872,57 @@ function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId
 	normalizeHotbar(data, player)
 	scheduleSync(player)
 	return true, crabId, weightGrams
+end
+
+function InventoryServiceServer:grantRollAgainReceipt(player: Player, purchaseId: string): (string?, string?, string?, number?)
+	local data = Data[player]
+	if not data then
+		return nil, nil, nil, nil
+	end
+	local receiptValue = data.processedProductReceipts()[purchaseId]
+	local instanceId: string
+	local weightGrams: number
+	if receiptValue then
+		local savedInstanceId, savedHundredths = string.match(receiptValue, "^RollAgain:([^:]+):(%d+)$")
+		local parsedWeight = if savedHundredths then tonumber(savedHundredths) else nil
+		if not savedInstanceId or not parsedWeight then
+			return nil, nil, nil, nil
+		end
+		instanceId = savedInstanceId
+		weightGrams = parsedWeight / 100
+	else
+		instanceId = data.pendingRollAgainInstanceId()
+		local pendingItem = (data.inventory() :: SavedInventory)[instanceId]
+		local pendingCrabId = if typeof(pendingItem) == "table" and typeof(pendingItem.itemId) == "string"
+			then string.match(pendingItem.itemId, "^Crab%.([%w_]+)$") else nil
+		if not pendingCrabId or not Crabs.get(pendingCrabId) then
+			return nil, nil, nil, nil
+		end
+		local giganticMultiplier = if pendingItem.isGiganticEgg == true then GiganticEggConfig.GROWTH_LUCK_MULTIPLIER else 1
+		weightGrams = CrabWeights.roll(IndexMilestones.growthLuck(data.claimedIndexMilestones(), data.starterPackClaimed()) * giganticMultiplier * ServerLuck.getMultiplier())
+		receiptValue = `RollAgain:{instanceId}:{math.round(weightGrams * 100)}`
+		data.processedProductReceipts[purchaseId](receiptValue)
+		data.pendingRollAgainInstanceId("")
+	end
+	local inventory = data.inventory() :: SavedInventory
+	local item = inventory[instanceId]
+	local crabId = if typeof(item) == "table" then string.match(item.itemId, "^Crab%.([%w_]+)$") else nil
+	if crabId and Crabs.get(crabId) then
+		if item.weightGrams ~= weightGrams then
+			local updated = table.clone(item)
+			updated.weightGrams = weightGrams
+			data.inventory[instanceId](updated)
+		end
+		data.biggestCrabGrams(function(previous: number)
+			return math.max(previous, weightGrams)
+		end)
+		local sizeKey = CrabSizeIndex.key(CrabSizeIndex.fromWeight(weightGrams), crabId)
+		if data.discoveredCrabSizes()[sizeKey] ~= true then
+			data.discoveredCrabSizes[sizeKey](true)
+		end
+		scheduleSync(player)
+	end
+	return receiptValue, instanceId, crabId, weightGrams
 end
 
 function InventoryServiceServer:claimHatchedCrab(player: Player, instanceId: any)
@@ -756,9 +939,14 @@ function InventoryServiceServer:claimHatchedCrab(player: Player, instanceId: any
 		or item.incubatorInstanceId == nil or item.hatchAtUnixMs ~= nil then
 		return
 	end
+	if inventoryIsFull(inventory, InventoryConfig.getCapacity(data.inventoryCapacityPurchases())) then
+		self:showInventoryFull(player)
+		return
+	end
 	local updated = table.clone(item)
 	updated.incubatorInstanceId = nil
 	data.inventory[instanceId](updated)
+	TutorialServiceServer:crabClaimed(player, instanceId)
 	local hotbar = normalizeHotbar(data, player)
 	local targetSlot = table.find(hotbar, instanceId)
 	if not targetSlot then
@@ -851,10 +1039,10 @@ function InventoryServiceServer:getHotbarSlot(player: Player, instanceId: string
 	if directSlot then
 		return directSlot
 	end
-	if ItemCatalog.isStackable(item.itemId) then
+	if isStackable(item) then
 		for index, assignedId in hotbar do
 			local assignedItem = inventory[assignedId]
-			if assignedItem and assignedItem.itemId == item.itemId then
+			if isStackable(assignedItem) and assignedItem.itemId == item.itemId then
 				return index
 			end
 		end

@@ -1,6 +1,7 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
@@ -45,7 +46,7 @@ local function card(name: string, position: UDim2, onActivated: () -> ()): Image
 	return button
 end
 
-function TravelBar.mount(playerGui: PlayerGui, onTravel: (string) -> ())
+function TravelBar.mount(playerGui: PlayerGui, onTravel: (string) -> (), isTankOpen: () -> boolean)
 	Vide.mount(function()
 		local gui = create "ScreenGui" {
 			Name = "TravelBar",
@@ -53,20 +54,75 @@ function TravelBar.mount(playerGui: PlayerGui, onTravel: (string) -> ())
 			IgnoreGuiInset = true,
 			DisplayOrder = 30,
 		}
-		local row = create "Frame" {
+		local clickSound = create "Sound" {
+			Name = "TabClickSound",
+			SoundId = "rbxassetid://132948338000932",
+			Volume = 1,
+		}
+		clickSound.Parent = gui
+		local function travel(destination: string)
+			if isTankOpen() then
+				return
+			end
+			clickSound.TimePosition = 0
+			clickSound:Play()
+			onTravel(destination)
+		end
+		local row = create "CanvasGroup" {
 			Name = "Cards",
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.new(0.5, 0, 0, 5),
 			Size = UDim2.fromOffset(408, 58),
 			BackgroundTransparency = 1,
+			GroupTransparency = function()
+				return if isTankOpen() then 0.55 else 0
+			end,
 		}
 		row.Parent = gui
-		card("Home", UDim2.fromOffset(0, 0), function()
-			onTravel("Home")
-		end).Parent = row
-		card("Shop", UDim2.fromOffset(212, 0), function()
-			onTravel("Shop")
-		end).Parent = row
+		local home = card("Home", UDim2.fromOffset(0, 0), function()
+			travel("Home")
+		end)
+		home.Parent = row
+		local shop = card("Shop", UDim2.fromOffset(212, 0), function()
+			travel("Shop")
+		end)
+		shop.Parent = row
+		local function layout()
+			local camera = Workspace.CurrentCamera
+			local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+			local scale = math.clamp(math.min(viewport.X / 1000, viewport.Y / 650), 0.67, 1)
+			scale = math.min(scale, (viewport.X - 24) / 408)
+			local cardWidth = math.round(196 * scale)
+			local cardHeight = math.round(58 * scale)
+			local gap = math.round(16 * scale)
+			row.Size = UDim2.fromOffset(cardWidth * 2 + gap, cardHeight)
+			row.Position = UDim2.new(0.5, 0, 0, if viewport.X < 600 then 54 else 5)
+			home.Size = UDim2.fromOffset(cardWidth, cardHeight)
+			shop.Size = UDim2.fromOffset(cardWidth, cardHeight)
+			shop.Position = UDim2.fromOffset(cardWidth + gap, 0)
+			for _, button in { home, shop } do
+				local title = button:FindFirstChild("Title") :: TextLabel
+				title.TextSize = math.round(30 * scale)
+			end
+		end
+
+		local viewportConnection: RBXScriptConnection? = nil
+		local function watchCamera()
+			if viewportConnection then
+				viewportConnection:Disconnect()
+			end
+			local camera = Workspace.CurrentCamera
+			viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) else nil
+			layout()
+		end
+		local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+		gui.Destroying:Connect(function()
+			cameraConnection:Disconnect()
+			if viewportConnection then
+				viewportConnection:Disconnect()
+			end
+		end)
+		watchCamera()
 		return gui
 	end, playerGui)
 end

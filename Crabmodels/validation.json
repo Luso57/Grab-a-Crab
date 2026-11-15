@@ -1,0 +1,290 @@
+[
+  {
+    "name": "SushiCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5368,
+    "largest_mesh_triangles": 908,
+    "embedded_png_sha256": "8b68a6b1b9911d03bc588322803a9320f91f08d38637370253b18b5dfea7571d",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.505
+    ]
+  },
+  {
+    "name": "PizzaCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5640,
+    "largest_mesh_triangles": 1180,
+    "embedded_png_sha256": "2421b64472eb42d0a34fc4b7d6b8d74d295edce8f58ae0c37106a48a7239dcc1",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.335
+    ]
+  },
+  {
+    "name": "PineappleCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 4788,
+    "largest_mesh_triangles": 396,
+    "embedded_png_sha256": "f6622483a629526c6e3f3928499bc4c45160ecc1a1bc390e43cb4e5d2eae8ded",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.91
+    ]
+  },
+  {
+    "name": "StrawberryCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 4744,
+    "largest_mesh_triangles": 396,
+    "embedded_png_sha256": "2f97e25a38e4d584be2593fcf51fc0cc3911bbd5bb1392fe935c5cc892134062",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.4872
+    ]
+  },
+  {
+    "name": "PopcornCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 6488,
+    "largest_mesh_triangles": 2028,
+    "embedded_png_sha256": "b6461c3e398905e5ea4db92f3f7b5273596baf10813948621020f832c1826050",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.568
+    ]
+  },
+  {
+    "name": "CoffeeCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5304,
+    "largest_mesh_triangles": 844,
+    "embedded_png_sha256": "814affdb26127bf123f0aaa610ac1ecb3a56227e1839ee5f92d4fefd348ea465",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.421
+    ]
+  },
+  {
+    "name": "RamenCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 6004,
+    "largest_mesh_triangles": 1544,
+    "embedded_png_sha256": "9e13b6c7ddb50179f00825a042316d8e9ab709ab6c86535a528623c5893c4b8d",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.424
+    ]
+  },
+  {
+    "name": "OrigamiCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 4680,
+    "largest_mesh_triangles": 396,
+    "embedded_png_sha256": "2e0cfdbf82d51f57da39ea63e6b1ce8f4d827576af5becb15f3821cb81be0bba",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.75
+    ]
+  },
+  {
+    "name": "PatchworkCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5212,
+    "largest_mesh_triangles": 752,
+    "embedded_png_sha256": "8ffc9a30a9c5f68c98c93ec99aaa1ac3ae6326d8076cae942be837e38a6932b1",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.335
+    ]
+  },
+  {
+    "name": "PorcelainCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 4648,
+    "largest_mesh_triangles": 396,
+    "embedded_png_sha256": "02ed701d6201a083e6c3ddf7eb255c2b1fddeec4e508a65c0ec5adc8159855f2",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.335
+    ]
+  },
+  {
+    "name": "SunflowerCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 6660,
+    "largest_mesh_triangles": 2200,
+    "embedded_png_sha256": "3ce878c53669622dffb851de923483a70abaf36175cb25464e458e2f2e2671aa",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.335
+    ]
+  },
+  {
+    "name": "CoralReefCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5500,
+    "largest_mesh_triangles": 1040,
+    "embedded_png_sha256": "f0d3c4a2cf2f5ebba72bfd248a7d4f9317d7ceccb4fc184a4e5df00c2ba2f23f",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.8527
+    ]
+  },
+  {
+    "name": "RaceCarCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 4720,
+    "largest_mesh_triangles": 408,
+    "embedded_png_sha256": "7b8e3dda0d760ca32565c211160e4ac2c4111c52952bd9da21d1b1ce301515b9",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.631
+    ]
+  },
+  {
+    "name": "FirefighterCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5432,
+    "largest_mesh_triangles": 972,
+    "embedded_png_sha256": "f4f6331ae36e28298115628856668a0b4161aa2737b2c4e65939406eb5a04f7c",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.6639
+    ]
+  },
+  {
+    "name": "DetectiveCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5340,
+    "largest_mesh_triangles": 728,
+    "embedded_png_sha256": "658431519819bc9f69d1337ebd49e67b1ec609866277de07c990a43f5af7efff",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.62
+    ]
+  },
+  {
+    "name": "VikingCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 6108,
+    "largest_mesh_triangles": 1648,
+    "embedded_png_sha256": "7ed74c9a03401f91eb1e19b4bb6ebd5635b644b668d59b623e98d4af0c4255e0",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.972
+    ]
+  },
+  {
+    "name": "MusicCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5584,
+    "largest_mesh_triangles": 1124,
+    "embedded_png_sha256": "7883c1870804f6153ce3df4101075cda11a7f4ecb3992d450a85d8a619103d3b",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.955
+    ]
+  },
+  {
+    "name": "PharaohCrab",
+    "status": "passed",
+    "mesh_count": 28,
+    "triangles": 5356,
+    "largest_mesh_triangles": 896,
+    "embedded_png_sha256": "b0a4c6a86432887a860b2db4d641e10cd4a2793eebf4021d8ea159271f7f478c",
+    "imported_packed_texture_matches": true,
+    "zero_area_uv_triangles": 0,
+    "nonmanifold_edges": 0,
+    "dimensions": [
+      3.74,
+      3.0498,
+      1.87
+    ]
+  }
+]

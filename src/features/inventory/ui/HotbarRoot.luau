@@ -1,6 +1,7 @@
 --!strict
 
 local HotbarSlot = require(script.Parent.HotbarSlot)
+local Workspace = game:GetService("Workspace")
 
 export type SlotView = {
 	index: number,
@@ -22,6 +23,9 @@ local row: Frame? = nil
 local selectSlot: ((number) -> ())? = nil
 local startDrag: ((string, number, InputObject, ImageButton) -> ())? = nil
 local slotCount = 0
+local slotSize = SLOT_SIZE
+local slotGap = SLOT_GAP
+local thinTextStroke = false
 
 local function updateLayout()
 	local scroll = scrollFrame
@@ -30,8 +34,16 @@ local function updateLayout()
 		return
 	end
 
-	local rowWidth = if slotCount > 0 then slotCount * SLOT_SIZE + (slotCount - 1) * SLOT_GAP else 0
-	content.Size = UDim2.fromOffset(rowWidth, SLOT_SIZE)
+	local rowWidth = if slotCount > 0 then slotCount * slotSize + (slotCount - 1) * slotGap else 0
+	content.Size = UDim2.fromOffset(rowWidth, slotSize)
+	for _, child in content:GetChildren() do
+		if child:IsA("ImageButton") then
+			child.Size = UDim2.fromOffset(slotSize, slotSize)
+			HotbarSlot.setTextStroke(child, thinTextStroke)
+			local visualIndex = child:GetAttribute("VisualIndex") :: number
+			child.Position = UDim2.fromOffset((visualIndex - 1) * (slotSize + slotGap), 0)
+		end
+	end
 	if rowWidth <= scroll.AbsoluteSize.X then
 		content.AnchorPoint = Vector2.new(0.5, 0)
 		content.Position = UDim2.fromScale(0.5, 0)
@@ -39,7 +51,7 @@ local function updateLayout()
 		content.AnchorPoint = Vector2.new(0, 0)
 		content.Position = UDim2.fromOffset(0, 0)
 	end
-	scroll.CanvasSize = UDim2.fromOffset(math.max(rowWidth, scroll.AbsoluteSize.X), SLOT_SIZE)
+	scroll.CanvasSize = UDim2.fromOffset(math.max(rowWidth, scroll.AbsoluteSize.X), slotSize)
 	scroll.Visible = slotCount > 0
 end
 
@@ -86,9 +98,38 @@ function HotbarRoot.mount(playerGui: PlayerGui, onSelect: (number) -> (), onDrag
 
 	scrollFrame = scroll
 	row = content
+	local viewportConnection: RBXScriptConnection? = nil
+	local function layout()
+		local camera = Workspace.CurrentCamera
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		local scale = math.clamp(math.min(viewport.X / 1000, viewport.Y / 650), 0.67, 1)
+		thinTextStroke = viewport.X < 900 or viewport.Y < 600
+		slotSize = math.round(SLOT_SIZE * scale)
+		slotGap = math.round(SLOT_GAP * scale)
+		scroll.Size = UDim2.new(0.86, 0, 0, slotSize)
+		sizeConstraint.MaxSize = Vector2.new(800, slotSize)
+		updateLayout()
+	end
+	local function watchCamera()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) else nil
+		layout()
+	end
+	local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+	screenGui.Destroying:Connect(function()
+		cameraConnection:Disconnect()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		scrollFrame = nil
+		row = nil
+	end)
 	scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout)
 	screenGui.Parent = playerGui
-	updateLayout()
+	watchCamera()
 	return screenGui
 end
 
@@ -109,7 +150,7 @@ function HotbarRoot.render(slots: { SlotView })
 		local slotIndex = slot.index
 		local button = HotbarSlot.create({
 			index = slotIndex,
-			size = SLOT_SIZE,
+			size = slotSize,
 			displayName = slot.displayName,
 			image = slot.image,
 			cardImage = slot.cardImage,
@@ -125,7 +166,8 @@ function HotbarRoot.render(slots: { SlotView })
 			end,
 		})
 		button:SetAttribute("SlotIndex", slotIndex)
-		button.Position = UDim2.fromOffset((visualIndex - 1) * (SLOT_SIZE + SLOT_GAP), 0)
+		button:SetAttribute("VisualIndex", visualIndex)
+		button.Position = UDim2.fromOffset((visualIndex - 1) * (slotSize + slotGap), 0)
 		button.Parent = content
 	end
 	updateLayout()

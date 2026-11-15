@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
@@ -41,7 +42,7 @@ local function textStroke(parent: TextLabel, thickness: number)
     stroke.Parent = parent
 end
 
-function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> (), onDismiss: (string) -> ()): (string, number, string?, CFrame?, number?, Vector3?, string?) -> ()
+function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> (), onDismiss: (string) -> (), onRollAgain: (string) -> (), canDismiss: () -> boolean): (string, number, string?, CFrame?, number?, Vector3?, string?) -> ()
     local shakeSound = Instance.new("Sound")
     shakeSound.Name = "HatchShakeSound"
     shakeSound.SoundId = "rbxassetid://" .. uiAssets.HatchShakeSound
@@ -76,10 +77,13 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     local crabName = Vide.source("")
     local gramText = Vide.source("0.00g")
     local incomeText = Vide.source("")
+    local boostReveal = Vide.source(false)
     local clickHintVisible = Vide.source(false)
     local viewport: ViewportFrame = nil :: any
     local burstImage: ImageLabel = nil :: any
+    local rollAgainScale: UIScale = nil :: any
     local readyToDismiss = false
+    local activeInstanceId: string? = nil
     local dismiss = function() end
 
     Vide.mount(function()
@@ -165,6 +169,9 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     incomeLayout.Parent = incomeRow
     local coinIcon = create "ImageLabel" {
         Name = "CoinIcon",
+        Visible = function()
+            return not boostReveal()
+        end,
         LayoutOrder = 1,
         Size = UDim2.fromOffset(82, 82),
         BackgroundTransparency = 1,
@@ -214,6 +221,93 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     }
     textStroke(clickHint, 2)
 
+    local rollAgain = create "TextButton" {
+        Name = "RollAgainButton",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.fromScale(0.305, 0.22),
+        Size = UDim2.fromScale(0.18, 0.24),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false,
+        Visible = clickHintVisible,
+        ZIndex = 7,
+        Activated = function()
+            if readyToDismiss and activeInstanceId then
+                onRollAgain(activeInstanceId)
+            end
+        end,
+    }
+    create "UISizeConstraint" {
+        MinSize = Vector2.new(105, 85),
+        MaxSize = Vector2.new(180, 125),
+    }.Parent = rollAgain
+    rollAgainScale = create "UIScale" { Scale = 1 }
+    rollAgainScale.Parent = rollAgain
+
+    create "ImageLabel" {
+        Name = "ChasingArrows",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.fromScale(0.5, 0),
+        Size = UDim2.fromScale(0.65, 0.56),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. uiAssets.HatchRollAgain,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 7,
+    }.Parent = rollAgain
+
+    local rollAgainLabel = create "TextLabel" {
+        Name = "RollAgainLabel",
+        Position = UDim2.fromScale(0, 0.53),
+        Size = UDim2.fromScale(1, 0.22),
+        BackgroundTransparency = 1,
+        Text = "Roll Again",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextScaled = true,
+        Font = Enum.Font.BuilderSansExtraBold,
+        ZIndex = 7,
+    }
+    textStroke(rollAgainLabel, 2)
+    rollAgainLabel.Parent = rollAgain
+
+    local priceRow = create "Frame" {
+        Name = "PriceRow",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.fromScale(0.5, 0.76),
+        Size = UDim2.fromScale(0.34, 0.22),
+        BackgroundTransparency = 1,
+        ZIndex = 7,
+    }
+    create "UIListLayout" {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 0),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }.Parent = priceRow
+    create "ImageLabel" {
+        Name = "RobuxIcon",
+        LayoutOrder = 1,
+        Size = UDim2.fromScale(0.45, 0.85),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. uiAssets.RobuxIcon,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 7,
+    }.Parent = priceRow
+    local priceLabel = create "TextLabel" {
+        Name = "Price",
+        LayoutOrder = 2,
+        Size = UDim2.fromScale(0.48, 1),
+        BackgroundTransparency = 1,
+        Text = "39",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextScaled = true,
+        Font = Enum.Font.BuilderSansExtraBold,
+        ZIndex = 7,
+    }
+    textStroke(priceLabel, 2)
+    priceLabel.Parent = priceRow
+    priceRow.Parent = rollAgain
+
     local dimBackground = create "Frame" {
         Name = "DimBackground",
         Visible = revealVisible,
@@ -230,6 +324,7 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     incomeRow.Parent = dimBackground
     dismissButton.Parent = dimBackground
     clickHint.Parent = dimBackground
+    rollAgain.Parent = dimBackground
 
     local whiteFlash = create "Frame" {
         Name = "WhiteFlash",
@@ -253,8 +348,11 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     return screen
     end, playerGui)
 
+    local rollAgainPulse = TweenService:Create(rollAgainScale, TweenInfo.new(
+        0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true
+    ), { Scale = 1.13 })
+
     local runNumber = 0
-    local activeInstanceId: string? = nil
     local connection: RBXScriptConnection? = nil
     local introConnection: RBXScriptConnection? = nil
     local world: WorldModel? = nil
@@ -288,7 +386,7 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
         end
     end
 
-    local function cancel()
+    local function cancel(replacingInstanceId: string?)
         runNumber += 1
         local instanceId = activeInstanceId
         activeInstanceId = nil
@@ -298,6 +396,8 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
         completeSound:Stop()
         readyToDismiss = false
         clickHintVisible(false)
+        rollAgainPulse:Cancel()
+        rollAgainScale.Scale = 1
         burstImage.Rotation = 0
         if introConnection then
             introConnection:Disconnect()
@@ -322,18 +422,20 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
         revealVisible(false)
         visible(false)
         setPromptsLocked(false)
-        if instanceId then
+        if instanceId and instanceId ~= replacingInstanceId then
             onDismiss(instanceId)
         end
     end
 
     dismiss = function()
-        if readyToDismiss then
+        if readyToDismiss and canDismiss() then
             cancel()
         end
     end
 
-    Players.LocalPlayer.CharacterRemoving:Connect(cancel)
+    Players.LocalPlayer.CharacterRemoving:Connect(function()
+        cancel()
+    end)
 
     local function startCrabReveal(crabId: string, weightGrams: number)
         local definition = Crabs.get(crabId)
@@ -377,6 +479,7 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
 
         local finalWeight = CrabWeights.normalize(weightGrams)
         local finalIncome = CrabWeights.income(definition.incomePerSecond, finalWeight)
+        local boostText = if definition.tankIncomeMultiplier then string.format("x%g BOOST", definition.tankIncomeMultiplier) else nil
         local finalScale = normalizedScale * CrabWeights.scale(finalWeight)
         model:ScaleTo(finalScale)
         local _, finalSize = model:GetBoundingBox()
@@ -388,7 +491,8 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
 
         crabName(definition.name)
         gramText("0.00g")
-        incomeText("0/s")
+        boostReveal(boostText ~= nil)
+        incomeText(boostText or "0/s")
         revealVisible(true)
         visible(true)
         countSound.TimePosition = 0
@@ -414,8 +518,10 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
                 gramText(string.format("%.2fg", displayedWeight))
                 local visualScale = START_VISUAL_SCALE + (1 - START_VISUAL_SCALE) * growth
                 model:ScaleTo(finalScale * visualScale)
-                local animatedIncome = finalIncome * growth
-                incomeText(CompactNumber.format(animatedIncome, 2) .. "/s")
+                if not boostText then
+                    local animatedIncome = finalIncome * growth
+                    incomeText(CompactNumber.format(animatedIncome, 2) .. "/s")
+                end
                 local box = model:GetBoundingBox()
                 model:PivotTo(CFrame.new(-box.Position) * model:GetPivot())
             end
@@ -429,12 +535,18 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
             currentCamera.CFrame = CFrame.lookAt(cameraPosition, Vector3.zero)
             if elapsed >= DISMISS_READY_SECONDS and not readyToDismiss then
                 readyToDismiss = true
-                clickHintVisible(true)
+                rollAgainPulse:Play()
+            end
+            if readyToDismiss then
+                local shouldShowHint = canDismiss()
+                if clickHintVisible() ~= shouldShowHint then
+                    clickHintVisible(shouldShowHint)
+                end
             end
             if elapsed >= REVEAL_SECONDS and not revealComplete then
                 countSound:Stop()
                 gramText(string.format("%.2fg", finalWeight))
-                incomeText(CompactNumber.format(finalIncome, 2) .. "/s")
+                incomeText(boostText or (CompactNumber.format(finalIncome, 2) .. "/s"))
                 revealComplete = true
                 completeSound.TimePosition = 0
                 completeSound:Play()
@@ -443,7 +555,7 @@ function HatchReveal.mount(playerGui: PlayerGui, setPromptsLocked: (boolean) -> 
     end
 
     return function(crabId: string, weightGrams: number, eggId: string?, eggPivot: CFrame?, eggScale: number?, viewDirection: Vector3?, instanceId: string?)
-        cancel()
+        cancel(instanceId)
         activeInstanceId = instanceId
         setPromptsLocked(true)
         local assets = ReplicatedStorage:FindFirstChild("Assets")

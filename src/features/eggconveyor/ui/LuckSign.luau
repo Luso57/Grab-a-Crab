@@ -11,7 +11,7 @@ local create = Vide.create
 local LuckSign = {}
 local CLOVER_IMAGE = "rbxassetid://84144870802466"
 
-function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number, onBuy: () -> ()): (() -> ())?
+function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number, discoveries: () -> { [string]: boolean }, onBuy: () -> ()): (() -> ())?
     local sign = plotModel:FindFirstChild("MoreLuckSign")
     local panel = if sign then sign:FindFirstChild("FrontPanel") else nil
     if not panel or not panel:IsA("BasePart") then
@@ -44,16 +44,25 @@ function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> n
         if not price then
             return "MAX LUCK"
         end
+        local required = LuckConfig.getRequiredDiscoveries(luck())
+        local discovered = LuckConfig.countDiscovered(discoveries())
+        if discovered < required then
+            return `CRABS {discovered}/{required}`
+        end
         return "BUY $" .. CompactNumber.format(price)
     end)
     local canBuy = Vide.derive(function()
         local price = LuckConfig.getUpgradePrice(luck())
         return owner() and price ~= nil and balance() >= (price or math.huge)
+            and LuckConfig.countDiscovered(discoveries()) >= LuckConfig.getRequiredDiscoveries(luck())
     end)
     local buttonColor = Vide.derive(function()
         local price = LuckConfig.getUpgradePrice(luck())
         if not owner() or not price then
             return Color3.fromRGB(115, 115, 115)
+        end
+        if LuckConfig.countDiscovered(discoveries()) < LuckConfig.getRequiredDiscoveries(luck()) then
+            return Color3.fromRGB(190, 120, 35)
         end
         return if balance() < price then Color3.fromRGB(220, 48, 48) else Color3.fromRGB(32, 205, 75)
     end)
@@ -61,6 +70,9 @@ function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> n
         local price = LuckConfig.getUpgradePrice(luck())
         if not owner() or not price then
             return Color3.fromRGB(65, 65, 65)
+        end
+        if LuckConfig.countDiscovered(discoveries()) < LuckConfig.getRequiredDiscoveries(luck()) then
+            return Color3.fromRGB(90, 55, 15)
         end
         return if balance() < price then Color3.fromRGB(105, 15, 15) else Color3.fromRGB(9, 65, 33)
     end)

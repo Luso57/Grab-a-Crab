@@ -1,6 +1,7 @@
 --!strict
 
 local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -14,24 +15,36 @@ local ShopConfig = require(script.Parent.ShopConfig)
 local ShopRoot = require(script.Parent.UI.ShopRoot)
 local ShopPurchaseEffect = require(script.Parent.UI.ShopPurchaseEffect)
 local ShopRestockNotice = require(script.Parent.UI.ShopRestockNotice)
+local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
+local ProductPrices = require(ReplicatedStorage.Source.Features.Monotization.ProductPrices)
 local EggConveyorServiceClient = require(ReplicatedStorage.Source.Features.EggConveyor.EggConveyorServiceClient)
 
 local ShopServiceClient = {}
 local initialized = false
 local pendingPurchases: { [string]: { imageId: number, position: Vector2 } } = {}
+local pendingRobuxPurchases: { [number]: { imageId: number, position: Vector2 } } = {}
 local playPurchase: ((number, Vector2, number?) -> ())? = nil
+local playRobuxFeedback: ((Vector2) -> ())? = nil
 local showRestockNotice: (() -> ())? = nil
 local lastNotifiedRestock: number? = nil
 local stock = Vide.source({ Incubator = 0, Small = 0, Medium = 0, Large = 0 } :: { [string]: number })
 local refreshAt = Vide.source(0)
 local refreshSeconds = Vide.source(ShopConfig.restockIntervalSeconds)
 local balance = Vide.source(0)
+local openShop: (() -> ())? = nil
+
+local robuxProductByItemId = {
+	Incubator = ProductIds.Incubator,
+	Small = ProductIds.SmallTank,
+	Medium = ProductIds.MediumTank,
+	Large = ProductIds.LargeTank,
+}
 
 local displayItems: { ShopRoot.ItemView } = {
-	{ id = "Incubator", name = "Incubator", price = ShopConfig.getPrice("Incubator"), imageId = assets.Incubator, imageScale = 1, imageOffsetX = 0.03 },
-	{ id = "Small", name = "Small Tank", price = ShopConfig.getPrice("Small"), imageId = assets.SmallTank, imageScale = 1, imageOffsetX = 0.03 },
-	{ id = "Medium", name = "Medium Tank", price = ShopConfig.getPrice("Medium"), imageId = assets.MediumTank, imageOffsetX = 0.01 },
-	{ id = "Large", name = "Large Tank", price = ShopConfig.getPrice("Large"), imageId = assets.LargeTank },
+	{ id = "Incubator", name = "Incubator", price = ShopConfig.getPrice("Incubator"), robuxPrice = ProductPrices.load(ProductIds.Incubator), imageId = assets.Incubator, imageScale = 1, imageOffsetX = 0.03 },
+	{ id = "Small", name = "Small Tank", price = ShopConfig.getPrice("Small"), robuxPrice = ProductPrices.load(ProductIds.SmallTank), imageId = assets.SmallTank, imageScale = 1, imageOffsetX = 0.03 },
+	{ id = "Medium", name = "Medium Tank", price = ShopConfig.getPrice("Medium"), robuxPrice = ProductPrices.load(ProductIds.MediumTank), imageId = assets.MediumTank, imageOffsetX = 0.01 },
+	{ id = "Large", name = "Large Tank", price = ShopConfig.getPrice("Large"), robuxPrice = ProductPrices.load(ProductIds.LargeTank), imageId = assets.LargeTank },
 }
 
 function ShopServiceClient:init()
@@ -42,9 +55,12 @@ function ShopServiceClient:init()
 
 	local networker = Networker.client.new("ShopService", ShopServiceClient)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
-	playPurchase = ShopPurchaseEffect.mount(playerGui)
+	playPurchase, playRobuxFeedback = ShopPurchaseEffect.mount(playerGui)
 	showRestockNotice = ShopRestockNotice.mount(playerGui, "SHOP AND DECOR HAS RESTOCKED")
 	local open = Vide.source(false)
+	openShop = function()
+		open(true)
+	end
 	Data.money.Changed(function(value: number)
 		balance(value)
 	end)
@@ -98,6 +114,29 @@ function ShopServiceClient:init()
 				end
 				return true
 			end,
+			onRobuxBuy = function(itemId: string, startPosition: Vector2)
+				local productId = robuxProductByItemId[itemId]
+				if not productId then
+					return
+				end
+				for _, item in displayItems do
+					if item.id == itemId and item.imageId then
+						local pending = { imageId = item.imageId, position = startPosition }
+						pendingRobuxPurchases[productId] = pending
+						task.delay(600, function()
+							if pendingRobuxPurchases[productId] == pending then
+								pendingRobuxPurchases[productId] = nil
+							end
+						end)
+						break
+					end
+				end
+				local ok, err = pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, productId)
+				if not ok then
+					pendingRobuxPurchases[productId] = nil
+					warn(`Could not open Robux purchase prompt: {err}`)
+				end
+			end,
 		})
 	end, playerGui)
 
@@ -126,6 +165,12 @@ function ShopServiceClient:init()
 			task.wait(0.2)
 		end
 	end)
+end
+
+function ShopServiceClient:open()
+	if openShop then
+		openShop()
+	end
 end
 
 function ShopServiceClient:updateStock(newStock: any, deadline: any, restocked: any)
@@ -172,6 +217,27 @@ function ShopServiceClient:showPurchasedItem(requestId: any, slotIndex: any)
 	local pending = pendingPurchases[requestId]
 	pendingPurchases[requestId] = nil
 	if pending and playPurchase then
+		playPurchase(pending.imageId, pending.position, if typeof(slotIndex) == "number" and slotIndex > 0 then slotIndex else nil)
+	end
+end
+
+function ShopServiceClient:showRobuxPurchased(itemId: any, slotIndex: any)
+	if typeof(itemId) ~= "string" then
+		return
+	end
+	local productId = robuxProductByItemId[itemId]
+	if not productId then
+		return
+	end
+	local pending = pendingRobuxPurchases[productId]
+	if not pending then
+		return
+	end
+	pendingRobuxPurchases[productId] = nil
+	if playRobuxFeedback then
+		playRobuxFeedback(pending.position)
+	end
+	if playPurchase then
 		playPurchase(pending.imageId, pending.position, if typeof(slotIndex) == "number" and slotIndex > 0 then slotIndex else nil)
 	end
 end

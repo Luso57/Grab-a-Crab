@@ -24,7 +24,7 @@ local tiers = {
 }
 
 function CrabWeights.roll(growthLuck: number?): number
-    local multiplier = if typeof(growthLuck) == "number" and growthLuck == growthLuck then math.clamp(math.floor(growthLuck), 1, 16) else 1
+    local multiplier = if typeof(growthLuck) == "number" and growthLuck == growthLuck then math.clamp(math.floor(growthLuck), 1, 84) else 1
     local heavyWeight = 0
     for _, tier in tiers do
         if tier.minimum >= 1000 then

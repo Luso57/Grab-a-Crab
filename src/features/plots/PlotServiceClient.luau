@@ -11,6 +11,8 @@ local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotClient = require(script.Parent.Classes.PlotClient)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+local Incubators = require(ReplicatedStorage.Source.Features.Incubators.Modules.Incubators)
+local TankServiceClient = require(ReplicatedStorage.Source.Features.Tanks.TankServiceClient)
 local ExtraSlotSign = require(script.Parent.UI.ExtraSlotSign)
 local TravelBar = require(script.Parent.UI.TravelBar)
 
@@ -27,7 +29,13 @@ local promptSlotId: string? = nil
 local promptMode: string? = nil
 local sendPlace: ((string, string) -> ())? = nil
 local sendPickup: ((string) -> ())? = nil
+local sendTravel: ((string) -> ())? = nil
 local mountedSigns: { [Model]: () -> () } = {}
+
+local function isIncubatorItem(itemId: string): boolean
+	local incubatorId = if itemId == "Incubator" then "Incubator" else string.match(itemId, "^Incubator%.([%w_]+)$")
+	return incubatorId ~= nil and Incubators.get(incubatorId) ~= nil
+end
 
 local function addPlot(instance: Instance)
 	if not instance:IsA("Model") then
@@ -82,7 +90,7 @@ local function getEquippedItem(): (string?, string?)
 			local itemId = child:GetAttribute("ItemId")
 			local tankId = if typeof(itemId) == "string" then string.match(itemId, "^Tank%.([%w_]+)$") else nil
 			if typeof(instanceId) == "string" and typeof(itemId) == "string"
-				and (itemId == "Incubator" or (tankId ~= nil and Tanks.get(tankId) ~= nil)) then
+				and (isIncubatorItem(itemId) or (tankId ~= nil and Tanks.get(tankId) ~= nil)) then
 				return instanceId, itemId
 			end
 		end
@@ -128,7 +136,8 @@ local function updateEggPrompts()
 			continue
 		end
 		for _, model in placedItems:GetChildren() do
-			if model:IsA("Model") and model:GetAttribute("ItemId") == "Incubator" then
+			local itemId = model:GetAttribute("ItemId")
+			if model:IsA("Model") and typeof(itemId) == "string" and isIncubatorItem(itemId) then
 				local eggPrompt = model:FindFirstChild("PlaceEggPrompt", true)
 				if eggPrompt and eggPrompt:IsA("ProximityPrompt") then
 					eggPrompt.Enabled = plot:isLocal() and eggEquipped and model:GetAttribute("IncubatingEggId") == nil
@@ -281,9 +290,16 @@ function PlotServiceClient:init()
 	sendPickup = function(slotId)
 		networker:fire("pickup", slotId)
 	end
+	sendTravel = function(destination)
+		networker:fire("travel", destination)
+	end
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	TravelBar.mount(playerGui, function(destination: string)
-		networker:fire("travel", destination)
+		if sendTravel then
+			sendTravel(destination)
+		end
+	end, function()
+		return TankServiceClient:isPopupOpen()
 	end)
 	local balance = Vide.source(Data.money())
 	Data.money.Changed(function(value: number)
@@ -352,6 +368,18 @@ function PlotServiceClient:init()
 			task.wait(0.1)
 		end
 	end)
+end
+
+function PlotServiceClient:travel(destination: string)
+	if sendTravel then
+		sendTravel(destination)
+	end
+end
+
+function PlotServiceClient:pickupBlocked(reason: any)
+	if reason == "decorations" then
+		TankServiceClient:showPickupWarning("REMOVE DECORATIONS BEFORE PICKING UP TANK")
+	end
 end
 
 function PlotServiceClient:getPlot(index: number): PlotClient.PlotClient?

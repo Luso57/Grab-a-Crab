@@ -1,0 +1,236 @@
+[
+  {
+    "name": "SushiCrab",
+    "description": "Salmon stripes, seaweed wrap, rice white limbs, and a little wasabi garnish.",
+    "fbx": "SushiCrab.fbx",
+    "texture": "SushiCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5368,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PizzaCrab",
+    "description": "Golden cheese, pepperoni spots, olive rings, and a raised crust trim.",
+    "fbx": "PizzaCrab.fbx",
+    "texture": "PizzaCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5640,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PineappleCrab",
+    "description": "Golden diamond rind and a small green leafy crown.",
+    "fbx": "PineappleCrab.fbx",
+    "texture": "PineappleCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 4788,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "StrawberryCrab",
+    "description": "Red skin, cream seeds, and fresh green leaves.",
+    "fbx": "StrawberryCrab.fbx",
+    "texture": "StrawberryCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 4744,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PopcornCrab",
+    "description": "Cinema stripes and small buttery popcorn puffs.",
+    "fbx": "PopcornCrab.fbx",
+    "texture": "PopcornCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 6488,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "CoffeeCrab",
+    "description": "Espresso brown with latte art and coffee bean details.",
+    "fbx": "CoffeeCrab.fbx",
+    "texture": "CoffeeCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5304,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "RamenCrab",
+    "description": "Golden noodles, an egg garnish, scallions, and chopsticks.",
+    "fbx": "RamenCrab.fbx",
+    "texture": "RamenCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 6004,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "OrigamiCrab",
+    "description": "Paper panels, printed fold lines, and a small folded paper bird.",
+    "fbx": "OrigamiCrab.fbx",
+    "texture": "OrigamiCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 4680,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PatchworkCrab",
+    "description": "Pastel fabric panels, stitched borders, and sewn buttons.",
+    "fbx": "PatchworkCrab.fbx",
+    "texture": "PatchworkCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5212,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PorcelainCrab",
+    "description": "White porcelain with blue flowers and decorative borders.",
+    "fbx": "PorcelainCrab.fbx",
+    "texture": "PorcelainCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 4648,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "SunflowerCrab",
+    "description": "Brown seed pattern, golden petal trim, and green limbs.",
+    "fbx": "SunflowerCrab.fbx",
+    "texture": "SunflowerCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 6660,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "CoralReefCrab",
+    "description": "Seafoam shell with small colorful branching corals.",
+    "fbx": "CoralReefCrab.fbx",
+    "texture": "CoralReefCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5500,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "RaceCarCrab",
+    "description": "Red racing paint, white stripes, number 07, and a small spoiler.",
+    "fbx": "RaceCarCrab.fbx",
+    "texture": "RaceCarCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 4720,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "FirefighterCrab",
+    "description": "Red helmet, yellow safety markings, and a shield badge.",
+    "fbx": "FirefighterCrab.fbx",
+    "texture": "FirefighterCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5432,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "DetectiveCrab",
+    "description": "Tan tweed, a brown hat, and a magnifying glass on one claw.",
+    "fbx": "DetectiveCrab.fbx",
+    "texture": "DetectiveCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5340,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "PharaohCrab",
+    "description": "Lapis and turquoise with a striped gold headdress.",
+    "fbx": "PharaohCrab.fbx",
+    "texture": "PharaohCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5356,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "VikingCrab",
+    "description": "Steel helmet, ivory horns, and small fur trim details.",
+    "fbx": "VikingCrab.fbx",
+    "texture": "VikingCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 6108,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  },
+  {
+    "name": "MusicCrab",
+    "description": "Purple musical staff patterns and colorful headphones.",
+    "fbx": "MusicCrab.fbx",
+    "texture": "MusicCrab_Color.png",
+    "mesh_count": 28,
+    "triangles": 5584,
+    "texture_size": [
+      1024,
+      1024
+    ],
+    "embedded_texture": true
+  }
+]

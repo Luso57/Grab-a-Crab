@@ -1,6 +1,8 @@
 --!strict
 
 local HotbarSlot = require(script.Parent.HotbarSlot)
+local InventoryConfig = require(script.Parent.Parent.InventoryConfig)
+local Workspace = game:GetService("Workspace")
 
 export type EntryView = {
 	instanceId: string,
@@ -17,12 +19,15 @@ local panel: Frame? = nil
 local toggleButton: TextButton? = nil
 local list: ScrollingFrame? = nil
 local searchBox: TextBox? = nil
+local capacityLabel: TextLabel? = nil
 local onSelect: ((string) -> ())? = nil
 local startDrag: ((string, InputObject, ImageButton) -> ())? = nil
 local onPanelClosed: (() -> ())? = nil
 local toggleSound: Sound? = nil
 local currentEntries: { EntryView } = {}
 local currentSelectedId: string? = nil
+local currentUsedCount = 0
+local currentCapacity = InventoryConfig.maxItems
 
 local function addStroke(parent: Instance, thickness: number)
 	local stroke = Instance.new("UIStroke")
@@ -64,8 +69,14 @@ function InventoryRoot.mount(playerGui: PlayerGui, onItemSelected: (string) -> (
 	screen.Name = "InventoryPanel"
 	screen.ResetOnSpawn = false
 	screen.IgnoreGuiInset = true
-	screen.DisplayOrder = 11
+	screen.DisplayOrder = 40
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	local toggleScreen = Instance.new("ScreenGui")
+	toggleScreen.Name = "InventoryToggleGui"
+	toggleScreen.ResetOnSpawn = false
+	toggleScreen.IgnoreGuiInset = true
+	toggleScreen.DisplayOrder = 9
+	toggleScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local sound = Instance.new("Sound")
 	sound.Name = "BackpackToggleSound"
@@ -89,7 +100,7 @@ function InventoryRoot.mount(playerGui: PlayerGui, onItemSelected: (string) -> (
 	toggle.TextScaled = true
 	toggle.TextStrokeColor3 = Color3.new(0, 0, 0)
 	toggle.TextStrokeTransparency = 0
-	toggle.Parent = screen
+	toggle.Parent = toggleScreen
 	addStroke(toggle, 3)
 
 	local toggleTextSize = Instance.new("UITextSizeConstraint")
@@ -133,6 +144,37 @@ function InventoryRoot.mount(playerGui: PlayerGui, onItemSelected: (string) -> (
 	local titleLimit = Instance.new("UITextSizeConstraint")
 	titleLimit.MaxTextSize = 44
 	titleLimit.Parent = title
+
+	local capacity = Instance.new("TextLabel")
+	capacity.Name = "Capacity"
+	capacity.BackgroundTransparency = 1
+	capacity.Position = UDim2.fromOffset(0, 17)
+	capacity.Size = UDim2.fromOffset(100, 42)
+	capacity.Font = Enum.Font.BuilderSansBold
+	capacity.Text = `0/{InventoryConfig.maxItems}`
+	capacity.TextColor3 = Color3.fromRGB(205, 255, 205)
+	capacity.TextScaled = true
+	capacity.TextXAlignment = Enum.TextXAlignment.Left
+	capacity.TextStrokeColor3 = Color3.new(0, 0, 0)
+	capacity.TextStrokeTransparency = 0
+	capacity.Parent = frame
+	capacityLabel = capacity
+	local capacityLimit = Instance.new("UITextSizeConstraint")
+	capacityLimit.MaxTextSize = 28
+	capacityLimit.Parent = capacity
+	local compactLayout = false
+	local portraitLayout = false
+	local function positionCapacity()
+		if compactLayout then
+			capacity.Position = UDim2.fromOffset(12, if portraitLayout then 36 else 31)
+			return
+		end
+		local titleLeft = title.Position.X.Scale * frame.AbsoluteSize.X + title.Position.X.Offset
+		capacity.Position = UDim2.fromOffset(math.ceil(titleLeft + title.TextBounds.X + 14), 17)
+	end
+	title:GetPropertyChangedSignal("TextBounds"):Connect(positionCapacity)
+	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(positionCapacity)
+	positionCapacity()
 
 	local search = Instance.new("TextBox")
 	search.Name = "Search"
@@ -199,13 +241,87 @@ function InventoryRoot.mount(playerGui: PlayerGui, onItemSelected: (string) -> (
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scroll
 
+	local function layout()
+		local camera = Workspace.CurrentCamera
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		local scale = math.clamp(math.min(viewport.X / 1000, viewport.Y / 650), 0.67, 1)
+		compactLayout = math.min(viewport.X, viewport.Y) < 600
+		portraitLayout = viewport.Y > viewport.X
+		toggle.Size = UDim2.fromOffset(math.round(190 * scale), math.round(50 * scale))
+		toggle.Position = UDim2.new(0.5, 0, 1, -math.round(87 * scale))
+		toggleTextSize.MaxTextSize = math.round(23 * scale)
+		if compactLayout then
+			local width = math.min(viewport.X * (if portraitLayout then 0.86 else 0.68), 620)
+			local height = math.min(viewport.Y * (if portraitLayout then 0.6 else 0.58), 460)
+			frame.Position = UDim2.fromScale(0.5, 0.5)
+			frame.Size = UDim2.fromOffset(width, height)
+			title.Position = UDim2.fromOffset(12, 6)
+			title.Size = UDim2.fromOffset(width - (if portraitLayout then 60 else 190), 28)
+			titleLimit.MaxTextSize = 25
+			capacity.Size = UDim2.fromOffset(width - 24, 20)
+			capacityLimit.MaxTextSize = 17
+			search.AnchorPoint = Vector2.new(0, 0)
+			search.Position = UDim2.fromOffset(if portraitLayout then 12 else width - 174, if portraitLayout then 63 else 11)
+			search.Size = UDim2.fromOffset(if portraitLayout then width - 24 else 126, 30)
+			search.TextSize = 16
+			close.Position = UDim2.fromOffset(width - 10, 5)
+			close.Size = UDim2.fromOffset(34, 34)
+			closeLimit.MaxTextSize = 29
+			local listTop = if portraitLayout then 103 else 58
+			scroll.Position = UDim2.fromOffset(12, listTop)
+			scroll.Size = UDim2.fromOffset(width - 24, height - listTop - 12)
+			grid.CellSize = UDim2.fromOffset(60, 60)
+			grid.CellPadding = UDim2.fromOffset(5, 5)
+		else
+			frame.Position = UDim2.fromScale(0.5, 0.59)
+			frame.Size = UDim2.fromScale(0.58, 0.42)
+			title.Position = UDim2.new(0.02, 0, 0, 10)
+			title.Size = UDim2.new(0.4, 0, 0, 48)
+			titleLimit.MaxTextSize = 44
+			capacity.Size = UDim2.fromOffset(100, 42)
+			capacityLimit.MaxTextSize = 28
+			search.AnchorPoint = Vector2.new(1, 0)
+			search.Position = UDim2.new(0.9, 0, 0, 17)
+			search.Size = UDim2.new(0.29, 0, 0, 42)
+			search.TextSize = 25
+			close.Position = UDim2.new(0.98, 0, 0, 10)
+			close.Size = UDim2.fromOffset(50, 50)
+			closeLimit.MaxTextSize = 45
+			scroll.Position = UDim2.fromOffset(22, 98)
+			scroll.Size = UDim2.new(1, -44, 1, -116)
+			grid.CellSize = UDim2.fromOffset(80, 80)
+			grid.CellPadding = UDim2.fromOffset(8, 8)
+		end
+		positionCapacity()
+	end
+
+	local viewportConnection: RBXScriptConnection? = nil
+	local function watchCamera()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) else nil
+		layout()
+	end
+	local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+	screen.Destroying:Connect(function()
+		cameraConnection:Disconnect()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		toggleScreen:Destroy()
+	end)
+
 	toggle.Activated:Connect(function()
 		setOpen(not frame.Visible)
 	end)
 	search:GetPropertyChangedSignal("Text"):Connect(function()
-		InventoryRoot.render(currentEntries, currentSelectedId)
+		InventoryRoot.render(currentEntries, currentSelectedId, currentUsedCount, currentCapacity)
 	end)
 	screen.Parent = playerGui
+	toggleScreen.Parent = playerGui
+	watchCamera()
 end
 
 function InventoryRoot.toggle()
@@ -214,9 +330,14 @@ function InventoryRoot.toggle()
 	end
 end
 
-function InventoryRoot.render(entries: { EntryView }, selectedId: string?)
+function InventoryRoot.render(entries: { EntryView }, selectedId: string?, usedCount: number, capacity: number)
 	currentEntries = entries
 	currentSelectedId = selectedId
+	currentUsedCount = usedCount
+	currentCapacity = capacity
+	if capacityLabel then
+		capacityLabel.Text = `{usedCount}/{capacity}`
+	end
 	local scroll = list
 	local selectItem = onSelect
 	if not scroll or not selectItem then

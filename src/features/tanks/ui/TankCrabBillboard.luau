@@ -14,7 +14,7 @@ local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.P
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local create = Vide.create
 
-type Card = { instanceId: string, imageId: number, rarity: Rarities.Rarity, rate: string }
+type Card = { instanceId: string, imageId: number, rarity: Rarities.Rarity, rate: string, isBoost: boolean }
 local TankCrabBillboard = {}
 
 local cardImages: { [Rarities.Rarity]: { big: number, small: number } } = {
@@ -84,6 +84,10 @@ local function makeCard(index: number, cards: () -> { Card }, boostPercent: () -
 	portrait.Parent = tile
 	local coin = create "ImageLabel" {
 		Name = "CoinIcon",
+		Visible = function()
+			local info = cards()[index]
+			return info ~= nil and not info.isBoost
+		end,
 		Position = UDim2.fromScale(0.30, 0.08),
 		Size = UDim2.fromScale(0.23, 0.84),
 		BackgroundTransparency = 1,
@@ -223,7 +227,9 @@ function TankCrabBillboard.attach(model: Model): () -> ()
 							instanceId = if typeof(instanceId) == "string" then instanceId else child.Name,
 							imageId = definition.imageId,
 							rarity = definition.rarity,
-							rate = CompactNumber.formatIncomeRate(CrabWeights.income(definition.incomePerSecond, child:GetAttribute("WeightGrams")) * (1 + boost / 100)) .. "/s",
+							rate = if definition.tankIncomeMultiplier then string.format("x%g BOOST", definition.tankIncomeMultiplier)
+								else CompactNumber.formatIncomeRate(CrabWeights.income(definition.incomePerSecond, child:GetAttribute("WeightGrams")) * (1 + boost / 100)) .. "/s",
+							isBoost = definition.tankIncomeMultiplier ~= nil,
 						})
 					end
 				end

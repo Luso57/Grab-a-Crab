@@ -19,9 +19,11 @@ export type ItemDefinition = {
 local definitions: { [string]: ItemDefinition } = {
 	["Hammer"] = { shortName = "Hammer", imageId = assets.hammer },
 	["Incubator"] = { shortName = "Incubator", imageId = assets.Incubator, stackable = true },
+	["Incubator.InstantHatch"] = { shortName = "Instant Hatch", imageId = assets.InstantHatchPassImage, stackable = true },
 	["Tank.Small"] = { shortName = "Small", imageId = assets.SmallTank, stackable = true },
 	["Tank.Medium"] = { shortName = "Medium", imageId = assets.MediumTank, stackable = true },
 	["Tank.Large"] = { shortName = "Large", imageId = assets.LargeTank, stackable = true },
+	["Tank.Huge"] = { shortName = "Huge Tank", imageId = assets.HugeTankPassImage, stackable = true },
 }
 
 local ItemCatalog = {}

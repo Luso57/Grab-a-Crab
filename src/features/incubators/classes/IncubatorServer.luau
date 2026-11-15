@@ -29,7 +29,7 @@ function IncubatorServer.new(owner: Player, instanceId: string, incubatorId: str
 	tool.RequiresHandle = true
 	tool:SetAttribute("IncubatorId", incubatorId)
 	tool:SetAttribute("IncubatorInstanceId", instanceId)
-	tool:SetAttribute("ItemId", incubatorId)
+	tool:SetAttribute("ItemId", if incubatorId == "Incubator" then "Incubator" else "Incubator." .. incubatorId)
 	tool:SetAttribute("ItemInstanceId", instanceId)
 
 	local handle = Instance.new("Part")

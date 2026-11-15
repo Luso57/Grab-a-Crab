@@ -8,7 +8,7 @@ local create = Vide.create
 
 local TankEmptyWarning = {}
 
-function TankEmptyWarning.mount(playerGui: PlayerGui): () -> ()
+function TankEmptyWarning.mount(playerGui: PlayerGui): (string?) -> ()
 	local banner: Frame = nil :: any
 	local label: TextLabel = nil :: any
 	local stroke: UIStroke = nil :: any
@@ -78,9 +78,10 @@ function TankEmptyWarning.mount(playerGui: PlayerGui): () -> ()
 	end, playerGui)
 
 	local version = 0
-	return function()
+	return function(message: string?)
 		version += 1
 		local currentVersion = version
+		label.Text = message or "EMPTY TANK OUT BEFORE REMOVING"
 		banner.Visible = true
 		banner.BackgroundTransparency = 1
 		label.TextTransparency = 1

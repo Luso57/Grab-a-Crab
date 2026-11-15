@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
+local GiganticEggConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.GiganticEggConfig)
 
 local DISPLAY_SCALE = 0.8
 local SURFACE_GAP = 0.05
@@ -26,9 +27,9 @@ local function pivotAboveMarker(marker: BasePart, bottomOffset: number): CFrame
 	return marker.CFrame * CFrame.new(0, marker.Size.Y / 2 + bottomOffset + SURFACE_GAP, 0)
 end
 
-function EggServer.new(template: Model, parent: Folder, spawnA: BasePart, spawnB: BasePart, speed: number): EggServer
+function EggServer.new(template: Model, parent: Folder, spawnA: BasePart, spawnB: BasePart, speed: number, isGigantic: boolean?): EggServer
 	local model = template:Clone()
-	model:ScaleTo(DISPLAY_SCALE)
+	model:ScaleTo(DISPLAY_SCALE * (if isGigantic then GiganticEggConfig.VISUAL_SCALE else 1))
 	local boxCFrame, boxSize = model:GetBoundingBox()
 	local bottomOffset = model:GetPivot().Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
 	local startCFrame = pivotAboveMarker(spawnA, bottomOffset)
@@ -75,6 +76,7 @@ function EggServer.new(template: Model, parent: Folder, spawnA: BasePart, spawnB
 	model.PrimaryPart = driver
 	model:SetAttribute("EggId", template.Name)
 	model:SetAttribute("CrabId", template:GetAttribute("CrabId"))
+	model:SetAttribute("IsGiganticEgg", isGigantic == true)
 	model.Parent = parent
 
 	local travelTime = (endCFrame.Position - startCFrame.Position).Magnitude / speed

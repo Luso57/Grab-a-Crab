@@ -8,7 +8,8 @@ local create = Vide.create
 
 local ShopRestockNotice = {}
 
-function ShopRestockNotice.mount(playerGui: PlayerGui, message: string?, guiName: string?): () -> ()
+function ShopRestockNotice.mount(playerGui: PlayerGui, message: string?, guiName: string?, isWarning: boolean?): () -> ()
+	local warning = isWarning == true
 	local banner: Frame = nil :: any
 	local label: TextLabel = nil :: any
 	local stroke: UIStroke = nil :: any
@@ -16,7 +17,7 @@ function ShopRestockNotice.mount(playerGui: PlayerGui, message: string?, guiName
 
 	Vide.mount(function()
 		stroke = create "UIStroke" {
-			Color = Color3.fromRGB(35, 18, 4),
+			Color = if warning then Color3.fromRGB(70, 0, 0) else Color3.fromRGB(35, 18, 4),
 			Thickness = 3,
 			Transparency = 1,
 		}
@@ -40,12 +41,16 @@ function ShopRestockNotice.mount(playerGui: PlayerGui, message: string?, guiName
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 1 / 3),
 			Size = UDim2.new(0.78, 0, 0, 48),
-			BackgroundColor3 = Color3.fromRGB(232, 232, 232),
+			BackgroundColor3 = if warning then Color3.new(1, 1, 1) else Color3.fromRGB(232, 232, 232),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
 			create "UIGradient" {
-				Color = ColorSequence.new({
+				Color = if warning then ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 18, 28)),
+					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 72, 78)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 18, 28)),
+				}) else ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(175, 175, 175)),
 					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(245, 245, 245)),
 					ColorSequenceKeypoint.new(1, Color3.fromRGB(175, 175, 175)),

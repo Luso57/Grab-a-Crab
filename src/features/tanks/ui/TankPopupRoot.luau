@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local DecorConfig = require(ReplicatedStorage.Source.Features.DecorShop.DecorConfig)
@@ -14,7 +15,9 @@ export type Card = {
 	imageId: number,
 	weight: string,
 	income: string,
+	isBoost: boolean,
 	sellPrice: string,
+	canSell: boolean,
 }
 
 export type AvailableCrab = {
@@ -116,6 +119,10 @@ local function makeCard(index: number, cards: () -> { Card }, onPickUp: (string,
 
 	create "ImageLabel" {
 		Name = "CoinIcon",
+		Visible = function()
+			local item = info()
+			return item ~= nil and not item.isBoost
+		end,
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.35, 0.30),
 		Size = UDim2.fromScale(0.09, 0.23),
@@ -184,6 +191,10 @@ local function makeCard(index: number, cards: () -> { Card }, onPickUp: (string,
 	end
 	local sell = create "ImageButton" {
 		Name = "SellButton",
+		Visible = function()
+			local item = info()
+			return item ~= nil and item.canSell
+		end,
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.83, 0.82),
@@ -264,7 +275,7 @@ local function TankPopupRoot(props: Props): ScreenGui
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		DisplayOrder = 20,
+		DisplayOrder = 35,
 		Enabled = visible,
 	}
 
@@ -281,10 +292,11 @@ local function TankPopupRoot(props: Props): ScreenGui
 		ScaleType = Enum.ScaleType.Stretch,
 	}
 	background.Parent = gui
-	create "UIAspectRatioConstraint" {
+	local aspectRatio = create "UIAspectRatioConstraint" {
 		AspectRatio = 0.86,
 		DominantAxis = Enum.DominantAxis.Width,
-	}.Parent = background
+	}
+	aspectRatio.Parent = background
 	create "UISizeConstraint" {
 		MaxSize = Vector2.new(620, 720),
 	}.Parent = background
@@ -573,6 +585,11 @@ local function TankPopupRoot(props: Props): ScreenGui
 		end,
 	}
 	decorationsPanel.Parent = background
+	local decorationsAspect = create "UIAspectRatioConstraint" {
+		AspectRatio = 1,
+		DominantAxis = Enum.DominantAxis.Width,
+	}
+	decorationsAspect.Parent = decorationsPanel
 	create "UICorner" { CornerRadius = UDim.new(0, 10) }.Parent = decorationsPanel
 	create "UIStroke" {
 		Color = Color3.fromRGB(107, 58, 19),
@@ -621,11 +638,18 @@ local function TankPopupRoot(props: Props): ScreenGui
 		end,
 	}
 	decorList.Parent = decorationsPanel
-	create "UIGridLayout" {
-		CellSize = UDim2.new(0.48, -8, 0, 112),
+	local decorGrid = create "UIGridLayout" {
+		CellSize = UDim2.fromOffset(80, 80),
 		CellPadding = UDim2.fromOffset(8, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
-	}.Parent = decorList
+	}
+	decorGrid.Parent = decorList
+	local function resizeDecorGrid()
+		local cellSize = math.max(1, math.min(112, math.floor((decorList.AbsoluteSize.X - 12) / 2)))
+		decorGrid.CellSize = UDim2.fromOffset(cellSize, cellSize)
+	end
+	decorList:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeDecorGrid)
+	resizeDecorGrid()
 
 	for index, definition in DecorConfig.items do
 		local decorCard = create "ImageButton" {
@@ -884,6 +908,69 @@ local function TankPopupRoot(props: Props): ScreenGui
 			background.Position = hiddenPosition
 		end
 	end)
+
+	local compactText = false
+	local originalTextStroke: { [Instance]: number } = {}
+	local originalOutlineThickness: { [UIStroke]: number } = {}
+	local function updateLabelOutline(label: TextLabel | TextButton)
+		local original = originalTextStroke[label]
+		if original == nil then
+			original = label.TextStrokeTransparency
+			originalTextStroke[label] = original
+		end
+		label.TextStrokeTransparency = if compactText then math.max(original, 0.45) else original
+		for _, child in label:GetChildren() do
+			if child:IsA("UIStroke") and child.ApplyStrokeMode == Enum.ApplyStrokeMode.Contextual then
+				local thickness = originalOutlineThickness[child]
+				if thickness == nil then
+					thickness = child.Thickness
+					originalOutlineThickness[child] = thickness
+				end
+				child.Thickness = if compactText then thickness * 0.65 else thickness
+			end
+		end
+	end
+	local function updateAllOutlines()
+		local camera = Workspace.CurrentCamera
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		compactText = math.min(viewport.X, viewport.Y) < 600
+		background.Size = UDim2.fromScale(if compactText then 0.94 else 0.88, if compactText then 0.74 else 0.8)
+		aspectRatio.AspectRatio = if compactText then 0.93 else 0.86
+		decorationsPanel.Size = UDim2.fromScale(if compactText then 0.60 else 0.48, 0.63)
+		decorationsAspect.AspectRatio = if compactText then 0.88 else 1
+		for _, descendant in background:GetDescendants() do
+			if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+				updateLabelOutline(descendant)
+			end
+		end
+	end
+	background.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+			updateLabelOutline(descendant)
+		elseif descendant:IsA("UIStroke") then
+			local parent = descendant.Parent
+			if parent and (parent:IsA("TextLabel") or parent:IsA("TextButton")) then
+				updateLabelOutline(parent)
+			end
+		end
+	end)
+	local viewportConnection: RBXScriptConnection? = nil
+	local function watchCamera()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateAllOutlines) else nil
+		updateAllOutlines()
+	end
+	local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+	gui.Destroying:Connect(function()
+		cameraConnection:Disconnect()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+	end)
+	watchCamera()
 
 	return gui
 end

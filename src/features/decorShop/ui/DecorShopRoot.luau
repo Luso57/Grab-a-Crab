@@ -17,6 +17,7 @@ function DecorShopRoot.create(props: ShopRoot.Props): Instance
 		titleMaxTextSize = 46,
 		onClose = props.onClose,
 		onBuy = props.onBuy,
+		onRobuxBuy = props.onRobuxBuy,
 	})
 end
 

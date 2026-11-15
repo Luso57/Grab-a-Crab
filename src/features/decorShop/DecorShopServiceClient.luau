@@ -1,6 +1,7 @@
 --!strict
 
 local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -15,16 +16,29 @@ local ShopRestockNotice = require(ReplicatedStorage.Source.Features.Shop.UI.Shop
 local ShopServiceClient = require(ReplicatedStorage.Source.Features.Shop.ShopServiceClient)
 local EggConveyorServiceClient = require(ReplicatedStorage.Source.Features.EggConveyor.EggConveyorServiceClient)
 local DecorShopRoot = require(script.Parent.UI.DecorShopRoot)
+local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
+local ProductPrices = require(ReplicatedStorage.Source.Features.Monotization.ProductPrices)
 
 local DecorShopServiceClient = {}
 local initialized = false
 local pendingPurchases: { [string]: { imageId: number, position: Vector2 } } = {}
+local pendingRobuxPurchases: { [number]: { imageId: number, position: Vector2 } } = {}
 local playPurchase: ((number, Vector2, number?) -> ())? = nil
+local playRobuxFeedback: ((Vector2) -> ())? = nil
 local showFullNotice: (() -> ())? = nil
 local stock = Vide.source({} :: { [string]: number })
 local refreshAt = Vide.source(0)
 local refreshSeconds = Vide.source(DecorConfig.restockIntervalSeconds)
 local balance = Vide.source(0)
+
+local robuxProductByItemId: { [string]: number } = {
+	Umbrella = ProductIds.UmbrellaDecor,
+	TreasureChest = ProductIds.TreasureDecor,
+	Skull = ProductIds.SkullDecor,
+	Seashell = ProductIds.SeashellDecor,
+	Sandcastle = ProductIds.SandcastleDecor,
+	PirateShip = ProductIds.PirateShipDecor,
+}
 
 local displayItems = {}
 for _, item in DecorConfig.items do
@@ -32,6 +46,7 @@ for _, item in DecorConfig.items do
 		id = item.id,
 		name = item.name,
 		price = item.price,
+		robuxPrice = ProductPrices.load(robuxProductByItemId[item.id]),
 		boostPercent = item.boostPercent,
 		imageId = item.imageId,
 	})
@@ -44,7 +59,7 @@ local function inventoryIsFull(): boolean
 			count += 1
 		end
 	end
-	return count >= InventoryConfig.maxItems
+	return count >= InventoryConfig.getCapacity(Data.inventoryCapacityPurchases())
 end
 
 function DecorShopServiceClient:init()
@@ -55,8 +70,8 @@ function DecorShopServiceClient:init()
 
 	local networker = Networker.client.new("DecorShopService", DecorShopServiceClient)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
-	playPurchase = ShopPurchaseEffect.mount(playerGui, "DecorShopPurchaseEffect")
-	showFullNotice = ShopRestockNotice.mount(playerGui, "INVENTORY FULL", "DecorShopFullNotice")
+	playPurchase, playRobuxFeedback = ShopPurchaseEffect.mount(playerGui, "DecorShopPurchaseEffect")
+	showFullNotice = ShopRestockNotice.mount(playerGui, "INVENTORY FULL!", "DecorShopFullNotice", true)
 
 	local open = Vide.source(false)
 	Data.money.Changed(function(value: number)
@@ -100,6 +115,25 @@ function DecorShopServiceClient:init()
 				end)
 				networker:fire("buy", itemId, requestId)
 				return true
+			end,
+			onRobuxBuy = function(itemId: string, startPosition: Vector2)
+				local productId = robuxProductByItemId[itemId]
+				local item = DecorConfig.get(itemId)
+				if not productId or not item then
+					return
+				end
+				local pending = { imageId = item.imageId, position = startPosition }
+				pendingRobuxPurchases[productId] = pending
+				task.delay(600, function()
+					if pendingRobuxPurchases[productId] == pending then
+						pendingRobuxPurchases[productId] = nil
+					end
+				end)
+				local ok, err = pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, productId)
+				if not ok then
+					pendingRobuxPurchases[productId] = nil
+					warn(`Could not open Robux purchase prompt: {err}`)
+				end
 			end,
 		})
 	end, playerGui)
@@ -171,6 +205,27 @@ function DecorShopServiceClient:showPurchasedItem(requestId: any)
 	local pending = pendingPurchases[requestId]
 	pendingPurchases[requestId] = nil
 	if pending and playPurchase then
+		playPurchase(pending.imageId, pending.position)
+	end
+end
+
+function DecorShopServiceClient:showRobuxPurchased(itemId: any)
+	if typeof(itemId) ~= "string" then
+		return
+	end
+	local productId = robuxProductByItemId[itemId]
+	if not productId then
+		return
+	end
+	local pending = pendingRobuxPurchases[productId]
+	if not pending then
+		return
+	end
+	pendingRobuxPurchases[productId] = nil
+	if playRobuxFeedback then
+		playRobuxFeedback(pending.position)
+	end
+	if playPurchase then
 		playPurchase(pending.imageId, pending.position)
 	end
 end

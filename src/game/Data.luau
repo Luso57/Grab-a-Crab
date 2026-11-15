@@ -1,4 +1,3 @@
-local FileSyncReplicationService = game:GetService("FileSyncReplicationService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataServiceTyped = require(ReplicatedStorage.Packages.DataServiceTyped)
@@ -6,8 +5,8 @@ local DataTemplate = require(ReplicatedStorage.Source.Game.Items.DataTemplate)
 
 return DataServiceTyped({
 	template = DataTemplate,
-	profileStoreIndex = "TEST",
+	profileStoreIndex = "Playtest3",
 	useMock = false,
-	resetData = true,
+	resetData = false,
 	dontSave = false,
 })

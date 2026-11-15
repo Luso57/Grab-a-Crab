@@ -10,7 +10,7 @@ local MoneyHud = require(script.Parent.UI.MoneyHud)
 
 local MoneyServiceClient = {}
 local initialized = false
-local playCollection: (() -> ())? = nil
+local playCollection: ((Vector2?) -> ())? = nil
 
 function MoneyServiceClient:init()
 	if initialized then
@@ -37,11 +37,12 @@ function MoneyServiceClient:init()
 			end
 		end
 	end
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	Vide.mount(function()
-		local gui, play = MoneyHud({ balance = balance })
+		local gui, play = MoneyHud({ balance = balance }, playerGui)
 		playCollection = play
 		return gui
-	end, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	end, playerGui)
 
 	Data.money.Changed(function(value: number)
 		local now = os.clock()
@@ -78,10 +79,10 @@ function MoneyServiceClient:init()
 	end
 end
 
-function MoneyServiceClient:playCollection()
+function MoneyServiceClient:playCollection(startPosition: Vector2?)
 	local play = playCollection
 	if play then
-		play()
+		play(startPosition)
 	end
 end
 

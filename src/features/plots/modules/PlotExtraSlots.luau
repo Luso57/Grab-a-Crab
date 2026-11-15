@@ -3,6 +3,7 @@
 local SLOT_ORDER = { "Left1", "Right1", "Left2", "Right2", "Left3", "Right3" }
 local FLOOR_NAMES = { "PlotSecondFloor", "PlotThirdFloor", "PlotFourthFloor" }
 local SLOTS_PER_FLOOR = #SLOT_ORDER
+local BASE_PRICE = 100000
 
 local PlotExtraSlots = {}
 
@@ -28,7 +29,7 @@ function PlotExtraSlots.getPrice(purchasedCount: number): number?
 	if count >= PlotExtraSlots.maxCount then
 		return nil
 	end
-	return math.floor(2500 * 1.966 ^ count + 0.5) * 2
+	return math.floor(BASE_PRICE * 10 ^ (count / 2) + 0.5)
 end
 
 function PlotExtraSlots.getSlotInfo(purchaseNumber: number): (number?, string?, string?)

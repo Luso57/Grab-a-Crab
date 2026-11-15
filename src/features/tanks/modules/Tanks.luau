@@ -11,6 +11,7 @@ local definitions: { [string]: TankDefinition } = {
 	Small = { name = "Small Tank", modelName = "SmallTank", capacity = 2 },
 	Medium = { name = "Medium Tank", modelName = "MediumTank", capacity = 3 },
 	Large = { name = "Large Tank", modelName = "LargeTank", capacity = 4 },
+	Huge = { name = "Huge Tank", modelName = "SuperLargeTank", capacity = 20 },
 }
 
 local Tanks = {}

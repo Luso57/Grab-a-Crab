@@ -69,6 +69,9 @@
             },
             "Modules": {
               "$className": "Folder",
+              "GiganticEggConfig": {
+                "$path": "src/features/eggconveyor/modules/GiganticEggConfig.luau"
+              },
               "LuckConfig": {
                 "$path": "src/features/eggconveyor/modules/LuckConfig.luau"
               }
@@ -77,6 +80,9 @@
               "$className": "Folder",
               "EggMoneyWarning": {
                 "$path": "src/features/eggconveyor/ui/EggMoneyWarning.luau"
+              },
+              "GiganticEggCountdown": {
+                "$path": "src/features/eggconveyor/ui/GiganticEggCountdown.luau"
               },
               "LuckSign": {
                 "$path": "src/features/eggconveyor/ui/LuckSign.luau"
@@ -152,6 +158,24 @@
               }
             }
           },
+          "Leaderboard": {
+            "$className": "Folder",
+            "LeaderboardServiceClient": {
+              "$path": "src/features/leaderboard/LeaderboardServiceClient.luau"
+            },
+            "Modules": {
+              "$className": "Folder",
+              "LeaderboardConfig": {
+                "$path": "src/features/leaderboard/modules/LeaderboardConfig.luau"
+              }
+            },
+            "UI": {
+              "$className": "Folder",
+              "LeaderboardBoard": {
+                "$path": "src/features/leaderboard/ui/LeaderboardBoard.luau"
+              }
+            }
+          },
           "Money": {
             "$className": "Folder",
             "MoneyServiceClient": {
@@ -162,6 +186,24 @@
               "MoneyHud": {
                 "$path": "src/features/money/ui/MoneyHud.luau"
               }
+            }
+          },
+          "Monotization": {
+            "$className": "Folder",
+            "Modules": {
+              "$className": "Folder",
+              "CoinBundles": {
+                "$path": "src/features/monotization/modules/CoinBundles.luau"
+              },
+              "LuckBoost": {
+                "$path": "src/features/monotization/modules/LuckBoost.luau"
+              }
+            },
+            "productids": {
+              "$path": "src/features/monotization/productids.luau"
+            },
+            "ProductPrices": {
+              "$path": "src/features/monotization/ProductPrices.luau"
             }
           },
           "Plots": {
@@ -191,6 +233,21 @@
               }
             }
           },
+          "Rewards": {
+            "$className": "Folder",
+            "RewardsServiceClient": {
+              "$path": "src/features/rewards/RewardsServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "StarterPackAnnouncement": {
+                "$path": "src/features/rewards/ui/StarterPackAnnouncement.luau"
+              },
+              "StarterPackRoot": {
+                "$path": "src/features/rewards/ui/StarterPackRoot.luau"
+              }
+            }
+          },
           "SellStand": {
             "$className": "Folder",
             "SellConfig": {
@@ -203,6 +260,18 @@
               "$className": "Folder",
               "SellDialogue": {
                 "$path": "src/features/sellStand/ui/SellDialogue.luau"
+              }
+            }
+          },
+          "Settings": {
+            "$className": "Folder",
+            "SettingsServiceClient": {
+              "$path": "src/features/settings/SettingsServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "SettingsRoot": {
+                "$path": "src/features/settings/ui/SettingsRoot.luau"
               }
             }
           },
@@ -238,10 +307,25 @@
           },
           "Shopmono": {
             "$className": "Folder",
+            "ShopMonoServiceClient": {
+              "$path": "src/features/shopmono/ShopMonoServiceClient.luau"
+            },
             "UI": {
               "$className": "Folder",
+              "AutoCollectAnnouncement": {
+                "$path": "src/features/shopmono/ui/AutoCollectAnnouncement.luau"
+              },
               "ShopMonoButton": {
                 "$path": "src/features/shopmono/ui/ShopMonoButton.luau"
+              },
+              "ShopMonoCoins": {
+                "$path": "src/features/shopmono/ui/ShopMonoCoins.luau"
+              },
+              "ShopMonoPasses": {
+                "$path": "src/features/shopmono/ui/ShopMonoPasses.luau"
+              },
+              "ShopMonoRoot": {
+                "$path": "src/features/shopmono/ui/ShopMonoRoot.luau"
               }
             }
           },
@@ -295,6 +379,24 @@
                 "$path": "src/features/tanks/ui/TankPopupRoot.luau"
               }
             }
+          },
+          "Tutorial": {
+            "$className": "Folder",
+            "TutorialServiceClient": {
+              "$path": "src/features/tutorial/TutorialServiceClient.luau"
+            },
+            "UI": {
+              "$className": "Folder",
+              "TutorialArrowPath": {
+                "$path": "src/features/tutorial/ui/TutorialArrowPath.luau"
+              },
+              "TutorialShopPrompt": {
+                "$path": "src/features/tutorial/ui/TutorialShopPrompt.luau"
+              },
+              "TutorialStrip": {
+                "$path": "src/features/tutorial/ui/TutorialStrip.luau"
+              }
+            }
           }
         },
         "Core": {
@@ -319,6 +421,9 @@
             "Rarities": {
               "$path": "src/game/items/Rarities.luau"
             }
+          },
+          "PopupMenuState": {
+            "$path": "src/game/PopupMenuState.luau"
           }
         }
       },
@@ -411,6 +516,18 @@
             "$path": "src/features/inventory/InventoryServiceServer.luau"
           }
         },
+        "Leaderboard": {
+          "$className": "Folder",
+          "LeaderboardServiceServer": {
+            "$path": "src/features/leaderboard/LeaderboardServiceServer.luau"
+          }
+        },
+        "Monotization": {
+          "$className": "Folder",
+          "MonotizationServiceServer": {
+            "$path": "src/features/monotization/MonotizationServiceServer.luau"
+          }
+        },
         "Plots": {
           "$className": "Folder",
           "Classes": {
@@ -421,6 +538,12 @@
           },
           "PlotServiceServer": {
             "$path": "src/features/plots/PlotServiceServer.luau"
+          }
+        },
+        "Rewards": {
+          "$className": "Folder",
+          "RewardsServiceServer": {
+            "$path": "src/features/rewards/RewardsServiceServer.luau"
           }
         },
         "SellStand": {
@@ -435,10 +558,28 @@
             "$path": "src/features/sellStand/SellStandServiceServer.luau"
           }
         },
+        "Settings": {
+          "$className": "Folder",
+          "SettingsServiceServer": {
+            "$path": "src/features/settings/SettingsServiceServer.luau"
+          }
+        },
         "Shop": {
           "$className": "Folder",
           "ShopServiceServer": {
             "$path": "src/features/shop/ShopServiceServer.luau"
+          }
+        },
+        "Shopmono": {
+          "$className": "Folder",
+          "ShopMonoServiceServer": {
+            "$path": "src/features/shopmono/ShopMonoServiceServer.luau"
+          },
+          "UI": {
+            "$className": "Folder",
+            "ServerLuckAnnouncement": {
+              "$path": "src/features/shopmono/ui/ServerLuckAnnouncement.luau"
+            }
           }
         },
         "Tanks": {
@@ -457,6 +598,12 @@
           },
           "TankServiceServer": {
             "$path": "src/features/tanks/TankServiceServer.luau"
+          }
+        },
+        "Tutorial": {
+          "$className": "Folder",
+          "TutorialServiceServer": {
+            "$path": "src/features/tutorial/TutorialServiceServer.luau"
           }
         },
         "Monetization": {

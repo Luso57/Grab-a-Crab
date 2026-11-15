@@ -5,11 +5,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local GiganticEggConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.GiganticEggConfig)
+local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
+local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
+local Incubators = require(ReplicatedStorage.Source.Features.Incubators.Modules.Incubators)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
 type SavedItem = {
 	itemId: string,
 	incubatorInstanceId: string?,
 	hatchAtUnixMs: number?,
+	isGiganticEgg: boolean?,
 }
 
 local PlacedIncubatorServer = {}
@@ -27,10 +33,26 @@ export type PlacedIncubatorServer = typeof(setmetatable({} :: {
 	hatchAtUnixMs: number?,
 	visual: Model?,
 	destroyed: boolean,
+	hatchNowPending: boolean,
 }, PlacedIncubatorServer))
 
 local function inventoryService()
 	return require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+end
+
+local HATCH_NOW_MIN_DURATION_MS = 5 * 60 * 1000
+
+local function canOfferHatchNow(self: PlacedIncubatorServer, eggId: string): boolean
+	local itemId = self.model:GetAttribute("ItemId")
+	local incubatorId = if itemId == "Incubator" then "Incubator"
+		elseif typeof(itemId) == "string" then string.match(itemId, "^Incubator%.([%w_]+)$") else nil
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local eggTemplates = if assets then assets:FindFirstChild("Eggs") else nil
+	local eggTemplate = if eggTemplates then eggTemplates:FindFirstChild(eggId) else nil
+	local crabId = if eggTemplate then eggTemplate:GetAttribute("CrabId") else nil
+	local crab = if typeof(crabId) == "string" then Crabs.get(crabId) else nil
+	local duration = if incubatorId and crab then Incubators.getHatchDurationMs(incubatorId, eggId, crab.rarity) else nil
+	return duration ~= nil and duration >= HATCH_NOW_MIN_DURATION_MS
 end
 
 local function moneyPadSide(self: PlacedIncubatorServer): Vector3?
@@ -100,6 +122,7 @@ function PlacedIncubatorServer.new(owner: Player, plotModel: Model, model: Model
 		hatchAtUnixMs = nil :: number?,
 		visual = nil :: Model?,
 		destroyed = false,
+		hatchNowPending = false,
 	}, PlacedIncubatorServer) :: PlacedIncubatorServer
 
 	prompt.Triggered:Connect(function(player)
@@ -112,11 +135,26 @@ function PlacedIncubatorServer.new(owner: Player, plotModel: Model, model: Model
 			return
 		end
 		self:occupy(eggInstanceId, eggId, hatchAtUnixMs)
+		TutorialServiceServer:eggIncubated(player, eggInstanceId)
+		if self.model:GetAttribute("ItemId") == "Incubator.InstantHatch" then
+			local completed, crabId, weightGrams = inventoryService():completeIncubation(player, eggInstanceId, instanceId, hatchAtUnixMs)
+			if completed then
+				TutorialServiceServer:eggOpened(player, eggInstanceId)
+				local eggVisual = self.visual
+				local eggPivot = if eggVisual then eggVisual:GetPivot() else nil
+				local eggScale = if eggVisual then eggVisual:GetScale() else nil
+				self:clear()
+				if crabId and weightGrams then
+					local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
+					IncubatorServiceServer:showHatch(player, crabId, weightGrams, eggId, eggPivot, eggScale, moneyPadSide(self), eggInstanceId)
+				end
+			end
+		end
 	end)
 	return self
 end
 
-function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: string)
+function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: string, isGiganticEgg: boolean)
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local eggs = if assets then assets:FindFirstChild("Eggs") else nil
 	local template = if eggs then eggs:FindFirstChild(eggId) else nil
@@ -130,7 +168,7 @@ function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: strin
 		visual:Destroy()
 		return
 	end
-	visual:ScaleTo(visual:GetScale() * 2 / height)
+	visual:ScaleTo(visual:GetScale() * 2 * (if isGiganticEgg then GiganticEggConfig.VISUAL_SCALE else 1) / height)
 	local surface = self.prompt.Parent :: BasePart
 	local boxCFrame, boxSize = visual:GetBoundingBox()
 	local pivotToBottom = visual:GetPivot().Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
@@ -153,7 +191,7 @@ function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: strin
 		local hatchPrompt = Instance.new("ProximityPrompt")
 		hatchPrompt.Name = "HatchEggPrompt"
 		hatchPrompt.ActionText = "Hatch"
-		hatchPrompt.ObjectText = "Egg"
+		hatchPrompt.ObjectText = if isGiganticEgg then "Gigantic Egg" else "Egg"
 		hatchPrompt.KeyboardKeyCode = Enum.KeyCode.E
 		hatchPrompt.HoldDuration = 0
 		hatchPrompt.MaxActivationDistance = 10
@@ -163,13 +201,14 @@ function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: strin
 		hatchPrompt.Triggered:Connect(function(player)
 			local eggInstanceId = self.eggInstanceId
 			local hatchAtUnixMs = self.hatchAtUnixMs
-			if not eggInstanceId or not hatchAtUnixMs or not hatchPrompt.Enabled
+			if not eggInstanceId or not hatchAtUnixMs or not hatchPrompt.Enabled or self.hatchNowPending
 				or not isOwnerInRange(self, player)
 				or DateTime.now().UnixTimestampMillis < hatchAtUnixMs then
 				return
 			end
 			local completed, crabId, weightGrams = inventoryService():completeIncubation(player, eggInstanceId, self.instanceId, hatchAtUnixMs)
 			if completed then
+				TutorialServiceServer:eggOpened(player, eggInstanceId)
 				local hatchedEggId = self.eggId
 				local eggVisual = self.visual
 				local eggPivot = if eggVisual then eggVisual:GetPivot() else nil
@@ -182,10 +221,59 @@ function PlacedIncubatorServer.showEgg(self: PlacedIncubatorServer, eggId: strin
 			end
 		end)
 		self.hatchPrompt = hatchPrompt
+		if canOfferHatchNow(self, eggId) then
+			local hatchNowPrompt = Instance.new("ProximityPrompt")
+			hatchNowPrompt.Name = "HatchNowPrompt"
+			hatchNowPrompt.ActionText = "Hatch Now"
+			hatchNowPrompt.ObjectText = "Incubating Egg"
+			hatchNowPrompt.KeyboardKeyCode = Enum.KeyCode.F
+			hatchNowPrompt.HoldDuration = 0
+			hatchNowPrompt.MaxActivationDistance = 10
+			hatchNowPrompt.RequiresLineOfSight = false
+			hatchNowPrompt.Enabled = true
+			hatchNowPrompt.Parent = eggPart
+			hatchNowPrompt.Triggered:Connect(function(player)
+				if self.eggInstanceId and self.hatchAtUnixMs and DateTime.now().UnixTimestampMillis < self.hatchAtUnixMs then
+					local service = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
+					service:prepareHatchNow(player, self.instanceId, self.eggInstanceId, self.hatchAtUnixMs)
+				end
+			end)
+		end
 	end
 end
 
+function PlacedIncubatorServer.canStartHatchNow(self: PlacedIncubatorServer, player: Player, eggId: string, hatchAt: number): boolean
+	return not self.destroyed and self.eggInstanceId == eggId and self.hatchAtUnixMs == hatchAt
+		and self.eggId ~= nil and canOfferHatchNow(self, self.eggId)
+		and DateTime.now().UnixTimestampMillis < hatchAt and not self.hatchNowPending and isOwnerInRange(self, player)
+end
+
+function PlacedIncubatorServer:setHatchNowPending(self: PlacedIncubatorServer, pending: boolean)
+	self.hatchNowPending = pending
+	if self.hatchPrompt then self.hatchPrompt.Enabled = not pending and (self.hatchAtUnixMs ~= nil and DateTime.now().UnixTimestampMillis >= self.hatchAtUnixMs) end
+end
+
+function PlacedIncubatorServer:canCompleteHatchNow(eggId: string, hatchAt: number): boolean
+	return not self.destroyed and self.eggInstanceId == eggId and self.hatchAtUnixMs == hatchAt
+end
+
+function PlacedIncubatorServer:completeHatchNow(): (string?, number?, string?, CFrame?, number?, Vector3?)
+	local player, eggInstanceId, hatchAtUnixMs = self.owner, self.eggInstanceId, self.hatchAtUnixMs
+	if not eggInstanceId or not hatchAtUnixMs then return nil end
+	local eggId = self.eggId
+	local visual = self.visual
+	local pivot = if visual then visual:GetPivot() else nil
+	local scale = if visual then visual:GetScale() else nil
+	local direction = moneyPadSide(self)
+	local completed, crabId, weight = inventoryService():completeIncubation(player, eggInstanceId, self.instanceId, hatchAtUnixMs, true)
+	if not completed then return nil end
+	TutorialServiceServer:eggOpened(player, eggInstanceId)
+	self:clear()
+	return crabId, weight, eggId, pivot, scale, direction
+end
+
 function PlacedIncubatorServer.clear(self: PlacedIncubatorServer)
+	self.hatchNowPending = false
 	if self.visual then
 		self.visual:Destroy()
 		self.visual = nil
@@ -209,7 +297,9 @@ function PlacedIncubatorServer.occupy(self: PlacedIncubatorServer, eggInstanceId
 	self.model:SetAttribute("IncubatingEggId", eggInstanceId)
 	self.model:SetAttribute("IncubatingHatchAtUnixMs", hatchAtUnixMs)
 	self.prompt.Enabled = false
-	self:showEgg(eggId)
+	local data = Data[self.owner]
+	local item = if data then (data.inventory() :: { [string]: SavedItem })[eggInstanceId] else nil
+	self:showEgg(eggId, item ~= nil and item.isGiganticEgg == true)
 	local function finish()
 		if self.destroyed or self.eggInstanceId ~= eggInstanceId or self.hatchAtUnixMs ~= hatchAtUnixMs then
 			return
@@ -220,7 +310,7 @@ function PlacedIncubatorServer.occupy(self: PlacedIncubatorServer, eggInstanceId
 			return
 		end
 		if self.hatchPrompt then
-			self.hatchPrompt.Enabled = true
+			self.hatchPrompt.Enabled = not self.hatchNowPending
 		end
 	end
 	task.delay(math.max(0, (hatchAtUnixMs - DateTime.now().UnixTimestampMillis) / 1000), finish)

@@ -1,11 +1,15 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 
 local create = Vide.create
 local SellDialogue = {}
+local ROW_HEIGHT = 48
+local HIDDEN_ROW_POSITION = UDim2.fromOffset(0, -ROW_HEIGHT)
+local SHOWN_ROW_POSITION = UDim2.fromOffset(0, 0)
 
 -- The menu follows the sell stand Noob through positions supplied by the client service.
 
@@ -48,21 +52,37 @@ local function strip(): Frame
 end
 
 local function option(name: string, number: string, title: string, order: number, visible: any, onClick: () -> ()): TextButton
+	local hoverScale = create "UIScale" { Scale = 1 } :: UIScale
+	local hoverTween: Tween? = nil
+	local function setHoverScale(scale: number)
+		if hoverTween then hoverTween:Cancel() end
+		hoverTween = TweenService:Create(hoverScale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = scale })
+		hoverTween:Play()
+	end
 	return create "TextButton" {
 		Name = name,
 		LayoutOrder = order,
-		Size = UDim2.new(1, 0, 0, 62),
+		Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
+		ClipsDescendants = true,
 		Visible = visible,
 		Text = "",
 		Activated = onClick,
-		strip(),
-		create "TextLabel" {
+		MouseEnter = function() setHoverScale(1.045) end,
+		MouseLeave = function() setHoverScale(1) end,
+		hoverScale,
+		create "Frame" {
+			Name = "Content",
+			Position = SHOWN_ROW_POSITION,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			strip(),
+			create "TextLabel" {
 			Name = "Number",
-			Position = UDim2.fromOffset(12, 0),
-			Size = UDim2.new(0, 56, 1, 0),
+			Position = UDim2.fromOffset(8, 0),
+			Size = UDim2.new(0, 42, 1, 0),
 			BackgroundTransparency = 1,
 			Text = number,
 			TextColor3 = Color3.fromRGB(255, 173, 55),
@@ -71,12 +91,12 @@ local function option(name: string, number: string, title: string, order: number
 			TextScaled = true,
 			Font = Enum.Font.GothamBlack,
 			ZIndex = 2,
-			create "UITextSizeConstraint" { MaxTextSize = 36 },
+			create "UITextSizeConstraint" { MaxTextSize = 28 },
 		},
 		create "TextLabel" {
 			Name = "Choice",
-			Position = UDim2.fromOffset(78, 0),
-			Size = UDim2.new(1, -94, 1, 0),
+			Position = UDim2.fromOffset(58, 0),
+			Size = UDim2.new(1, -70, 1, 0),
 			BackgroundTransparency = 1,
 			Text = title,
 			TextColor3 = Color3.new(1, 1, 1),
@@ -86,7 +106,8 @@ local function option(name: string, number: string, title: string, order: number
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.GothamBlack,
 			ZIndex = 2,
-			create "UITextSizeConstraint" { MaxTextSize = 30 },
+			create "UITextSizeConstraint" { MaxTextSize = 23 },
+		},
 		},
 	} :: TextButton
 end
@@ -95,8 +116,14 @@ function SellDialogue.create(props: Props): ScreenGui
 	local inQuote = function(): boolean
 		return props.category() ~= ""
 	end
+	local mainOptions = {
+		option("SellEggs", "1.", "[Sell All Eggs]", 1, function() return not inQuote() end, function() props.onCategory("Eggs") end),
+		option("SellCrabs", "2.", "[Sell All Crabs]", 2, function() return not inQuote() end, function() props.onCategory("Crabs") end),
+		option("SellEquipment", "3.", "[Sell Tanks / Incubators]", 3, function() return not inQuote() end, function() props.onCategory("Equipment") end),
+		option("Exit", "4.", "[Exit]", 4, function() return not inQuote() end, props.onExit),
+	}
 
-	return create "ScreenGui" {
+	local screen = create "ScreenGui" {
 		Name = "SellDialogue",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
@@ -110,7 +137,7 @@ function SellDialogue.create(props: Props): ScreenGui
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = props.greetingPosition,
 			Size = function()
-				return UDim2.fromOffset(props.greetingWidth(), 58)
+				return UDim2.fromOffset(props.greetingWidth(), 44)
 			end,
 			BackgroundTransparency = 1,
 			Text = props.greetingText,
@@ -119,27 +146,27 @@ function SellDialogue.create(props: Props): ScreenGui
 			TextStrokeTransparency = 0,
 			TextScaled = true,
 			Font = Enum.Font.GothamBlack,
-			create "UITextSizeConstraint" { MaxTextSize = 34 },
+			create "UITextSizeConstraint" { MaxTextSize = 27 },
 		},
 		create "Frame" {
 			Name = "Options",
 			Position = props.menuPosition,
 			Size = function()
-				return UDim2.fromOffset(props.menuWidth(), 340)
+				return UDim2.fromOffset(props.menuWidth(), 250)
 			end,
 			BackgroundTransparency = 1,
 			create "UIListLayout" {
-				Padding = UDim.new(0, 9),
+				Padding = UDim.new(0, 7),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			},
-			option("SellEggs", "1.", "[Sell All Eggs]", 1, function() return not inQuote() end, function() props.onCategory("Eggs") end),
-			option("SellCrabs", "2.", "[Sell All Crabs]", 2, function() return not inQuote() end, function() props.onCategory("Crabs") end),
-			option("SellEquipment", "3.", "[Sell Tanks / Incubators]", 3, function() return not inQuote() end, function() props.onCategory("Equipment") end),
-			option("Exit", "4.", "[Exit]", 4, function() return not inQuote() end, props.onExit),
+			mainOptions[1],
+			mainOptions[2],
+			mainOptions[3],
+			mainOptions[4],
 			create "Frame" {
 				Name = "Summary",
 				LayoutOrder = 1,
-				Size = UDim2.new(1, 0, 0, 88),
+				Size = UDim2.new(1, 0, 0, 70),
 				BackgroundTransparency = 1,
 				Visible = inQuote,
 				strip(),
@@ -158,7 +185,7 @@ function SellDialogue.create(props: Props): ScreenGui
 					TextWrapped = true,
 					Font = Enum.Font.GothamBlack,
 					ZIndex = 2,
-					create "UITextSizeConstraint" { MaxTextSize = 27 },
+					create "UITextSizeConstraint" { MaxTextSize = 22 },
 				},
 			},
 			option("Confirm", "1.", "[Confirm Sale]", 2, function() return inQuote() and not props.pending() end, props.onConfirm),
@@ -166,7 +193,7 @@ function SellDialogue.create(props: Props): ScreenGui
 			create "TextLabel" {
 				Name = "Feedback",
 				LayoutOrder = 5,
-				Size = UDim2.new(1, 0, 0, 48),
+				Size = UDim2.new(1, 0, 0, 38),
 				BackgroundTransparency = 1,
 				Visible = function() return props.message() ~= "" end,
 				Text = props.message,
@@ -176,10 +203,32 @@ function SellDialogue.create(props: Props): ScreenGui
 				TextScaled = true,
 				TextWrapped = true,
 				Font = Enum.Font.GothamBlack,
-				create "UITextSizeConstraint" { MaxTextSize = 24 },
+				create "UITextSizeConstraint" { MaxTextSize = 20 },
 			},
 		} :: Frame,
 	} :: ScreenGui
+	local animationVersion = 0
+	local rowTweens: { Tween } = {}
+	Vide.effect(function()
+		local shouldOpen = props.isOpen()
+		animationVersion += 1
+		local version = animationVersion
+		for _, tween in rowTweens do tween:Cancel() end
+		table.clear(rowTweens)
+		for index, button in mainOptions do
+			local content = button:FindFirstChild("Content") :: Frame
+			content.Position = HIDDEN_ROW_POSITION
+			if shouldOpen then
+				task.delay((index - 1) * 0.09, function()
+					if animationVersion ~= version or not props.isOpen() then return end
+					local tween = TweenService:Create(content, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = SHOWN_ROW_POSITION })
+					table.insert(rowTweens, tween)
+					tween:Play()
+				end)
+			end
+		end
+	end)
+	return screen
 end
 
 return SellDialogue

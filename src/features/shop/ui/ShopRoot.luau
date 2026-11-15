@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local ShopItemCard = require(script.Parent.ShopItemCard)
@@ -12,6 +13,7 @@ export type ItemView = {
 	id: string,
 	name: string?,
 	price: number?,
+	robuxPrice: (() -> string)?,
 	boostPercent: number?,
 	imageId: number?,
 	imageScale: number?,
@@ -29,15 +31,17 @@ export type Props = {
 	titleMaxTextSize: number?,
 	onClose: () -> (),
 	onBuy: (string, Vector2) -> boolean,
+	onRobuxBuy: (string, Vector2) -> (),
 }
 
 local function ShopRoot(props: Props): Instance
 	local cards: { ImageLabel } = {}
+	local compact = Vide.source(false)
 	local wideTitle = #(props.title or "SHOP") > 6
 	for _, item in props.items do
-		table.insert(cards, ShopItemCard({ id = item.id, name = item.name, stock = function()
+		table.insert(cards, ShopItemCard({ id = item.id, name = item.name, compact = compact, stock = function()
 			return props.stock(item.id)
-		end, price = item.price, boostPercent = item.boostPercent, imageId = item.imageId, imageScale = item.imageScale, imageOffsetX = item.imageOffsetX, onBuy = props.onBuy }))
+		end, price = item.price, robuxPrice = item.robuxPrice, boostPercent = item.boostPercent, imageId = item.imageId, imageScale = item.imageScale, imageOffsetX = item.imageOffsetX, onBuy = props.onBuy, onRobuxBuy = props.onRobuxBuy }))
 	end
 
 	local visible = Vide.source(false)
@@ -100,6 +104,7 @@ local function ShopRoot(props: Props): Instance
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 34,
 		Enabled = visible,
 
 		openSound,
@@ -199,14 +204,36 @@ local function ShopRoot(props: Props): Instance
 	local background = screenGui:FindFirstChild("Background") :: ImageLabel
 	local itemList = background:FindFirstChild("ItemList") :: ScrollingFrame
 	local function resizeCards()
-		-- Two cards fit inside the viewport, including the gap and vertical padding.
-		local cardHeight = math.max(184, math.floor((itemList.AbsoluteSize.Y - 24) / 2))
+		local camera = Workspace.CurrentCamera
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		local isCompact = math.min(viewport.X, viewport.Y) < 600
+		compact(isCompact)
+		itemList.Position = UDim2.fromScale(0.5, if isCompact then 0.58 else 0.56)
+		itemList.Size = UDim2.fromScale(0.91, if isCompact then 0.78 else 0.81)
+		-- Show one compact card and a small preview of the next card on phones.
+		local cardHeight = math.max(if isCompact then 160 else 184, math.floor((itemList.AbsoluteSize.Y - 24) / 2))
 		for _, card in cards do
 			card.Size = UDim2.new(1, -10, 0, cardHeight)
 		end
 	end
 	itemList:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeCards)
-	resizeCards()
+	local viewportConnection: RBXScriptConnection? = nil
+	local function watchCamera()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(resizeCards) else nil
+		resizeCards()
+	end
+	local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+	screenGui.Destroying:Connect(function()
+		cameraConnection:Disconnect()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+	end)
+	watchCamera()
 	local shownPosition = UDim2.fromScale(0.5, 0.53)
 	local hiddenPosition = UDim2.fromScale(0.5, 1.6)
 	local panelTween: Tween? = nil

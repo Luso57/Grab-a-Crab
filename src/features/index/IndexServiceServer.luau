@@ -9,13 +9,14 @@ local IndexMilestones = require(ReplicatedStorage.Source.Features.Index.Modules.
 
 local IndexServiceServer = {}
 local initialized = false
+local networker = nil
 
 function IndexServiceServer:init()
 	if initialized then
 		return
 	end
 	initialized = true
-	Networker.server.new("IndexService", self, { self.claim })
+	networker = Networker.server.new("IndexService", self, { self.claim })
 end
 
 function IndexServiceServer:claim(player: Player, sizeName: any, target: any)
@@ -44,6 +45,9 @@ function IndexServiceServer:claim(player: Player, sizeName: any, target: any)
 	end
 	data.claimedIndexMilestones[IndexMilestones.key(sizeName, target)](true)
 	data.money(balance + coins)
+	if networker and player.Parent == Players then
+		networker:fire(player, "claimSucceeded", sizeName, target, IndexMilestones.growthLuck(data.claimedIndexMilestones(), data.starterPackClaimed()))
+	end
 end
 
 return IndexServiceServer

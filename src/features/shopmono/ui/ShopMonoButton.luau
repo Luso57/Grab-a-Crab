@@ -12,7 +12,7 @@ local ShopMonoButton = {}
 local BUTTON_SIZE = 80
 local CENTER_OFFSET = 44
 
-function ShopMonoButton.mount(playerGui: PlayerGui)
+function ShopMonoButton.mount(playerGui: PlayerGui, onActivate: () -> ())
 	local hoverScale = create "UIScale" { Scale = 1 }
 	local hoverTween: Tween? = nil
 	local function setHovered(hovered: boolean)
@@ -60,7 +60,7 @@ function ShopMonoButton.mount(playerGui: PlayerGui)
 		MouseLeave = function()
 			setHovered(false)
 		end,
-		Activated = function() end,
+		Activated = onActivate,
 	}
 	hoverScale.Parent = button
 	create "UICorner" { CornerRadius = UDim.new(0, 4) }.Parent = button

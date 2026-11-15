@@ -1,6 +1,7 @@
 --!strict
 
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -8,6 +9,7 @@ local Networker = require(ReplicatedStorage.Packages.Networker)
 local Data = require(ReplicatedStorage.Source.Game.Data).server
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
+local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
 local EggConveyorServer = require(ServerScriptService.Features.EggConveyor.Classes.EggConveyorServer)
 
 local EggConveyorServiceServer = {}
@@ -16,6 +18,22 @@ local templates: { Model } = {}
 local active: { [Model]: EggConveyorServer.EggConveyorServer } = {}
 local buying: { [Player]: boolean } = {}
 local networker = nil
+
+local productIdByRarity = {
+    Common = ProductIds.CommonCrab,
+    Uncommon = ProductIds.UncommonCrab,
+    Rare = ProductIds.RareCrab,
+    Epic = ProductIds.EpicCrab,
+    Legendary = ProductIds.LegendaryCrab,
+    Mythic = ProductIds.MythicCrab,
+}
+
+local EMPTY_PENDING_EGG_PURCHASE = {
+    productId = 0,
+    eggId = "",
+    isGiganticEgg = false,
+    intentId = "",
+}
 
 local function getSavedLuck(player: Player, data: any): number
     local luck = LuckConfig.normalizeLuck(data.conveyorLuck())
@@ -60,7 +78,7 @@ function EggConveyorServiceServer:init()
         return
     end
     templates = Eggs.getTemplates()
-    networker = Networker.server.new("EggConveyor", self, { self.ready, self.buyUpgrade })
+    networker = Networker.server.new("EggConveyor", self, { self.ready, self.buyUpgrade, self.cancelEggProductPurchase })
     Players.PlayerRemoving:Connect(function(player)
         buying[player] = nil
     end)
@@ -75,10 +93,35 @@ function EggConveyorServiceServer:start(plotModel: Model)
         warn("Egg conveyor is unavailable: no egg templates loaded")
         return
     end
-    local conveyor = EggConveyorServer.new(plotModel, templates, function(player: Player)
-        if networker and player.Parent == Players then
-            networker:fire(player, "showNotEnoughMoney")
+    local conveyor = EggConveyorServer.new(plotModel, templates, function(player: Player, eggId: string, isGiganticEgg: boolean)
+        if not networker or player.Parent ~= Players then
+            return
         end
+        local data = Data.Service:waitForData(player)
+        if not data or player.Parent ~= Players then
+            return
+        end
+        local rarity = Eggs.getRarity(eggId)
+        local productId = if rarity then productIdByRarity[rarity] else nil
+        if not productId then
+            networker:fire(player, "showNotEnoughMoney")
+            return
+        end
+
+        local pending = data.pendingEggProductPurchase()
+        if pending.productId ~= 0 then
+            networker:fire(player, "showNotEnoughMoney")
+            return
+        end
+
+        local intentId = HttpService:GenerateGUID(false)
+        data.pendingEggProductPurchase({
+            productId = productId,
+            eggId = eggId,
+            isGiganticEgg = isGiganticEgg,
+            intentId = intentId,
+        })
+        networker:fire(player, "showNotEnoughMoney", productId, intentId)
     end, function(player: Player)
         if networker and player.Parent == Players then
             networker:fire(player, "eggPurchased")
@@ -89,6 +132,20 @@ function EggConveyorServiceServer:start(plotModel: Model)
     end
     active[plotModel] = conveyor
     conveyor:start()
+end
+
+function EggConveyorServiceServer:cancelEggProductPurchase(player: Player, intentId: any)
+    if typeof(intentId) ~= "string" or #intentId > 64 or player.Parent ~= Players then
+        return
+    end
+    local data = Data.Service:waitForData(player)
+    if not data or player.Parent ~= Players then
+        return
+    end
+    local pending = data.pendingEggProductPurchase()
+    if pending.intentId == intentId and pending.productId > 0 then
+        data.pendingEggProductPurchase(table.clone(EMPTY_PENDING_EGG_PURCHASE))
+    end
 end
 
 function EggConveyorServiceServer:ready(player: Player)
@@ -121,6 +178,9 @@ function EggConveyorServiceServer:buyUpgrade(player: Player)
         local luck = getSavedLuck(player, data)
         local price = LuckConfig.getUpgradePrice(luck)
         if not price then
+            return
+        end
+        if LuckConfig.countDiscovered(data.discoveredCrabs()) < LuckConfig.getRequiredDiscoveries(luck) then
             return
         end
         local money = data.money()

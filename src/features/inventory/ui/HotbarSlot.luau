@@ -51,6 +51,18 @@ end
 
 local HotbarSlot = {}
 
+function HotbarSlot.setTextStroke(button: ImageButton, thin: boolean)
+	for _, descendant in button:GetDescendants() do
+		if descendant:IsA("TextLabel") then
+			descendant.TextStrokeTransparency = if thin then 0.5 else 0
+			local stroke = descendant:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				stroke.Thickness = if thin then 1 else 2
+			end
+		end
+	end
+end
+
 function HotbarSlot.create(props: Props): ImageButton
 	local button = Instance.new("ImageButton")
 	button.Name = `Slot_{props.index}`

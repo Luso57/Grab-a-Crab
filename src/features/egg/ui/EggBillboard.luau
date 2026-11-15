@@ -33,7 +33,7 @@ local function makeLine(name: string, value: string, color: Color3, order: numbe
     return label
 end
 
-function EggBillboard.create(driver: BasePart, topOffset: number, eggName: string, rarity: Rarities.Rarity, price: number): BillboardGui
+function EggBillboard.create(driver: BasePart, topOffset: number, eggName: string, rarity: Rarities.Rarity, price: number, isGigantic: boolean?): BillboardGui
     local billboard = create "BillboardGui" {
         Name = "EggInfoBillboard",
         Adornee = driver,
@@ -58,7 +58,12 @@ function EggBillboard.create(driver: BasePart, topOffset: number, eggName: strin
     layout.Parent = container
     local rarityLine = makeLine("Rarity", rarity, Rarities.getColor(rarity), 1)
     rarityLine.Parent = container
-    local nameLine = makeLine("EggName", eggName, Color3.new(1, 1, 1), 2)
+    local nameLine = makeLine("EggName", (if isGigantic then "GIGANTIC " else "") .. eggName, Color3.new(1, 1, 1), 2)
+    if isGigantic then
+        create "UIGradient" {
+            Color = ColorSequence.new(Color3.fromRGB(255, 210, 50), Color3.fromRGB(255, 80, 220)),
+        }.Parent = nameLine
+    end
     nameLine.Parent = container
     local priceLine = makeLine("Price", if price == 0 then "FREE" else "$" .. CompactNumber.format(price), Color3.fromRGB(75, 235, 100), 3)
     priceLine.Parent = container

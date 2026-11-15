@@ -85,6 +85,8 @@ local function purchase(player: Player, itemId: string, inventoryId: string, req
 			local currentBalance = data.money()
 			if typeof(currentBalance) == "number" and currentBalance < price then
 				showNotEnoughMoney(player, requestId)
+			elseif InventoryServiceServer:isFull(player) then
+				InventoryServiceServer:showInventoryFull(player)
 			end
 			return nil
 		end
@@ -152,6 +154,13 @@ end
 
 function ShopServiceServer:buyIncubator(player: Player, requestId: any)
 	purchase(player, "Incubator", "Incubator", requestId)
+end
+
+function ShopServiceServer:showRobuxPurchased(player: Player, itemId: string, instanceId: string)
+	if networker and player.Parent == Players then
+		local slotIndex = InventoryServiceServer:getHotbarSlot(player, instanceId) or 0
+		networker:fire(player, "showRobuxPurchased", itemId, slotIndex)
+	end
 end
 
 return ShopServiceServer

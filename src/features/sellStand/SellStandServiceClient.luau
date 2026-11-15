@@ -22,9 +22,9 @@ local message = Vide.source("")
 local pending = Vide.source(false)
 local greetingText = Vide.source("")
 local greetingPosition = Vide.source(UDim2.fromOffset(0, 0))
-local greetingWidth = Vide.source(400)
+local greetingWidth = Vide.source(300)
 local menuPosition = Vide.source(UDim2.fromOffset(0, 0))
-local menuWidth = Vide.source(500)
+local menuWidth = Vide.source(390)
 local isOnScreen = Vide.source(false)
 local quoteToken: string? = nil
 local greetingSerial = 0
@@ -111,18 +111,18 @@ function SellStandServiceClient:init()
 			end
 			isOnScreen(true)
 			local viewport = camera.ViewportSize
-			local width = math.min(480, math.max(280, viewport.X * 0.36), viewport.X - 16)
+			local width = math.min(390, math.max(250, viewport.X * 0.30), viewport.X - 16)
 			if menuWidth() ~= width then menuWidth(width) end
-			local x = point.X + 64
-			if x + width > viewport.X - 8 then x = point.X - width - 64 end
+			local x = point.X + 48
+			if x + width > viewport.X - 8 then x = point.X - width - 48 end
 			x = math.clamp(x, 8, math.max(8, viewport.X - width - 8))
-			local y = math.clamp(point.Y - 72, 8, math.max(8, viewport.Y - 348))
+			local y = math.clamp(point.Y - 56, 8, math.max(8, viewport.Y - 258))
 			local nextMenuPosition = UDim2.fromOffset(x, y)
 			if menuPosition() ~= nextMenuPosition then menuPosition(nextMenuPosition) end
-			local headerWidth = math.min(400, viewport.X - 16)
+			local headerWidth = math.min(300, viewport.X - 16)
 			if greetingWidth() ~= headerWidth then greetingWidth(headerWidth) end
 			local headerX = math.clamp(point.X, headerWidth / 2 + 8, math.max(headerWidth / 2 + 8, viewport.X - headerWidth / 2 - 8))
-			local headerY = math.clamp(point.Y - 76, 36, math.max(36, viewport.Y - 36))
+			local headerY = math.clamp(point.Y - 60, 28, math.max(28, viewport.Y - 28))
 			local nextGreetingPosition = UDim2.fromOffset(headerX, headerY)
 			if greetingPosition() ~= nextGreetingPosition then greetingPosition(nextGreetingPosition) end
 		end

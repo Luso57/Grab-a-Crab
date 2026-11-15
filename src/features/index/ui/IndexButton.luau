@@ -12,7 +12,7 @@ local IndexButton = {}
 local BUTTON_SIZE = 80
 local CENTER_OFFSET = 44
 
-function IndexButton.mount(playerGui: PlayerGui, onActivated: () -> ())
+function IndexButton.mount(playerGui: PlayerGui, onActivated: () -> (), hasClaimableReward: () -> boolean)
 	local hoverScale = create "UIScale" { Scale = 1 }
 	local hoverTween: Tween? = nil
 	local function setHovered(hovered: boolean)
@@ -79,6 +79,36 @@ function IndexButton.mount(playerGui: PlayerGui, onActivated: () -> ())
 	}.Parent = title
 	create "UITextSizeConstraint" { MaxTextSize = 20 }.Parent = title
 	title.Parent = button
+	local badge = create "Frame" {
+		Name = "ClaimableBadge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -3, 0, 3),
+		Size = UDim2.fromOffset(25, 25),
+		BackgroundColor3 = Color3.fromRGB(235, 45, 48),
+		BorderSizePixel = 0,
+		Visible = false,
+		ZIndex = 5,
+	}
+	create "UICorner" { CornerRadius = UDim.new(1, 0) }.Parent = badge
+	create "UIStroke" { Color = Color3.fromRGB(35, 7, 8), Thickness = 2 }.Parent = badge
+	local badgeScale = create "UIScale" { Scale = 0.88 }
+	badgeScale.Parent = badge
+	create "TextLabel" {
+		Name = "Exclamation",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "!",
+		TextColor3 = Color3.new(1, 1, 1),
+		TextScaled = true,
+		TextStrokeColor3 = Color3.fromRGB(95, 0, 0),
+		TextStrokeTransparency = 0,
+		Font = Enum.Font.GothamBlack,
+		ZIndex = 6,
+	}.Parent = badge
+	badge.Parent = button
+	local pulse = TweenService:Create(badgeScale, TweenInfo.new(0.65, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+		Scale = 1.12,
+	})
 
 	local screen = create "ScreenGui" {
 		Name = "IndexButtonGui",
@@ -89,6 +119,16 @@ function IndexButton.mount(playerGui: PlayerGui, onActivated: () -> ())
 	}
 	button.Parent = screen
 	Vide.mount(function()
+		Vide.effect(function()
+			local shouldShow = hasClaimableReward()
+			badge.Visible = shouldShow
+			if shouldShow then
+				pulse:Play()
+			else
+				pulse:Cancel()
+				badgeScale.Scale = 0.88
+			end
+		end)
 		return screen
 	end, playerGui)
 
@@ -117,6 +157,7 @@ function IndexButton.mount(playerGui: PlayerGui, onActivated: () -> ())
 		if hoverTween then
 			hoverTween:Cancel()
 		end
+		pulse:Cancel()
 	end)
 	watchCamera()
 end

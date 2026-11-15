@@ -17,9 +17,14 @@ local IncubatorServiceClient = require(ReplicatedStorage.Source.Features.Incubat
 local InventoryServiceClient = require(ReplicatedStorage.Source.Features.Inventory.InventoryServiceClient)
 local MoneyServiceClient = require(ReplicatedStorage.Source.Features.Money.MoneyServiceClient)
 local IndexServiceClient = require(ReplicatedStorage.Source.Features.Index.IndexServiceClient)
-local ShopMonoButton = require(ReplicatedStorage.Source.Features.Shopmono.UI.ShopMonoButton)
+local ShopMonoServiceClient = require(ReplicatedStorage.Source.Features.Shopmono.ShopMonoServiceClient)
+local LeaderboardServiceClient = require(ReplicatedStorage.Source.Features.Leaderboard.LeaderboardServiceClient)
+local RewardsServiceClient = require(ReplicatedStorage.Source.Features.Rewards.RewardsServiceClient)
+local SettingsServiceClient = require(ReplicatedStorage.Source.Features.Settings.SettingsServiceClient)
+local TutorialServiceClient = require(ReplicatedStorage.Source.Features.Tutorial.TutorialServiceClient)
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+SettingsServiceClient:init()
 local hoverSound = Instance.new("Sound")
 hoverSound.Name = "UIHoverSound"
 hoverSound.SoundId = "rbxassetid://" .. assets.UIHoverSound
@@ -46,7 +51,7 @@ for _, descendant in playerGui:GetDescendants() do
 	bindHoverSound(descendant)
 end
 
-ShopMonoButton.mount(playerGui)
+ShopMonoServiceClient:init()
 IndexServiceClient:init()
 
 ShopServiceClient:init()
@@ -57,8 +62,11 @@ else
 	warn("SellStand client modules have not synced to Studio yet")
 end
 PlotServiceClient:init()
+RewardsServiceClient:init()
 EggConveyorServiceClient:init()
 MoneyServiceClient:init()
 TankServiceClient:init()
 IncubatorServiceClient:init()
 InventoryServiceClient:init()
+LeaderboardServiceClient:init()
+TutorialServiceClient:init()

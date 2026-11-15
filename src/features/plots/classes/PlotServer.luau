@@ -27,7 +27,83 @@ export type PlotServer = typeof(setmetatable({} :: {
 	placedModels: { [string]: Model },
 	owner: Player?,
 	characterConnection: RBXScriptConnection?,
+	ownerBillboard: BillboardGui?,
 }, PlotServer))
+
+local function getWorldHeight(part: BasePart): number
+	local halfSize = part.Size / 2
+	local right = part.CFrame.RightVector
+	local up = part.CFrame.UpVector
+	local look = part.CFrame.LookVector
+	local verticalRadius = math.abs(right.Y) * halfSize.X
+		+ math.abs(up.Y) * halfSize.Y
+		+ math.abs(look.Y) * halfSize.Z
+	return part.Position.Y + verticalRadius
+end
+
+local function makeOwnerBillboard(owner: Player, spawnBase: BasePart, floorModels: { [number]: Model }, model: Model): BillboardGui
+	local highestY = getWorldHeight(spawnBase)
+	for _, floor in floorModels do
+		for _, descendant in floor:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				highestY = math.max(highestY, getWorldHeight(descendant))
+			end
+		end
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "OwnerBillboard"
+	billboard.Adornee = spawnBase
+	billboard.Size = UDim2.fromOffset(400, 130)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, highestY - spawnBase.Position.Y + 9, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 0
+
+	local avatar = Instance.new("ImageLabel")
+	avatar.Name = "OwnerAvatar"
+	avatar.AnchorPoint = Vector2.new(0.5, 0)
+	avatar.Position = UDim2.new(0.5, 0, 0, 0)
+	avatar.Size = UDim2.fromOffset(46, 46)
+	avatar.BackgroundColor3 = Color3.fromRGB(235, 230, 203)
+	avatar.BorderSizePixel = 0
+	avatar.Image = `rbxthumb://type=AvatarHeadShot&id={owner.UserId}&w=150&h=150`
+	avatar.ScaleType = Enum.ScaleType.Crop
+	avatar.Parent = billboard
+
+	local avatarCorner = Instance.new("UICorner")
+	avatarCorner.CornerRadius = UDim.new(1, 0)
+	avatarCorner.Parent = avatar
+
+	local avatarOutline = Instance.new("UIStroke")
+	avatarOutline.Color = Color3.fromRGB(25, 29, 34)
+	avatarOutline.Thickness = 2.5
+	avatarOutline.Parent = avatar
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "BaseName"
+	nameLabel.AnchorPoint = Vector2.new(0.5, 0)
+	nameLabel.Position = UDim2.new(0.5, 0, 0, 28)
+	nameLabel.Size = UDim2.new(1, -8, 0, 54)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = owner.DisplayName .. "'s Base"
+	nameLabel.TextColor3 = Color3.fromRGB(255, 242, 204)
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(35, 34, 31)
+	nameLabel.TextStrokeTransparency = 0
+	nameLabel.TextScaled = true
+	nameLabel.TextWrapped = false
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.Font = Enum.Font.GothamBlack
+	nameLabel.Parent = billboard
+
+	local textSize = Instance.new("UITextSizeConstraint")
+	textSize.MinTextSize = 15
+	textSize.MaxTextSize = 30
+	textSize.Parent = nameLabel
+
+	billboard.Parent = model
+	return billboard
+end
 
 function PlotServer.new(index: number, spawn: BasePart, template: Model, parent: Folder): PlotServer?
 	local model = template:Clone()
@@ -88,6 +164,7 @@ function PlotServer.new(index: number, spawn: BasePart, template: Model, parent:
 		placedModels = {} :: { [string]: Model },
 		owner = nil :: Player?,
 		characterConnection = nil :: RBXScriptConnection?,
+		ownerBillboard = nil :: BillboardGui?,
 	}, PlotServer) :: PlotServer
 end
 
@@ -188,6 +265,7 @@ function PlotServer.claim(self: PlotServer, player: Player): boolean
 	self.owner = player
 	self.model:SetAttribute("OwnerUserId", player.UserId)
 	self.model:SetAttribute("ConveyorLuck", 0)
+	self.ownerBillboard = makeOwnerBillboard(player, self.spawnBase, self.floorModels, self.model)
 	self.characterConnection = player.CharacterAdded:Connect(function(character)
 		task.spawn(PlotServer.teleportCharacter, self, player, character)
 	end)
@@ -216,6 +294,10 @@ function PlotServer.release(self: PlotServer)
 		floor.Parent = nil
 	end
 	self.extraSlotsPurchased = 0
+	if self.ownerBillboard then
+		self.ownerBillboard:Destroy()
+		self.ownerBillboard = nil
+	end
 	self.owner = nil
 	self.model:SetAttribute("OwnerUserId", 0)
 	self.model:SetAttribute("ConveyorLuck", 0)

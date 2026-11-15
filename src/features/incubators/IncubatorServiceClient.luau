@@ -2,12 +2,14 @@
 
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Networker = require(ReplicatedStorage.Packages.Networker)
 
 local IncubatorCountdown = require(script.Parent.UI.IncubatorCountdown)
 local HatchReveal = require(script.Parent.UI.HatchReveal)
 local InventoryServiceClient = require(ReplicatedStorage.Source.Features.Inventory.InventoryServiceClient)
+local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
 
 local IncubatorServiceClient = {}
 local initialized = false
@@ -15,10 +17,20 @@ local active: { [Model]: () -> () } = {}
 local showReveal: ((string, number, string?, CFrame?, number?, Vector3?, string?) -> ())? = nil
 local lockedPromptDistances: { [ProximityPrompt]: number } = {}
 local promptLockConnection: RBXScriptConnection? = nil
+local rollAgainPromptOpen = false
+local rollAgainPromptVisible = false
+local rollAgainTarget: string? = nil
+local rollAgainPurchaseSucceeded = false
+local rollAgainRevealReceived = false
+local rollAgainUnlockAt = 0
+local hatchNowTarget: string? = nil
+local hatchNowToken: string? = nil
+local hatchNowPromptVisible = false
+local networker = nil
 
 local function lockIncubatorPrompt(instance: Instance)
 	if not instance:IsA("ProximityPrompt")
-		or (instance.Name ~= "PlaceEggPrompt" and instance.Name ~= "HatchEggPrompt")
+		or (instance.Name ~= "PlaceEggPrompt" and instance.Name ~= "HatchEggPrompt" and instance.Name ~= "HatchNowPrompt")
 		or lockedPromptDistances[instance] ~= nil then
 		return
 	end
@@ -82,9 +94,15 @@ function IncubatorServiceClient:showHatch(
 	eggPivot: CFrame?,
 	eggScale: number?,
 	viewDirection: Vector3?,
-	instanceId: string?
+	instanceId: string?,
+	isRollAgain: boolean?
 )
 	if typeof(crabId) == "string" and typeof(weightGrams) == "number" and showReveal then
+		if isRollAgain then
+			rollAgainRevealReceived = true
+			rollAgainPromptOpen = false
+			rollAgainTarget = nil
+		end
 		local hatchedInstanceId = if typeof(instanceId) == "string" then instanceId else nil
 		if typeof(eggId) == "string" and typeof(eggPivot) == "CFrame"
 			and typeof(eggScale) == "number" and eggScale > 0 then
@@ -95,15 +113,100 @@ function IncubatorServiceClient:showHatch(
 	end
 end
 
+function IncubatorServiceClient:rollAgainReady(instanceId: string)
+	if not rollAgainPromptOpen or rollAgainTarget ~= instanceId then
+		return
+	end
+	rollAgainPromptVisible = true
+	local ok, err = pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, ProductIds.RollAgain)
+	if not ok then
+		rollAgainPromptVisible = false
+		rollAgainPromptOpen = false
+		rollAgainTarget = nil
+		networker:fire("cancelRollAgain", instanceId)
+		warn(`Could not prompt Roll Again purchase: {err}`)
+	end
+end
+
+function IncubatorServiceClient:rollAgainUnavailable(instanceId: string)
+	if rollAgainTarget == instanceId then
+		rollAgainTarget = nil
+		rollAgainPromptVisible = false
+		rollAgainPromptOpen = false
+		warn("Roll Again purchase is temporarily unavailable")
+	end
+end
+
+function IncubatorServiceClient:hatchNowReady(_incubatorInstanceId: string, eggInstanceId: string, token: string)
+	if typeof(eggInstanceId) ~= "string" or typeof(token) ~= "string" then return end
+	hatchNowTarget = eggInstanceId
+	hatchNowToken = token
+	hatchNowPromptVisible = true
+	local ok, err = pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, ProductIds.HatchNow)
+	if not ok then
+		hatchNowPromptVisible = false
+		hatchNowTarget = nil
+		hatchNowToken = nil
+		networker:fire("cancelHatchNow", token)
+		warn(`Could not prompt Hatch Now purchase: {err}`)
+	end
+end
+
 function IncubatorServiceClient:init()
 	if initialized then
 		return
 	end
 	initialized = true
 	showReveal = HatchReveal.mount(Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui, setIncubatorPromptsLocked, function(instanceId)
+		if rollAgainPromptOpen and not rollAgainPromptVisible and rollAgainTarget == instanceId then
+			rollAgainPromptOpen = false
+			rollAgainTarget = nil
+			if networker then
+				networker:fire("cancelRollAgain", instanceId)
+			end
+		end
 		InventoryServiceClient:equipHatchedCrab(instanceId)
+	end, function(instanceId)
+		if rollAgainPromptOpen or not networker then
+			return
+		end
+		rollAgainPromptOpen = true
+		rollAgainPurchaseSucceeded = false
+		rollAgainRevealReceived = false
+		rollAgainUnlockAt = 0
+		rollAgainTarget = instanceId
+		networker:fire("prepareRollAgain", instanceId)
+	end, function()
+		return not rollAgainPurchaseSucceeded
+			or (rollAgainRevealReceived and time() >= rollAgainUnlockAt)
 	end)
-	Networker.client.new("IncubatorService", self)
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, wasPurchased)
+		if userId == Players.LocalPlayer.UserId and productId == ProductIds.HatchNow and hatchNowPromptVisible then
+			hatchNowPromptVisible = false
+			if not wasPurchased and hatchNowToken then
+				networker:fire("cancelHatchNow", hatchNowToken)
+			end
+			hatchNowTarget = nil
+			hatchNowToken = nil
+			return
+		end
+		if userId ~= Players.LocalPlayer.UserId or productId ~= ProductIds.RollAgain or not rollAgainPromptVisible then
+			return
+		end
+		rollAgainPromptVisible = false
+		if wasPurchased then
+			rollAgainPurchaseSucceeded = true
+			rollAgainUnlockAt = time() + 5
+		else
+			rollAgainPromptOpen = false
+			local instanceId = rollAgainTarget
+			rollAgainTarget = nil
+			if instanceId and networker then
+				networker:fire("cancelRollAgain", instanceId)
+			end
+		end
+	end)
+	networker = Networker.client.new("IncubatorService", self)
 	local spawnedPlots = Workspace:WaitForChild("SpawnedPlots")
 	spawnedPlots.DescendantAdded:Connect(addEgg)
 	spawnedPlots.DescendantRemoving:Connect(removeEgg)

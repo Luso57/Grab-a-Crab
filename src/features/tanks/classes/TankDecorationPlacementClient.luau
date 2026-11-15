@@ -11,11 +11,13 @@ local Placement = require(ReplicatedStorage.Source.Features.Tanks.Modules.TankDe
 local PlacementClient = {}
 PlacementClient.__index = PlacementClient
 
-local function button(name: string, label: string, x: number, callback: () -> ()): TextButton
+local TOUCH_DRAG_SCALE = 0.5
+
+local function button(name: string, label: string, callback: () -> ()): TextButton
 	local control = Vide.create "TextButton" {
 		Name = name,
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.fromScale(x, 0.79),
+		Position = UDim2.fromScale(0.5, 0.79),
 		Size = UDim2.fromOffset(135, 52),
 		BackgroundColor3 = Color3.fromRGB(143, 75, 15),
 		Text = label,
@@ -31,7 +33,15 @@ local function button(name: string, label: string, x: number, callback: () -> ()
 		Color = Color3.new(0, 0, 0),
 		Thickness = 3,
 	}.Parent = control
+	Vide.create "UITextSizeConstraint" { MaxTextSize = 24, MinTextSize = 12 }.Parent = control
 	return control
+end
+
+local function containsPoint(control: GuiObject, point: Vector2): boolean
+	local position = control.AbsolutePosition
+	local size = control.AbsoluteSize
+	return point.X >= position.X and point.X <= position.X + size.X
+		and point.Y >= position.Y and point.Y <= position.Y + size.Y
 end
 
 function PlacementClient.new(tankModel: Model, decorId: string, onPlace: (number, number, number) -> (), onCancel: () -> ())
@@ -95,7 +105,11 @@ function PlacementClient.new(tankModel: Model, decorId: string, onPlace: (number
 		x = 0, z = 0, rotation = 0, valid = false, destroyed = false,
 		connections = {} :: { RBXScriptConnection },
 		gui = nil :: ScreenGui?,
-		touchPosition = nil :: Vector2?,
+		usingTouch = UserInputService.TouchEnabled,
+		activeTouch = nil :: InputObject?,
+		touchStartPosition = nil :: Vector2?,
+		touchStartX = 0,
+		touchStartZ = 0,
 	}, PlacementClient)
 
 	local function confirm()
@@ -134,13 +148,36 @@ function PlacementClient.new(tankModel: Model, decorId: string, onPlace: (number
 	}
 	heading.Parent = gui
 	Vide.create "UICorner" { CornerRadius = UDim.new(0, 10) }.Parent = heading
-	local placeButton = button("PlaceButton", "PLACE", 0.35, confirm)
+	local headingTextSize = Vide.create "UITextSizeConstraint" { MaxTextSize = 26, MinTextSize = 12 }
+	headingTextSize.Parent = heading
+	local placeButton = button("PlaceButton", "PLACE", confirm)
 	placeButton.Parent = gui
-	button("RotateButton", "ROTATE (R)", 0.5, rotate).Parent = gui
-	button("CancelButton", "CANCEL", 0.65, onCancel).Parent = gui
+	local rotateButton = button("RotateButton", "ROTATE (R)", rotate)
+	rotateButton.Parent = gui
+	local cancelButton = button("CancelButton", "CANCEL", onCancel)
+	cancelButton.Parent = gui
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	self.gui = gui
 	self.heading = heading
+
+	local function layout()
+		local viewport = camera.ViewportSize
+		local compact = math.min(viewport.X, viewport.Y) < 600
+		local gap = if compact then 12 else 16
+		local buttonWidth = if compact then math.min(96, math.floor((viewport.X - 48 - gap * 2) / 3)) else 135
+		local buttonHeight = if compact then 40 else 52
+		local step = buttonWidth + gap
+		for index, control in { placeButton, rotateButton, cancelButton } do
+			control.Size = UDim2.fromOffset(buttonWidth, buttonHeight)
+			control.Position = UDim2.new(0.5, (index - 2) * step, if compact then 0.83 else 0.79, 0)
+		end
+		rotateButton.Text = if compact then "ROTATE" else "ROTATE (R)"
+		heading.Size = UDim2.fromOffset(math.min(if compact then 370 else 460, viewport.X - 32), if compact then 38 else 50)
+		heading.Position = UDim2.fromScale(0.5, if compact then 0.12 else 0.13)
+		headingTextSize.MaxTextSize = if compact then 19 else 26
+	end
+	layout()
+	table.insert(self.connections, camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout))
 
 	table.insert(self.connections, UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
@@ -154,14 +191,45 @@ function PlacementClient.new(tankModel: Model, decorId: string, onPlace: (number
 			confirm()
 		end
 	end))
-	table.insert(self.connections, UserInputService.TouchStarted:Connect(function(input, processed)
-		if not processed then
-			self.touchPosition = Vector2.new(input.Position.X, input.Position.Y)
+	table.insert(self.connections, UserInputService.TouchStarted:Connect(function(input)
+		if self.activeTouch then
+			return
+		end
+		local point = Vector2.new(input.Position.X, input.Position.Y)
+		if containsPoint(placeButton, point) or containsPoint(rotateButton, point) or containsPoint(cancelButton, point) then
+			return
+		end
+		self.activeTouch = input
+		self.usingTouch = true
+		self.touchStartPosition = point
+		self.touchStartX = self.x
+		self.touchStartZ = self.z
+	end))
+	table.insert(self.connections, UserInputService.TouchMoved:Connect(function(input)
+		if input == self.activeTouch then
+			local point = Vector2.new(input.Position.X, input.Position.Y)
+			local start = self.touchStartPosition
+			if not start then
+				return
+			end
+			local screenCenter = camera:WorldToViewportPoint(floor.Position)
+			local xPoint = camera:WorldToViewportPoint(floor.Position + floor.CFrame:VectorToWorldSpace(Vector3.xAxis))
+			local zPoint = camera:WorldToViewportPoint(floor.Position + floor.CFrame:VectorToWorldSpace(Vector3.zAxis))
+			local xAxis = Vector2.new(xPoint.X - screenCenter.X, xPoint.Y - screenCenter.Y)
+			local zAxis = Vector2.new(zPoint.X - screenCenter.X, zPoint.Y - screenCenter.Y)
+			local determinant = xAxis.X * zAxis.Y - xAxis.Y * zAxis.X
+			if math.abs(determinant) < 0.001 then
+				return
+			end
+			local delta = (point - start) * TOUCH_DRAG_SCALE
+			self.x = math.round((self.touchStartX + (delta.X * zAxis.Y - delta.Y * zAxis.X) / determinant) * 100) / 100
+			self.z = math.round((self.touchStartZ + (xAxis.X * delta.Y - xAxis.Y * delta.X) / determinant) * 100) / 100
 		end
 	end))
-	table.insert(self.connections, UserInputService.TouchMoved:Connect(function(input, processed)
-		if not processed then
-			self.touchPosition = Vector2.new(input.Position.X, input.Position.Y)
+	table.insert(self.connections, UserInputService.TouchEnded:Connect(function(input)
+		if input == self.activeTouch then
+			self.activeTouch = nil
+			self.touchStartPosition = nil
 		end
 	end))
 	table.insert(self.connections, RunService.RenderStepped:Connect(function()
@@ -169,15 +237,15 @@ function PlacementClient.new(tankModel: Model, decorId: string, onPlace: (number
 			onCancel()
 			return
 		end
-		local mouse = self.touchPosition or UserInputService:GetMouseLocation()
-		local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-		local normal = floor.CFrame.UpVector
-		local denominator = ray.Direction:Dot(normal)
-		if math.abs(denominator) > 0.001 then
-			local distance = (floor.Position - ray.Origin):Dot(normal) / denominator
-			if distance > 0 then
-				local localPoint = floor.CFrame:PointToObjectSpace(ray.Origin + ray.Direction * distance)
-				if math.abs(localPoint.X) <= floor.Size.X / 2 and math.abs(localPoint.Z) <= floor.Size.Z / 2 then
+		if not self.usingTouch then
+			local mouse = UserInputService:GetMouseLocation()
+			local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+			local normal = floor.CFrame.UpVector
+			local denominator = ray.Direction:Dot(normal)
+			if math.abs(denominator) > 0.001 then
+				local distance = (floor.Position - ray.Origin):Dot(normal) / denominator
+				if distance > 0 then
+					local localPoint = floor.CFrame:PointToObjectSpace(ray.Origin + ray.Direction * distance)
 					self.x = math.round(localPoint.X * 100) / 100
 					self.z = math.round(localPoint.Z * 100) / 100
 				end

@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
@@ -13,7 +14,7 @@ export type Props = {
 	balance: () -> number,
 }
 
-local function MoneyHud(props: Props): (ScreenGui, () -> ())
+local function MoneyHud(props: Props, playerGui: PlayerGui): (ScreenGui, (Vector2?) -> ())
 	local gui = create "ScreenGui" {
 		Name = "MoneyHud",
 		ResetOnSpawn = false,
@@ -74,13 +75,52 @@ local function MoneyHud(props: Props): (ScreenGui, () -> ())
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
 	}.Parent = amount
 
+	local function layout()
+		local camera = Workspace.CurrentCamera
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		local scale = math.clamp(math.min(viewport.X / 1000, viewport.Y / 650), 0.67, 1)
+		row.Position = UDim2.new(0, math.round(20 * scale), 0.5, 0)
+		row.Size = UDim2.fromOffset(math.round(400 * scale), math.round(76 * scale))
+		coinIcon.Size = UDim2.fromOffset(math.round(64 * scale), math.round(64 * scale))
+		amount.Size = UDim2.fromOffset(0, math.round(70 * scale))
+		amount.TextSize = math.round(50 * scale)
+	end
+
+	local viewportConnection: RBXScriptConnection? = nil
+	local function watchCamera()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConnection = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) else nil
+		layout()
+	end
+	local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+	gui.Destroying:Connect(function()
+		cameraConnection:Disconnect()
+		if viewportConnection then
+			viewportConnection:Disconnect()
+		end
+	end)
+	watchCamera()
+
+	local effectGui = create "ScreenGui" {
+		Name = "MoneyCollectionEffect",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 51,
+	}
 	local effectLayer = create "Frame" {
 		Name = "CollectionCoins",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		ZIndex = 20,
 	}
-	effectLayer.Parent = gui
+	effectLayer.Parent = effectGui
+	effectGui.Parent = playerGui
+	gui.Destroying:Connect(function()
+		effectGui:Destroy()
+	end)
 
 	local pulseTween: Tween? = nil
 	local function pulseBalance()
@@ -105,12 +145,12 @@ local function MoneyHud(props: Props): (ScreenGui, () -> ())
 		expand:Play()
 	end
 
-	local function playCollection()
+	local function playCollection(startPosition: Vector2?)
 		local screenSize = effectLayer.AbsoluteSize
 		if screenSize.X <= 0 or screenSize.Y <= 0 then
 			return
 		end
-		local center = screenSize / 2
+		local center = if startPosition then startPosition - effectLayer.AbsolutePosition else screenSize / 2
 		local target = coinIcon.AbsolutePosition + coinIcon.AbsoluteSize / 2 - effectLayer.AbsolutePosition
 		local count = random:NextInteger(7, 10)
 		local remaining = count

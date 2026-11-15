@@ -73,7 +73,12 @@ function IncubatorCountdown.attach(egg: Model, incubator: Model): () -> ()
 				local nextText = ""
 				if typeof(hatchAt) == "number" then
 					local remaining = math.max(0, math.ceil((hatchAt - DateTime.now().UnixTimestampMillis) / 1000))
+					local hatchNowPrompt = egg:FindFirstChild("HatchNowPrompt", true)
+					if hatchNowPrompt and hatchNowPrompt:IsA("ProximityPrompt") then
+						hatchNowPrompt.Enabled = remaining > 0
+					end
 					nextText = if remaining == 0 then "READY"
+						elseif remaining >= 3600 then string.format("%d:%02d:%02d", math.floor(remaining / 3600), math.floor(remaining / 60) % 60, remaining % 60)
 						else string.format("%d:%02d", math.floor(remaining / 60), remaining % 60)
 				end
 				if countdown() ~= nextText then

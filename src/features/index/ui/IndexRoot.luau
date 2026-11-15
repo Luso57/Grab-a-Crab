@@ -20,10 +20,11 @@ end
 
 export type Props = {
 	isOpen: () -> boolean,
+	otherMenuOpen: () -> boolean,
 	discovered: () -> { [string]: boolean },
 	discoveredBySize: () -> { [string]: boolean },
 	claimed: () -> { [string]: boolean },
-	onClaim: (string, number) -> (),
+	onClaim: (string, number, Vector2) -> (),
 	onClose: () -> (),
 }
 
@@ -47,7 +48,7 @@ local function label(name: string, value: any, position: UDim2, size: UDim2, max
 end
 
 local function IndexRoot(props: Props): Instance
-	local ids = Crabs.getOrderedIds()
+	local ids = IndexMilestones.getCrabIds()
 	local selectedId = source(ids[1])
 	local selectedSize = source("Base")
 	local visible = source(false)
@@ -74,7 +75,12 @@ local function IndexRoot(props: Props): Instance
 	end)
 	local stageStart = Vide.derive(function()
 		local target = nextTarget()
-		return if target == 15 then 5 elseif target == 29 or target == nil then 15 else 0
+		for index, milestone in IndexMilestones.targets do
+			if milestone == target then
+				return if index > 1 then IndexMilestones.targets[index - 1] else 0
+			end
+		end
+		return IndexMilestones.targets[#IndexMilestones.targets - 1]
 	end)
 	local canClaim = Vide.derive(function()
 		local target = nextTarget()
@@ -176,6 +182,49 @@ local function IndexRoot(props: Props): Instance
 		} :: TextLabel
 		create "UITextSizeConstraint" { MaxTextSize = 16 }.Parent = tabLabel
 		tabLabel.Parent = tab
+		local badge = create "Frame" {
+			Name = "ClaimableBadge",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -15, 0, 15),
+			Size = UDim2.fromOffset(24, 24),
+			BackgroundColor3 = Color3.fromRGB(235, 45, 48),
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 9,
+		} :: Frame
+		create "UICorner" { CornerRadius = UDim.new(1, 0) }.Parent = badge
+		create "UIStroke" { Color = Color3.fromRGB(35, 7, 8), Thickness = 2 }.Parent = badge
+		local badgeScale = create "UIScale" { Scale = 0.88 }
+		badgeScale.Parent = badge
+		create "TextLabel" {
+			Name = "Exclamation",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = "!",
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextStrokeColor3 = Color3.fromRGB(95, 0, 0),
+			TextStrokeTransparency = 0,
+			Font = Enum.Font.GothamBlack,
+			ZIndex = 10,
+		}.Parent = badge
+		badge.Parent = tab
+		local pulse = TweenService:Create(badgeScale, TweenInfo.new(0.65, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.12 })
+		Vide.effect(function()
+			local target = IndexMilestones.nextUnclaimed(tabName, props.claimed())
+			local canClaimTab = target ~= nil
+				and IndexMilestones.countDiscovered(tabName, props.discovered(), props.discoveredBySize()) >= target
+			badge.Visible = canClaimTab
+			if canClaimTab then
+				pulse:Play()
+			else
+				pulse:Cancel()
+				badgeScale.Scale = 0.88
+			end
+		end)
+		screen.Destroying:Connect(function()
+			pulse:Cancel()
+		end)
 		tab.Parent = sizeTabs
 	end
 	sizeTabs.Parent = panel
@@ -200,6 +249,17 @@ local function IndexRoot(props: Props): Instance
 	title.Parent = sign
 	sign.Parent = panel
 
+	local closeScale = create "UIScale" { Scale = 1 }
+	local closeHoverTween: Tween? = nil
+	local function setCloseScale(scale: number)
+		if closeHoverTween then
+			closeHoverTween:Cancel()
+		end
+		closeHoverTween = TweenService:Create(closeScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = scale,
+		})
+		closeHoverTween:Play()
+	end
 	local close = create "ImageButton" {
 		Name = "Close",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -210,10 +270,18 @@ local function IndexRoot(props: Props): Instance
 		ScaleType = Enum.ScaleType.Fit,
 		AutoButtonColor = false,
 		ZIndex = 8,
+		MouseEnter = function()
+			setCloseScale(1.1)
+		end,
+		MouseLeave = function()
+			setCloseScale(1)
+		end,
 		Activated = function()
+			setCloseScale(1)
 			props.onClose()
 		end,
 	} :: ImageButton
+	closeScale.Parent = close
 	close.Parent = panel
 
 	local gridBackground = create "ImageLabel" {
@@ -352,7 +420,7 @@ local function IndexRoot(props: Props): Instance
 	local sizeRange = label("SizeRange", function()
 		local sizeName = selectedSize()
 		return string.upper(sizeName) .. " (" .. CrabSizeIndex.rangeText[sizeName] .. ")"
-	end, UDim2.fromScale(0.655, 0.035), UDim2.fromScale(0.325, 0.065), 22)
+	end, UDim2.fromScale(0.655, 0.035), UDim2.fromScale(0.27, 0.065), 18)
 	sizeRange.Parent = panel
 
 	local rewards = create "ImageLabel" {
@@ -399,26 +467,43 @@ local function IndexRoot(props: Props): Instance
 		end, UDim2.fromScale(if index == 1 then 0.10 else 0.53, 0.52), UDim2.fromScale(0.38, 0.14), 17).Parent = rewards
 		rewardSlot.Parent = rewards
 	end
-	local claim = create "ImageButton" {
+	local claimScale = create "UIScale" { Scale = 1 }
+	local claimTween: Tween? = nil
+	local function setClaimScale(scale: number)
+		if claimTween then
+			claimTween:Cancel()
+		end
+		claimTween = TweenService:Create(claimScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = scale })
+		claimTween:Play()
+	end
+	local claim: ImageButton = nil :: any
+	claim = create "ImageButton" {
 		Name = "ClaimButton",
-		Position = UDim2.fromScale(0.19, 0.65),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.78),
 		Size = UDim2.fromScale(0.62, 0.26),
-		BackgroundColor3 = function()
-			return if canClaim() then Color3.fromRGB(44, 186, 67) else Color3.fromRGB(103, 105, 107)
+		BackgroundTransparency = 1,
+		Image = image(assets.ShopMonoCoinBuyButton),
+		ImageColor3 = function()
+			return if canClaim() then Color3.new(1, 1, 1) else Color3.fromRGB(120, 120, 120)
 		end,
-		BorderSizePixel = 0,
-		Image = "",
+		ScaleType = Enum.ScaleType.Stretch,
 		AutoButtonColor = false,
 		ZIndex = 4,
+		MouseEnter = function()
+			setClaimScale(1.08)
+		end,
+		MouseLeave = function()
+			setClaimScale(1)
+		end,
 		Activated = function()
 			local target = nextTarget()
 			if target and canClaim() then
-				props.onClaim(selectedSize(), target)
+				props.onClaim(selectedSize(), target, claim.AbsolutePosition + claim.AbsoluteSize / 2)
 			end
 		end,
 	} :: ImageButton
-	create "UICorner" { CornerRadius = UDim.new(0, 4) }.Parent = claim
-	create "UIStroke" { Color = Color3.fromRGB(35, 35, 35), Thickness = 2 }.Parent = claim
+	claimScale.Parent = claim
 	label("ClaimText", function()
 		return if nextTarget() == nil then "DONE" elseif canClaim() then "CLAIM" else "LOCKED"
 	end, UDim2.fromScale(0.05, 0.06), UDim2.fromScale(0.90, 0.87), 17, function()
@@ -439,7 +524,7 @@ local function IndexRoot(props: Props): Instance
 	local track = create "Frame" {
 		Name = "ProgressTrack",
 		Position = UDim2.fromScale(0.04, 0.06),
-		Size = UDim2.fromScale(0.93, 0.88),
+		Size = UDim2.fromScale(0.95, 0.88),
 		BackgroundColor3 = Color3.fromRGB(24, 30, 37),
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -481,9 +566,10 @@ local function IndexRoot(props: Props): Instance
 		local camera = Workspace.CurrentCamera
 		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
 		local portrait = viewport.Y > viewport.X
-		local height = math.min(458, viewport.Y * (if portrait then 0.72 else 0.74))
-		local tabSize = if portrait then math.floor((height * 0.45 - 16) / 5) else math.clamp(math.floor(height * 0.135), 42, 62)
-		local width = math.min(850, viewport.X * (if portrait then 0.94 else 0.86), if portrait then math.huge else viewport.X - 2 * (tabSize + 16))
+		local compactScale = if portrait then 1 else math.clamp(viewport.Y / 650, 0.86, 1)
+		local height = math.min(458, viewport.Y * (if portrait then 0.72 else 0.74) * compactScale)
+		local tabSize = if portrait then math.floor((height * 0.45 - 16) / 5) else math.clamp(math.floor(height * 0.135), math.max(40, math.floor(42 * compactScale)), 62)
+		local width = math.min(850 * compactScale, viewport.X * (if portrait then 0.94 else 0.86) * compactScale, if portrait then math.huge else viewport.X - 2 * (tabSize + 16))
 		panel.Size = UDim2.fromOffset(math.floor(width), math.floor(height))
 		local tabGap = if portrait then 4 else math.max(4, math.floor(tabSize * 0.10))
 		tabLayout.Padding = UDim.new(0, tabGap)
@@ -563,6 +649,11 @@ local function IndexRoot(props: Props): Instance
 			panelTween:Play()
 		else
 			closeSound:Play()
+			if props.otherMenuOpen() then
+				panel.Position = hiddenPosition
+				visible(false)
+				return
+			end
 			panelTween = TweenService:Create(panel, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = hiddenPosition })
 			panelTween.Completed:Once(function(state)
 				if state == Enum.PlaybackState.Completed and animationVersion == version then

@@ -7,8 +7,8 @@ CrabSizeIndex.rangeText = {
 	Base = "Under 10g",
 	Big = "10g to 100g",
 	Huge = "100g to 1,000g",
-	Mega = "1,000g to 100,000g",
-	Jumbo = "100,000g and up",
+	Mega = "1k-100k g",
+	Jumbo = "100k+ g",
 }
 
 function CrabSizeIndex.fromWeight(weightGrams: number): string

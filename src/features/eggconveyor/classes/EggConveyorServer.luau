@@ -7,8 +7,10 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Data = require(ReplicatedStorage.Source.Game.Data).server
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
+local GiganticEggConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.GiganticEggConfig)
 local EggServer = require(ServerScriptService.Features.Egg.Classes.EggServer)
 local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
 local SPAWN_INTERVAL = 1.4
 local TRAVEL_SPEED = 5
@@ -19,19 +21,21 @@ EggConveyorServer.__index = EggConveyorServer
 
 export type EggConveyorServer = typeof(setmetatable({} :: {
 	plotModel: Model,
+	conveyorFolder: Folder,
 	spawnA: BasePart,
 	spawnB: BasePart,
 	templatesByRarity: { [string]: { Model } },
 	activeFolder: Folder,
 	activeEggs: { [EggServer.EggServer]: boolean },
 	purchasing: { [Player]: boolean },
-	onNotEnoughMoney: (Player) -> (),
+	onNotEnoughMoney: (Player, string, boolean) -> (),
 	onPurchased: (Player) -> (),
 	random: Random,
 	running: boolean,
+	eggsUntilGigantic: number,
 }, EggConveyorServer))
 
-function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnoughMoney: (Player) -> (), onPurchased: (Player) -> ()): EggConveyorServer?
+function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnoughMoney: (Player, string, boolean) -> (), onPurchased: (Player) -> ()): EggConveyorServer?
 	local conveyor = plotModel:FindFirstChild("EggConveyor")
 	if not conveyor or not conveyor:IsA("Folder") then
 		warn(plotModel.Name .. " needs EggConveyor")
@@ -66,6 +70,7 @@ function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnou
 	activeFolder.Parent = conveyor
 	return setmetatable({
 		plotModel = plotModel,
+		conveyorFolder = conveyor,
 		spawnA = spawnA,
 		spawnB = spawnB,
 		templatesByRarity = templatesByRarity,
@@ -76,6 +81,7 @@ function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnou
 		onPurchased = onPurchased,
 		random = Random.new(),
 		running = false,
+		eggsUntilGigantic = GiganticEggConfig.EGGS_PER_GIGANTIC,
 	}, EggConveyorServer) :: EggConveyorServer
 end
 
@@ -99,6 +105,7 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 	end
 	self.purchasing[player] = true
 	local insufficientFunds = false
+	local inventoryFull = false
 	local ok, purchased = pcall(function(): string?
 		local eggId = egg.model:GetAttribute("EggId")
 		if typeof(eggId) ~= "string" then
@@ -120,10 +127,11 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 		end
 		local instanceId = InventoryServiceServer:grantItem(player, "Egg." .. eggId, function()
 			return canCollect(self, player, egg) and data.money() >= price
-		end)
+		end, nil, egg.model:GetAttribute("IsGiganticEgg") == true)
 		if not instanceId then
 			local currentMoney = data.money()
 			insufficientFunds = typeof(currentMoney) == "number" and currentMoney < price
+			inventoryFull = not insufficientFunds and InventoryServiceServer:isFull(player)
 			return nil
 		end
 		if price > 0 then
@@ -135,6 +143,7 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 	if ok and purchased then
 		self.activeEggs[egg] = nil
 		egg:destroy()
+		TutorialServiceServer:eggBought(player, purchased)
 		local equipped, err = pcall(function()
 			InventoryServiceServer:equipGrantedEgg(player, purchased)
 		end)
@@ -145,7 +154,12 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 	else
 		egg:release()
 		if ok and insufficientFunds then
-			self.onNotEnoughMoney(player)
+			local eggId = egg.model:GetAttribute("EggId")
+			if typeof(eggId) == "string" then
+				self.onNotEnoughMoney(player, eggId, egg.model:GetAttribute("IsGiganticEgg") == true)
+			end
+		elseif ok and inventoryFull then
+			InventoryServiceServer:showInventoryFull(player)
 		end
 		if not ok then
 			warn("Egg purchase failed:", purchased)
@@ -154,6 +168,15 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 end
 
 local function chooseTemplate(self: EggConveyorServer): Model?
+	local ownerUserId = self.plotModel:GetAttribute("OwnerUserId")
+	local owner = if typeof(ownerUserId) == "number" then Players:GetPlayerByUserId(ownerUserId) else nil
+	if owner and TutorialServiceServer:isTutorialActive(owner) then
+		local commonEggs = self.templatesByRarity.Common or {}
+		if #commonEggs == 0 then
+			return nil
+		end
+		return commonEggs[self.random:NextInteger(1, #commonEggs)]
+	end
 	-- Recalculate for every spawn so a purchased upgrade affects the next egg.
 	local weights = LuckConfig.getWeights(self.plotModel:GetAttribute("ConveyorLuck"))
 	local total = 0
@@ -187,14 +210,25 @@ function EggConveyorServer.start(self: EggConveyorServer)
 		return
 	end
 	self.running = true
+	self.eggsUntilGigantic = GiganticEggConfig.EGGS_PER_GIGANTIC
+	self.conveyorFolder:SetAttribute("GiganticEggsRemaining", self.eggsUntilGigantic)
 	task.spawn(function()
+		task.wait(SPAWN_INTERVAL)
 		while self.running do
 			local template = chooseTemplate(self)
 			if not template then
 				task.wait(SPAWN_INTERVAL)
 				continue
 			end
-			local egg = EggServer.new(template, self.activeFolder, self.spawnA, self.spawnB, TRAVEL_SPEED)
+			local ownerUserId = self.plotModel:GetAttribute("OwnerUserId")
+			local owner = if typeof(ownerUserId) == "number" then Players:GetPlayerByUserId(ownerUserId) else nil
+			local isTutorialEgg = owner ~= nil and TutorialServiceServer:isBuyingEgg(owner)
+			local isGigantic = not isTutorialEgg and self.eggsUntilGigantic == 1
+			local egg = EggServer.new(template, self.activeFolder, self.spawnA, self.spawnB, TRAVEL_SPEED, isGigantic)
+			if not isTutorialEgg then
+				self.eggsUntilGigantic = if isGigantic then GiganticEggConfig.EGGS_PER_GIGANTIC else self.eggsUntilGigantic - 1
+			end
+			self.conveyorFolder:SetAttribute("GiganticEggsRemaining", self.eggsUntilGigantic)
 			self.activeEggs[egg] = true
 			egg:start(function()
 				self.activeEggs[egg] = nil
@@ -208,6 +242,7 @@ end
 
 function EggConveyorServer.stop(self: EggConveyorServer)
 	self.running = false
+	self.conveyorFolder:SetAttribute("GiganticEggsRemaining", nil)
 	for egg in self.activeEggs do
 		egg:destroy()
 	end

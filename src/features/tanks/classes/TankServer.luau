@@ -53,6 +53,20 @@ local function positions(count: number, floor: BasePart): { Vector2 }
 			Vector2.new(0, -z),
 		}
 	end
+	if count > 4 then
+		local columns = math.min(4, count)
+		local rows = math.ceil(count / columns)
+		local slots = {}
+		for index = 1, count do
+			local column = (index - 1) % columns
+			local row = math.floor((index - 1) / columns)
+			table.insert(slots, Vector2.new(
+				(column - (columns - 1) / 2) * floor.Size.X * 0.8 / columns,
+				(row - (rows - 1) / 2) * floor.Size.Z * 0.8 / rows
+			))
+		end
+		return slots
+	end
 	return {
 		Vector2.new(-x, z),
 		Vector2.new(x, z),
@@ -62,6 +76,9 @@ local function positions(count: number, floor: BasePart): { Vector2 }
 end
 
 local function maxFootprint(self: TankServer): number
+	if self.capacity > 4 then
+		return math.min(2, self.floor.Size.X * 0.7 / 4, self.floor.Size.Z * 0.7 / 5)
+	end
 	if self.capacity == 1 then
 		return math.min(2.5, self.floor.Size.X * 0.65, self.floor.Size.Z * 0.65)
 	elseif self.capacity == 2 then
@@ -210,10 +227,17 @@ local function refreshIncome(self: TankServer)
 	for _, placed in self.decorations do
 		table.insert(decorIds, placed.decorId)
 	end
-	local boostPercent = DecorConfig.getTankBoostPercent(decorIds)
-	self.incomePerSecond = self.baseIncomePerSecond * (1 + boostPercent / 100)
+	local multiplier = 1 + DecorConfig.getTankBoostPercent(decorIds) / 100
+	for _, anchor in self.visuals do
+		local crabId = anchor:GetAttribute("CrabId")
+		local definition = if typeof(crabId) == "string" then Crabs.get(crabId) else nil
+		if definition and definition.tankIncomeMultiplier then
+			multiplier *= definition.tankIncomeMultiplier
+		end
+	end
+	self.incomePerSecond = self.baseIncomePerSecond * multiplier
 	self.model:SetAttribute("IncomePerSecond", self.incomePerSecond)
-	self.model:SetAttribute("TankIncomeBoostPercent", boostPercent)
+	self.model:SetAttribute("TankIncomeBoostPercent", math.round((multiplier - 1) * 10000) / 100)
 end
 
 function TankServer.canAdd(self: TankServer): boolean

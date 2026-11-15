@@ -10,12 +10,14 @@ local Data = require(ReplicatedStorage.Source.Game.Data).server
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
+local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 local TankServiceServer = require(ServerScriptService.Features.Tanks.TankServiceServer)
 local EggConveyorServiceServer = require(ServerScriptService.Features.EggConveyor.EggConveyorServiceServer)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local PlotServer = require(script.Parent.Classes.PlotServer)
 local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
+local Incubators = require(ReplicatedStorage.Source.Features.Incubators.Modules.Incubators)
 
 type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string? }
 type SavedInventory = { [string]: SavedItem }
@@ -28,8 +30,110 @@ local plots: { [number]: PlotServer.PlotServer } = {}
 local playerPlots: { [Player]: PlotServer.PlotServer } = {}
 local waiting: { Player } = {}
 local waitingSet: { [Player]: boolean } = {}
+local assigningWaiting = false
 local lastTravel: { [Player]: number } = {}
 local buyingExtraSlot: { [Player]: boolean } = {}
+local networker = nil
+
+local function addStarterPackLabel(egg: Model)
+	local body = egg:FindFirstChild("Body", true)
+	if not body or not body:IsA("BasePart") then
+		return
+	end
+
+	local existing = body:FindFirstChild("StarterPackLabel") or body:FindFirstChild("LikeRewardsLabel")
+	local billboard = if existing and existing:IsA("BillboardGui") then existing else Instance.new("BillboardGui")
+	billboard.Name = "StarterPackLabel"
+	billboard.Size = UDim2.fromScale(7, 1.5)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 4, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 120
+
+	local title = billboard:FindFirstChild("Title")
+	local text = if title and title:IsA("TextLabel") then title else Instance.new("TextLabel")
+	text.Name = "Title"
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = "Starter Pack"
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeColor3 = Color3.new(0, 0, 0)
+	text.TextStrokeTransparency = 0
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBlack
+	text.Parent = billboard
+
+	local outline = text:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	outline.Color = Color3.new(0, 0, 0)
+	outline.Thickness = 2
+	outline.Parent = text
+	billboard.Parent = body
+end
+
+local function prepareStarterPack(plotTemplate: Model)
+	local reward = plotTemplate:FindFirstChild("Like Reward", true)
+	if not reward or not reward:IsA("Model") then
+		return
+	end
+
+	local crate = reward:FindFirstChild("MysteryCrate")
+	if not crate or not crate:IsA("Model") then
+		local existingEgg = reward:FindFirstChild("RewardEgg")
+		if existingEgg and existingEgg:IsA("Model") then
+			addStarterPackLabel(existingEgg)
+		end
+		return
+	end
+
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local eggs = if assets then assets:FindFirstChild("Eggs") else nil
+	local basicEgg = if eggs then eggs:FindFirstChild("BasicEgg") else nil
+	if not basicEgg or not basicEgg:IsA("Model") then
+		warn("Cannot prepare starter pack egg: Assets.Eggs.BasicEgg is missing")
+		return
+	end
+
+	local egg = basicEgg:Clone()
+	egg.Name = "RewardEgg"
+	egg:ScaleTo(1.4)
+	local crateBox, crateSize = crate:GetBoundingBox()
+	local eggBox, eggSize = egg:GetBoundingBox()
+	local eggCenter = Vector3.new(crateBox.Position.X, crateBox.Position.Y - crateSize.Y / 2 + eggSize.Y / 2, crateBox.Position.Z)
+	egg:PivotTo(egg:GetPivot() + (eggCenter - eggBox.Position))
+
+	local body = egg:FindFirstChild("Body", true)
+	if body and body:IsA("BasePart") then
+		local stars = Instance.new("ParticleEmitter")
+		stars.Name = "RewardStars"
+		stars.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		stars.Color = ColorSequence.new(Color3.fromRGB(255, 234, 124))
+		stars.LightEmission = 0.75
+		stars.Rate = 4
+		stars.Lifetime = NumberRange.new(0.6, 1)
+		stars.Speed = NumberRange.new(0.3, 0.7)
+		stars.SpreadAngle = Vector2.new(180, 180)
+		stars.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.2, 0.22),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		stars.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.2, 0.1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		stars.Parent = body
+	end
+
+	egg.Parent = reward
+	crate:Destroy()
+	addStarterPackLabel(egg)
+end
+
+local function getIncubatorId(itemId: string): string?
+	local incubatorId = if itemId == "Incubator" then "Incubator" else string.match(itemId, "^Incubator%.([%w_]+)$")
+	return if incubatorId and Incubators.get(incubatorId) then incubatorId else nil
+end
 
 local function getTemplate(itemId: string): Model?
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
@@ -38,9 +142,11 @@ local function getTemplate(itemId: string): Model?
 	end
 	local folder: Instance?
 	local modelName: string?
-	if itemId == "Incubator" then
+	local incubatorId = getIncubatorId(itemId)
+	if incubatorId then
 		folder = assets:FindFirstChild("Incubators")
-		modelName = "Incubator"
+		local definition = Incubators.get(incubatorId)
+		modelName = if definition then definition.modelName else nil
 	else
 		local tankId = string.match(itemId, "^Tank%.([%w_]+)$")
 		local definition = if tankId then Tanks.get(tankId) else nil
@@ -104,9 +210,15 @@ local function clearPlacement(data: any, instanceId: string, item: SavedItem)
 	data.inventory[instanceId](updated)
 end
 
-local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
-	local data = Data.Service:waitForData(player)
-	if not data or player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
+local function restorePlayer(player: Player, plot: PlotServer.PlotServer, data: any)
+	if player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
+		return
+	end
+	if not InventoryServiceServer:prepareStarterItems(player, data) then
+		warn("Could not prepare starter items before restoring plot for", player.Name)
+		return
+	end
+	if player.Parent ~= Players or playerPlots[player] ~= plot or plot:getOwner() ~= player then
 		return
 	end
 	if not plot:unlockThrough(PlotExtraSlots.normalizeCount(data.extraSlotsPurchased())) then
@@ -142,7 +254,7 @@ local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
 			end
 			clearPlacement(data, instanceId, item)
 			repaired = true
-		elseif item.itemId == "Incubator" then
+		elseif getIncubatorId(item.itemId) then
 			if not IncubatorServiceServer:registerPlaced(player, plot.model, model, instanceId) then
 				plot:removePlaced(slotId :: string)
 				clearPlacement(data, instanceId, item)
@@ -158,7 +270,8 @@ local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
 	end
 	local active: { [string]: string } = {}
 	for _, model in plot.placedModels do
-		if model:GetAttribute("ItemId") == "Incubator" then
+		local modelItemId = model:GetAttribute("ItemId")
+		if typeof(modelItemId) == "string" and getIncubatorId(modelItemId) then
 			local incubatorId = model:GetAttribute("ItemInstanceId")
 			local eggId = IncubatorServiceServer:getPlacedEggId(model)
 			if typeof(incubatorId) == "string" and eggId then
@@ -174,26 +287,50 @@ local function restorePlayer(player: Player, plot: PlotServer.PlotServer)
 end
 
 local function assignWaiting()
-	while #waiting > 0 do
-		local freePlot: PlotServer.PlotServer? = nil
-		for index = 1, 6 do
-			local plot = plots[index]
-			if plot and not plot:getOwner() then
-				freePlot = plot
+	if assigningWaiting then
+		return
+	end
+	assigningWaiting = true
+	task.spawn(function()
+		while #waiting > 0 do
+			local freePlot: PlotServer.PlotServer? = nil
+			for index = 1, 6 do
+				local plot = plots[index]
+				if plot and not plot:getOwner() then
+					freePlot = plot
+					break
+				end
+			end
+			if not freePlot then
 				break
 			end
-		end
-		if not freePlot then
-			return
-		end
 
-		local player = table.remove(waiting, 1)
-		waitingSet[player] = nil
-		if player.Parent == Players and not playerPlots[player] and freePlot:claim(player) then
-			playerPlots[player] = freePlot
-			task.spawn(restorePlayer, player, freePlot)
+			local player = waiting[1]
+			local data = if player.Parent == Players then Data.Service:waitForData(player) else nil
+			if not waitingSet[player] or player.Parent ~= Players then
+				local position = table.find(waiting, player)
+				if position then
+					table.remove(waiting, position)
+				end
+				waitingSet[player] = nil
+				continue
+			end
+			if not data then
+				warn("Could not load player data before assigning a plot for", player.Name)
+				table.remove(waiting, 1)
+				waitingSet[player] = nil
+				continue
+			end
+
+			table.remove(waiting, 1)
+			waitingSet[player] = nil
+			if not playerPlots[player] and freePlot:claim(player) then
+				playerPlots[player] = freePlot
+				task.spawn(restorePlayer, player, freePlot, data)
+			end
 		end
-	end
+		assigningWaiting = false
+	end)
 end
 
 local function playerAdded(player: Player)
@@ -233,6 +370,7 @@ function PlotServiceServer:init()
 	end
 
 	local template = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Plot") :: Model
+	prepareStarterPack(template)
 	local folder = Workspace:FindFirstChild("SpawnedPlots")
 	if not folder then
 		folder = Instance.new("Folder")
@@ -269,7 +407,7 @@ function PlotServiceServer:init()
 		end
 	end
 
-	Networker.server.new("PlotPlacement", self, { self.place, self.pickup, self.travel, self.buyExtraSlot })
+	networker = Networker.server.new("PlotPlacement", self, { self.place, self.pickup, self.travel, self.buyExtraSlot })
 	initialized = true
 	Players.PlayerAdded:Connect(playerAdded)
 	Players.PlayerRemoving:Connect(playerRemoving)
@@ -331,6 +469,7 @@ function PlotServiceServer:travel(player: Player, destination: any)
 		or not root or not root:IsA("BasePart") then
 		return
 	end
+	local tutorialShop = destination == "Shop" and TutorialServiceServer:canVisitShop(player)
 	local now = os.clock()
 	if now - (lastTravel[player] or -math.huge) < 1 then
 		return
@@ -358,6 +497,9 @@ function PlotServiceServer:travel(player: Player, destination: any)
 	lastTravel[player] = now
 	local target = hit.Position + Vector3.new(0, 3.5, 0)
 	character:PivotTo(CFrame.lookAt(target, Vector3.new(torso.Position.X, target.Y, torso.Position.Z)))
+	if tutorialShop then
+		TutorialServiceServer:visitedShop(player)
+	end
 end
 function PlotServiceServer:place(player: Player, instanceId: any, slotId: any)
 	if typeof(instanceId) ~= "string" or typeof(slotId) ~= "string" then
@@ -404,7 +546,7 @@ function PlotServiceServer:place(player: Player, instanceId: any, slotId: any)
 	local updatedItem = table.clone(item)
 	updatedItem.placedSlotId = slotId
 	data.inventory[instanceId](updatedItem)
-	if item.itemId == "Incubator" then
+	if getIncubatorId(item.itemId) then
 		IncubatorServiceServer:registerPlaced(player, plot.model, model, instanceId)
 	end
 	InventoryServiceServer:refreshTools(player)
@@ -441,7 +583,18 @@ function PlotServiceServer:pickup(player: Player, slotId: any)
 	if typeof(item) ~= "table" or item.placedSlotId ~= slotId then
 		return
 	end
-	if item.itemId == "Incubator" then
+	local isTank = string.match(item.itemId, "^Tank%.([%w_]+)$") ~= nil
+	if isTank and TankServiceServer:isOccupied(model) then
+		if (model:GetAttribute("ContainedCrabCount") or 0) == 0 and networker then
+			networker:fire(player, "pickupBlocked", "decorations")
+		end
+		return
+	end
+	if InventoryServiceServer:isFull(player) then
+		InventoryServiceServer:showInventoryFull(player)
+		return
+	end
+	if getIncubatorId(item.itemId) then
 		if IncubatorServiceServer:isOccupied(model) then
 			return
 		end
@@ -452,10 +605,7 @@ function PlotServiceServer:pickup(player: Player, slotId: any)
 		end
 		IncubatorServiceServer:unregisterPlaced(model)
 	end
-	if string.match(item.itemId, "^Tank%.([%w_]+)$") then
-		if TankServiceServer:isOccupied(model) then
-			return
-		end
+	if isTank then
 		for _, other in inventory do
 			if typeof(other) == "table" and other.tankInstanceId == instanceId then
 				return

@@ -119,7 +119,7 @@ function DecorShopServiceServer:buy(player: Player, itemId: any, requestId: any)
 					count += 1
 				end
 			end
-			if count >= InventoryConfig.maxItems then
+			if count >= InventoryConfig.getCapacity(data.inventoryCapacityPurchases()) then
 				sendResult(player, "showInventoryFull", requestId)
 			end
 			return nil
@@ -137,6 +137,12 @@ function DecorShopServiceServer:buy(player: Player, itemId: any, requestId: any)
 		warn(`DecorShop purchase failed for {player.Name}: {result}`)
 	elseif result and networker and player.Parent == Players then
 		networker:fire(player, "showPurchasedItem", requestId)
+	end
+end
+
+function DecorShopServiceServer:showRobuxPurchased(player: Player, itemId: string)
+	if networker and player.Parent == Players then
+		networker:fire(player, "showRobuxPurchased", itemId)
 	end
 end
 
