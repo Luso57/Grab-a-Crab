@@ -55,7 +55,9 @@ end
 local function inventoryIsFull(): boolean
 	local count = 0
 	for _, item in Data.inventory() do
-		if typeof(item) == "table" and item.itemId ~= InventoryConfig.hammerItemId then
+		if typeof(item) == "table" and typeof(item.itemId) == "string"
+			and item.itemId ~= InventoryConfig.hammerItemId
+			and item.placedSlotId == nil and item.incubatorInstanceId == nil and item.tankInstanceId == nil then
 			count += 1
 		end
 	end

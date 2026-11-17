@@ -115,7 +115,10 @@ function DecorShopServiceServer:buy(player: Player, itemId: any, requestId: any)
 		if not instanceId then
 			local count = 0
 			for _, savedItem in data.inventory() do
-				if typeof(savedItem) == "table" and savedItem.itemId ~= InventoryConfig.hammerItemId then
+				if typeof(savedItem) == "table" and typeof(savedItem.itemId) == "string"
+					and savedItem.itemId ~= InventoryConfig.hammerItemId
+					and savedItem.placedSlotId == nil and savedItem.incubatorInstanceId == nil
+					and savedItem.tankInstanceId == nil then
 					count += 1
 				end
 			end
