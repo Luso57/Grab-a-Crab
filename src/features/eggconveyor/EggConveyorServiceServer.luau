@@ -7,6 +7,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
 local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
@@ -183,12 +184,12 @@ function EggConveyorServiceServer:buyUpgrade(player: Player)
         if LuckConfig.countDiscovered(data.discoveredCrabs()) < LuckConfig.getRequiredDiscoveries(luck) then
             return
         end
-        local money = data.money()
-        if typeof(money) ~= "number" or money ~= money or money < price then
+        local money = Money.get(data, "money")
+        if Money.compare(money, tostring(price)) < 0 then
             return
         end
 
-        data.money(money - price)
+        Money.set(data, "money", Money.subtract(money, tostring(price)))
         local newLuck = luck + LuckConfig.LUCK_PER_UPGRADE
         data.conveyorLuck(newLuck)
         plot.model:SetAttribute("ConveyorLuck", newLuck)

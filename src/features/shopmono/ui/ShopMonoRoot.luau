@@ -14,7 +14,7 @@ local create = Vide.create
 export type Props = {
 	isOpen: () -> boolean,
 	otherMenuOpen: () -> boolean,
-	maxMoney: () -> number,
+	maxMoney: () -> number | string,
 	serverLuckMultiplier: () -> number,
 	autoCollectPassOwned: () -> boolean,
 	serverLuckPrice: () -> string,

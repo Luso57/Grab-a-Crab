@@ -23,8 +23,8 @@ export type SavedItem = {
 export type PlayerData = {
 	inventory: { [string]: SavedItem },
 	hotbar: { string },
-	money: number,
-	maxMoney: number,
+	money: string,
+	maxMoney: string,
 	conveyorLuck: number,
 	extraSlotsPurchased: number,
 	inventoryCapacityPurchases: number,
@@ -53,8 +53,8 @@ local emptySlot = InventoryConfig.emptySlot
 
 local template: PlayerData = {
 	inventory = {},
-	money = 3500,
-	maxMoney = 500,
+	money = "3500",
+	maxMoney = "500",
 	conveyorLuck = 0,
 	extraSlotsPurchased = 0,
 	inventoryCapacityPurchases = 0,

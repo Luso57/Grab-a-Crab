@@ -163,8 +163,8 @@ function EggConveyorServiceClient:init()
 	sound.Parent = playerGui
 	purchaseSound = sound
 	showMoneyWarning = EggMoneyWarning.mount(playerGui)
-	local balance = Vide.source(Data.money())
-	Data.money.Changed(function(value: number)
+	local balance = Vide.source(Data.money() :: any)
+	Data.money.Changed(function(value: any)
 		balance(value)
 	end)
 	local discoveries = Vide.source(Data.discoveredCrabs())

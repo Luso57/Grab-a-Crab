@@ -9,6 +9,7 @@ local Workspace = game:GetService("Workspace")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Data = require(ReplicatedStorage.Source.Game.Data).client
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
 local ShopConfig = require(script.Parent.ShopConfig)
@@ -30,7 +31,7 @@ local lastNotifiedRestock: number? = nil
 local stock = Vide.source({ Incubator = 0, Small = 0, Medium = 0, Large = 0 } :: { [string]: number })
 local refreshAt = Vide.source(0)
 local refreshSeconds = Vide.source(ShopConfig.restockIntervalSeconds)
-local balance = Vide.source(0)
+local balance = Vide.source(Data.money() :: any)
 local openShop: (() -> ())? = nil
 
 local robuxProductByItemId = {
@@ -61,7 +62,7 @@ function ShopServiceClient:init()
 	openShop = function()
 		open(true)
 	end
-	Data.money.Changed(function(value: number)
+	Data.money.Changed(function(value: any)
 		balance(value)
 	end)
 	balance(Data.money())
@@ -82,7 +83,7 @@ function ShopServiceClient:init()
 				if not price or (stock()[itemId] or 0) <= 0 then
 					return false
 				end
-				if balance() < price then
+				if Money.compare(balance(), tostring(price)) < 0 then
 					EggConveyorServiceClient:showNotEnoughMoney()
 					return false
 				end

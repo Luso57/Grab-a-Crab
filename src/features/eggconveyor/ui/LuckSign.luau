@@ -5,13 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
 
 local create = Vide.create
 local LuckSign = {}
 local CLOVER_IMAGE = "rbxassetid://84144870802466"
 
-function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number, discoveries: () -> { [string]: boolean }, onBuy: () -> ()): (() -> ())?
+function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number | string, discoveries: () -> { [string]: boolean }, onBuy: () -> ()): (() -> ())?
     local sign = plotModel:FindFirstChild("MoreLuckSign")
     local panel = if sign then sign:FindFirstChild("FrontPanel") else nil
     if not panel or not panel:IsA("BasePart") then
@@ -53,7 +54,7 @@ function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> n
     end)
     local canBuy = Vide.derive(function()
         local price = LuckConfig.getUpgradePrice(luck())
-        return owner() and price ~= nil and balance() >= (price or math.huge)
+        return owner() and price ~= nil and Money.compare(balance(), tostring(price or 0)) >= 0
             and LuckConfig.countDiscovered(discoveries()) >= LuckConfig.getRequiredDiscoveries(luck())
     end)
     local buttonColor = Vide.derive(function()
@@ -64,7 +65,7 @@ function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> n
         if LuckConfig.countDiscovered(discoveries()) < LuckConfig.getRequiredDiscoveries(luck()) then
             return Color3.fromRGB(190, 120, 35)
         end
-        return if balance() < price then Color3.fromRGB(220, 48, 48) else Color3.fromRGB(32, 205, 75)
+        return if Money.compare(balance(), tostring(price)) < 0 then Color3.fromRGB(220, 48, 48) else Color3.fromRGB(32, 205, 75)
     end)
     local buttonStrokeColor = Vide.derive(function()
         local price = LuckConfig.getUpgradePrice(luck())
@@ -74,7 +75,7 @@ function LuckSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> n
         if LuckConfig.countDiscovered(discoveries()) < LuckConfig.getRequiredDiscoveries(luck()) then
             return Color3.fromRGB(90, 55, 15)
         end
-        return if balance() < price then Color3.fromRGB(105, 15, 15) else Color3.fromRGB(9, 65, 33)
+        return if Money.compare(balance(), tostring(price)) < 0 then Color3.fromRGB(105, 15, 15) else Color3.fromRGB(9, 65, 33)
     end)
     local buySound = create "Sound" {
         Name = "BuyClickSound",

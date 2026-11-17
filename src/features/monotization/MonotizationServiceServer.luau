@@ -8,6 +8,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local ServerLuck = require(ReplicatedStorage.Source.Features.Monotization.Modules.LuckBoost)
@@ -27,7 +28,7 @@ local initialized = false
 local processingByPlayer: { [Player]: boolean } = {}
 local feedbackByReceipt: { [string]: { player: Player, itemId: string, instanceId: string } } = {}
 local boostByReceipt: { [string]: { player: Player, multiplier: number } } = {}
-local coinsByReceipt: { [string]: { player: Player, amount: number } } = {}
+local coinsByReceipt: { [string]: { player: Player, amount: string } } = {}
 local rollAgainByReceipt: { [string]: { player: Player, instanceId: string, crabId: string, weightGrams: number } } = {}
 local hatchNowByReceipt: { [string]: { player: Player, instanceId: string, crabId: string, weightGrams: number, eggId: string?, pivot: CFrame?, scale: number?, direction: Vector3? } } = {}
 local autoCollectCheckVersion: { [Player]: number } = {}
@@ -153,19 +154,15 @@ local function grantReceipt(player: Player, receiptInfo: any): Enum.ProductPurch
 			receiptValue = `InventoryCapacity:{purchaseCount}`
 			data.processedProductReceipts[purchaseId](receiptValue)
 		elseif coinBundle then
-			local balance = data.money()
-			local highestMoney = data.maxMoney()
-			if typeof(balance) ~= "number" or balance ~= balance or balance == math.huge or balance == -math.huge
-				or typeof(highestMoney) ~= "number" or highestMoney ~= highestMoney
-				or highestMoney == math.huge or highestMoney == -math.huge then
+			local balance = Money.get(data, "money")
+			local highestMoney = Money.get(data, "maxMoney")
+			local highest = if Money.compare(balance, highestMoney) >= 0 then balance else highestMoney
+			local amount = CoinBundles.getAmount(highest, coinBundle.multiplier)
+			if Money.compare(amount, "0") <= 0 then
 				return Enum.ProductPurchaseDecision.NotProcessedYet
 			end
-			local amount = CoinBundles.getAmount(math.max(balance, highestMoney), coinBundle.multiplier)
-			if amount <= 0 or amount == math.huge or balance + amount == math.huge then
-				return Enum.ProductPurchaseDecision.NotProcessedYet
-			end
-			data.money(balance + amount)
-			receiptValue = `Coins:{amount}`
+			Money.set(data, "money", Money.add(balance, amount))
+			receiptValue = "Coins"
 			data.processedProductReceipts[purchaseId](receiptValue)
 			coinsByReceipt[purchaseId] = { player = player, amount = amount }
 		elseif eggProductRarity then

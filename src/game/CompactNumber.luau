@@ -1,3 +1,6 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Money = require(ReplicatedStorage.Source.Game.Money)
+
 local SUFFIXES = {
 	{ threshold = 1e33, suffix = "D" },
 	{ threshold = 1e30, suffix = "No" },
@@ -14,7 +17,11 @@ local SUFFIXES = {
 
 local CompactNumber = {}
 
-function CompactNumber.format(value: number, decimalPlaces: number?, lowercaseSuffix: boolean?): string
+function CompactNumber.format(value: number | string, decimalPlaces: number?, lowercaseSuffix: boolean?): string
+	if typeof(value) == "string" then
+		local formatted = Money.format(value, decimalPlaces)
+		return if lowercaseSuffix then string.lower(formatted) else formatted
+	end
 	if value ~= value then
 		return "0"
 	elseif value == math.huge then

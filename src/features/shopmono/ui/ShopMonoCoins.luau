@@ -16,7 +16,7 @@ local packages = {
 	{ name = "Large", bundle = CoinBundles.Large, price = "720", coins = { { 0.15, -0.08, 0.37, -15 }, { 0.49, -0.06, 0.43, 10 }, { 0.85, -0.07, 0.41, -20 }, { 0.26, 0.34, 0.56, -8 }, { 0.76, 0.36, 0.52, 12 } } },
 }
 
-local function makeCard(package: typeof(packages[1]), maxMoney: () -> number, onBuyProduct: (number) -> ()): ImageLabel
+local function makeCard(package: typeof(packages[1]), maxMoney: () -> number | string, onBuyProduct: (number) -> ()): ImageLabel
 	local card = create "ImageLabel" {
 		Name = package.name .. "Coins",
 		Size = UDim2.new(1 / 3, -8, 0, 190),
@@ -150,7 +150,7 @@ end
 
 local ShopMonoCoins = {}
 
-function ShopMonoCoins.new(maxMoney: () -> number, onBuyProduct: (number) -> ()): (Frame, (boolean) -> ())
+function ShopMonoCoins.new(maxMoney: () -> number | string, onBuyProduct: (number) -> ()): (Frame, (boolean) -> ())
 	local section = create "Frame" {
 		Name = "CoinsSection",
 		Size = UDim2.new(1, -58, 0, 286),

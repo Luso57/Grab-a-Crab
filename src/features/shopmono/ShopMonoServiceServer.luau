@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 
 local ShopMonoServiceServer = {}
@@ -18,18 +19,17 @@ local function watchPlayer(player: Player)
 			return
 		end
 
-		local function recordHigh(balance: number)
-			if typeof(balance) ~= "number" or balance ~= balance or balance == math.huge or balance == -math.huge then
-				return
+		local function recordHigh(balance: any)
+			local current = Money.normalize(balance)
+			local previous = Money.get(data, "maxMoney")
+			if Money.compare(current, previous) > 0 then
+				Money.set(data, "maxMoney", current)
 			end
-			data.maxMoney(function(previous: number)
-				return math.max(previous, balance)
-			end)
 		end
 
 		local disconnect = data.money.Changed(recordHigh)
 		disconnectByPlayer[player] = disconnect
-		recordHigh(data.money())
+		recordHigh(Money.get(data, "money"))
 	end)
 end
 
@@ -62,7 +62,7 @@ function ShopMonoServiceServer:announceServerLuck(buyerName: string, multiplier:
 	end
 end
 
-function ShopMonoServiceServer:showCoinsPurchased(player: Player, amount: number)
+function ShopMonoServiceServer:showCoinsPurchased(player: Player, amount: string)
 	if networker and player.Parent == Players then
 		networker:fire(player, "coinsPurchased", amount)
 	end

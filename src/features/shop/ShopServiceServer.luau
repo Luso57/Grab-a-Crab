@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Tanks = require(ReplicatedStorage.Source.Features.Tanks.Modules.Tanks)
 local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
@@ -64,35 +65,30 @@ local function purchase(player: Player, itemId: string, inventoryId: string, req
 			return nil
 		end
 		local stock = stockByPlayer[player]
-		local balance = data.money()
+		local balance = Money.get(data, "money")
 		if not stock or (stock[itemId] or 0) <= 0 then
 			return nil
 		end
-		if typeof(balance) ~= "number" or balance ~= balance or balance < price then
-			if typeof(balance) == "number" and balance < price then
-				showNotEnoughMoney(player, requestId)
-			end
+		if Money.compare(balance, tostring(price)) < 0 then
+			showNotEnoughMoney(player, requestId)
 			return nil
 		end
 
 		local grantedId = InventoryServiceServer:grantItem(player, inventoryId, function()
-			local currentBalance = data.money()
+			local currentBalance = Money.get(data, "money")
 			return player.Parent == Players and stockByPlayer[player] == stock
-				and (stock[itemId] or 0) > 0 and typeof(currentBalance) == "number"
-				and currentBalance >= price
+				and (stock[itemId] or 0) > 0 and Money.compare(currentBalance, tostring(price)) >= 0
 		end)
 		if not grantedId then
-			local currentBalance = data.money()
-			if typeof(currentBalance) == "number" and currentBalance < price then
+			local currentBalance = Money.get(data, "money")
+			if Money.compare(currentBalance, tostring(price)) < 0 then
 				showNotEnoughMoney(player, requestId)
 			elseif InventoryServiceServer:isFull(player) then
 				InventoryServiceServer:showInventoryFull(player)
 			end
 			return nil
 		end
-		data.money(function(currentBalance: number)
-			return currentBalance - price
-		end)
+		Money.set(data, "money", Money.subtract(Money.get(data, "money"), tostring(price)))
 		stock[itemId] -= 1
 		sendStock(player)
 		return grantedId

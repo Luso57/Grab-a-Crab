@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local DecorConfig = require(ReplicatedStorage.Source.Features.DecorShop.DecorConfig)
 local ShopStock = require(ReplicatedStorage.Source.Features.Shop.Modules.ShopStock)
@@ -98,19 +99,16 @@ function DecorShopServiceServer:buy(player: Player, itemId: any, requestId: any)
 		if not stock or (stock[itemId] or 0) <= 0 then
 			return nil
 		end
-		local balance = data.money()
-		if typeof(balance) ~= "number" or balance ~= balance or balance < item.price then
-			if typeof(balance) == "number" and balance < item.price then
-				sendResult(player, "showNotEnoughMoney", requestId)
-			end
+		local balance = Money.get(data, "money")
+		if Money.compare(balance, tostring(item.price)) < 0 then
+			sendResult(player, "showNotEnoughMoney", requestId)
 			return nil
 		end
 
 		local instanceId = InventoryServiceServer:grantItem(player, "Decor." .. itemId, function()
-			local currentBalance = data.money()
+			local currentBalance = Money.get(data, "money")
 			return player.Parent == Players and stockByPlayer[player] == stock
-				and (stock[itemId] or 0) > 0 and typeof(currentBalance) == "number"
-				and currentBalance >= item.price
+				and (stock[itemId] or 0) > 0 and Money.compare(currentBalance, tostring(item.price)) >= 0
 		end)
 		if not instanceId then
 			local count = 0
@@ -128,9 +126,7 @@ function DecorShopServiceServer:buy(player: Player, itemId: any, requestId: any)
 			return nil
 		end
 
-		data.money(function(currentBalance: number)
-			return currentBalance - item.price
-		end)
+		Money.set(data, "money", Money.subtract(Money.get(data, "money"), tostring(item.price)))
 		stock[itemId] -= 1
 		sendStock(player)
 		return instanceId

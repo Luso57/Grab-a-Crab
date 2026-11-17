@@ -11,7 +11,7 @@ local create = Vide.create
 local random = Random.new()
 
 export type Props = {
-	balance: () -> number,
+	balance: () -> number | string,
 }
 
 local function MoneyHud(props: Props, playerGui: PlayerGui): (ScreenGui, (Vector2?) -> ())

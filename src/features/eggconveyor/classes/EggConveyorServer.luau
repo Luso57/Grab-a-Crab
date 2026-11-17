@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Eggs = require(ReplicatedStorage.Source.Features.Egg.Modules.Eggs)
 local LuckConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.LuckConfig)
 local GiganticEggConfig = require(ReplicatedStorage.Source.Features.EggConveyor.Modules.GiganticEggConfig)
@@ -120,22 +121,22 @@ local function collect(self: EggConveyorServer, player: Player, egg: EggServer.E
 		if not data or not canCollect(self, player, egg) then
 			return nil
 		end
-		local money = data.money()
-		if typeof(money) ~= "number" or money < price then
-			insufficientFunds = typeof(money) == "number" and money < price
+		local money = Money.get(data, "money")
+		if Money.compare(money, tostring(price)) < 0 then
+			insufficientFunds = true
 			return nil
 		end
 		local instanceId = InventoryServiceServer:grantItem(player, "Egg." .. eggId, function()
-			return canCollect(self, player, egg) and data.money() >= price
+			return canCollect(self, player, egg) and Money.compare(Money.get(data, "money"), tostring(price)) >= 0
 		end, nil, egg.model:GetAttribute("IsGiganticEgg") == true)
 		if not instanceId then
-			local currentMoney = data.money()
-			insufficientFunds = typeof(currentMoney) == "number" and currentMoney < price
+			local currentMoney = Money.get(data, "money")
+			insufficientFunds = Money.compare(currentMoney, tostring(price)) < 0
 			inventoryFull = not insufficientFunds and InventoryServiceServer:isFull(player)
 			return nil
 		end
 		if price > 0 then
-			data.money(data.money() - price)
+			Money.set(data, "money", Money.subtract(Money.get(data, "money"), tostring(price)))
 		end
 		return instanceId
 	end)

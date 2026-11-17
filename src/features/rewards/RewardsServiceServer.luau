@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local CrabSizeIndex = require(ReplicatedStorage.Source.Features.Index.Modules.CrabSizeIndex)
@@ -53,9 +54,7 @@ local function grantStarterPack(player: Player, announce: boolean)
 
 		data.inventory(inventory)
 		data.hotbar(hotbar)
-		data.money(function(previous: number)
-			return previous + 50000
-		end)
+		Money.set(data, "money", Money.add(Money.get(data, "money"), "50000"))
 		data.biggestCrabGrams(function(previous: number)
 			return math.max(previous, 10)
 		end)

@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local IndexMilestones = require(ReplicatedStorage.Source.Features.Index.Modules.IndexMilestones)
 
@@ -39,12 +40,9 @@ function IndexServiceServer:claim(player: Player, sizeName: any, target: any)
 	if discoveredCount < target then
 		return
 	end
-	local balance = data.money()
-	if typeof(balance) ~= "number" or balance ~= balance or balance == math.huge or balance == -math.huge then
-		return
-	end
+	local balance = Money.get(data, "money")
 	data.claimedIndexMilestones[IndexMilestones.key(sizeName, target)](true)
-	data.money(balance + coins)
+	Money.set(data, "money", Money.add(balance, tostring(coins)))
 	if networker and player.Parent == Players then
 		networker:fire(player, "claimSucceeded", sizeName, target, IndexMilestones.growthLuck(data.claimedIndexMilestones(), data.starterPackClaimed()))
 	end

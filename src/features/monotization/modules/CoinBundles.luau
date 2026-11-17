@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ProductIds = require(ReplicatedStorage.Source.Features.Monotization.productids)
+local Money = require(ReplicatedStorage.Source.Game.Money)
 
 local CoinBundles = {
 	Small = { productId = ProductIds.SmallCoins, multiplier = 2 },
@@ -16,8 +17,8 @@ CoinBundles.byProductId = {
 	[ProductIds.LargeCoins] = CoinBundles.Large,
 }
 
-function CoinBundles.getAmount(highestMoney: number, multiplier: number): number
-	return math.floor(math.max(0, highestMoney) * multiplier)
+function CoinBundles.getAmount(highestMoney: number | string, multiplier: number): string
+	return Money.multiplySmall(highestMoney, multiplier)
 end
 
 return CoinBundles

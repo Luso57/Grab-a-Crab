@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local SellConfig = require(ReplicatedStorage.Source.Features.SellStand.SellConfig)
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
@@ -148,8 +149,8 @@ function SellStandServiceServer:confirmSale(player: Player, token: any)
 		for index, instanceId in quote.ids do
 			if current.ids[index] ~= instanceId then return "changed" end
 		end
-		local balance = data.money()
-		if typeof(balance) ~= "number" or balance ~= balance or balance < 0 or balance + quote.total > 1e15 then return nil end
+		local balance = Money.get(data, "money")
+		local newBalance = Money.add(balance, tostring(quote.total))
 		local updated = table.clone(inventory)
 		local sold = {}
 		for _, instanceId in quote.ids do
@@ -162,7 +163,7 @@ function SellStandServiceServer:confirmSale(player: Player, token: any)
 		end
 		data.inventory(updated)
 		data.hotbar(hotbar)
-		data.money(balance + quote.total)
+		Money.set(data, "money", newBalance)
 		InventoryServiceServer:refreshTools(player)
 		return "sold"
 	end)

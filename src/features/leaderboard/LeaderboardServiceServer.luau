@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserService = game:GetService("UserService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local LeaderboardConfig = require(ReplicatedStorage.Source.Features.Leaderboard.Modules.LeaderboardConfig)
 
@@ -28,15 +29,15 @@ local function queueName(userId: number)
 	end
 end
 
-local function values(data: any): { [string]: number }
+local function values(data: any): { [string]: number | string }
 	return {
-		MostMoney = data.maxMoney(),
+		MostMoney = Money.get(data, "maxMoney"),
 		TimePlayed = data.lifetimePlaySeconds(),
 		BiggestCrabG = data.biggestCrabGrams(),
 	}
 end
 
-local function publish(userId: number, currentValues: { [string]: number })
+local function publish(userId: number, currentValues: { [string]: number | string })
 	local last = published[userId]
 	if not last then
 		last = {}
@@ -202,7 +203,7 @@ function LeaderboardServiceServer:init()
 			startedAt[player] = nil
 		end
 		local finalValues = {
-			MostMoney = savedData.maxMoney or 0,
+			MostMoney = Money.normalize(savedData.maxMoney),
 			TimePlayed = savedData.lifetimePlaySeconds or 0,
 			BiggestCrabG = savedData.biggestCrabGrams or 0,
 		}

@@ -33,7 +33,7 @@ function ShopMonoServiceClient:init()
 	Networker.client.new("ShopMonoService", self)
 	local isOpen = PopupMenuState.isOpen("ShopMono")
 	local otherMenuOpen = PopupMenuState.isOtherOpen("ShopMono")
-	local maxMoney = Vide.source(Data.maxMoney())
+	local maxMoney = Vide.source(Data.maxMoney() :: any)
 	local serverLuckMultiplier = Vide.source(ServerLuck.getMultiplier())
 	local autoCollectPassOwned = Vide.source(Data.autoCollectOwned())
 	local ownershipCheckVersion = 0
@@ -74,7 +74,7 @@ function ShopMonoServiceClient:init()
 			task.wait(1)
 		end
 	end)
-	Data.maxMoney.Changed(function(value: number)
+	Data.maxMoney.Changed(function(value: any)
 		maxMoney(value)
 	end)
 	ShopMonoButton.mount(playerGui, function()
@@ -149,7 +149,7 @@ function ShopMonoServiceClient:serverLuckBought(buyerName: any, multiplier: any)
 end
 
 function ShopMonoServiceClient:coinsPurchased(amount: any)
-	if typeof(amount) == "number" and amount > 0 then
+	if (typeof(amount) == "number" and amount > 0) or (typeof(amount) == "string" and amount ~= "0") then
 		MoneyServiceClient:playCollection()
 	end
 end

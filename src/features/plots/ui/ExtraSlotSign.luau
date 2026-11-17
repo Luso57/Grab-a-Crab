@@ -6,12 +6,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CompactNumber = require(ReplicatedStorage.Source.Game.CompactNumber)
 local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
+local Money = require(ReplicatedStorage.Source.Game.Money)
 
 local create = Vide.create
 local ExtraSlotSign = {}
 local SLOT_IMAGE = "rbxassetid://85616034755765"
 
-function ExtraSlotSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number, onBuy: () -> ()): (() -> ())?
+function ExtraSlotSign.mount(plotModel: Model, playerGui: PlayerGui, balance: () -> number | string, onBuy: () -> ()): (() -> ())?
 	local sign = plotModel:FindFirstChild("ExtraSlotSign")
 	local panel = if sign then sign:FindFirstChild("FrontPanel") else nil
 	if not panel or not panel:IsA("BasePart") then
@@ -34,21 +35,21 @@ function ExtraSlotSign.mount(plotModel: Model, playerGui: PlayerGui, balance: ()
 		end)
 		local canBuy = Vide.derive(function()
 			local price = PlotExtraSlots.getPrice(purchased())
-			return owner() and price ~= nil and balance() >= (price or math.huge)
+			return owner() and price ~= nil and Money.compare(balance(), tostring(price or 0)) >= 0
 		end)
 		local buttonColor = Vide.derive(function()
 			local price = PlotExtraSlots.getPrice(purchased())
 			if not owner() or not price then
 				return Color3.fromRGB(115, 115, 115)
 			end
-			return if balance() < price then Color3.fromRGB(220, 48, 48) else Color3.fromRGB(0, 235, 37)
+			return if Money.compare(balance(), tostring(price)) < 0 then Color3.fromRGB(220, 48, 48) else Color3.fromRGB(0, 235, 37)
 		end)
 		local buttonStrokeColor = Vide.derive(function()
 			local price = PlotExtraSlots.getPrice(purchased())
 			if not owner() or not price then
 				return Color3.fromRGB(65, 65, 65)
 			end
-			return if balance() < price then Color3.fromRGB(105, 15, 15) else Color3.fromRGB(9, 65, 33)
+			return if Money.compare(balance(), tostring(price)) < 0 then Color3.fromRGB(105, 15, 15) else Color3.fromRGB(9, 65, 33)
 		end)
 		local buySound = create "Sound" {
 			Name = "BuyClickSound",

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).client
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local MoneyHud = require(script.Parent.UI.MoneyHud)
 
@@ -18,7 +19,7 @@ function MoneyServiceClient:init()
 	end
 	initialized = true
 
-	local initialBalance = Data.money()
+	local initialBalance: any = Money.normalize(Data.money())
 	local balance = Vide.source(initialBalance)
 	local displayedBalance = initialBalance
 	local savedBalance = initialBalance
@@ -44,7 +45,14 @@ function MoneyServiceClient:init()
 		return gui
 	end, playerGui)
 
-	Data.money.Changed(function(value: number)
+	Data.money.Changed(function(value: any)
+		value = Money.normalize(value)
+		if typeof(value) ~= "number" or typeof(savedBalance) ~= "number" then
+			savedBalance = value
+			displayedBalance = value
+			balance(value)
+			return
+		end
 		local now = os.clock()
 		if animationConnection then
 			updateCountdown(now)
@@ -71,7 +79,7 @@ function MoneyServiceClient:init()
 			balance(value)
 		end
 	end)
-	local currentBalance = Data.money()
+	local currentBalance = Money.normalize(Data.money())
 	if currentBalance ~= savedBalance then
 		savedBalance = currentBalance
 		displayedBalance = currentBalance

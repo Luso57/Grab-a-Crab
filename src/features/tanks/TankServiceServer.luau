@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
@@ -260,9 +261,7 @@ function TankServiceServer:collectMoneyPad(tank: TankServer.TankServer, silent: 
 	if amount <= 0 then
 		return
 	end
-	data.money(function(balance: number)
-		return balance + amount
-	end)
+	Money.set(data, "money", Money.add(Money.get(data, "money"), tostring(math.max(0, math.floor(amount)))))
 	tank:resetMoneyPad(now)
 	if silent then
 		return
@@ -438,9 +437,7 @@ function TankServiceServer:sellCrab(player: Player, tankInstanceId: any, crabIns
 		end
 		data.hotbar(updatedHotbar)
 	end
-	data.money(function(balance: number)
-		return balance + sellValue
-	end)
+	Money.set(data, "money", Money.add(Money.get(data, "money"), tostring(sellValue)))
 
 	local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 	InventoryServiceServer:refreshTools(player)

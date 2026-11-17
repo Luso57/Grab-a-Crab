@@ -9,6 +9,7 @@ local Workspace = game:GetService("Workspace")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local Networker = require(ReplicatedStorage.Packages.Networker)
 local Data = require(ReplicatedStorage.Source.Game.Data).client
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local DecorConfig = require(script.Parent.DecorConfig)
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local ShopPurchaseEffect = require(ReplicatedStorage.Source.Features.Shop.UI.ShopPurchaseEffect)
@@ -29,7 +30,7 @@ local showFullNotice: (() -> ())? = nil
 local stock = Vide.source({} :: { [string]: number })
 local refreshAt = Vide.source(0)
 local refreshSeconds = Vide.source(DecorConfig.restockIntervalSeconds)
-local balance = Vide.source(0)
+local balance = Vide.source(Data.money() :: any)
 
 local robuxProductByItemId: { [string]: number } = {
 	Umbrella = ProductIds.UmbrellaDecor,
@@ -76,7 +77,7 @@ function DecorShopServiceClient:init()
 	showFullNotice = ShopRestockNotice.mount(playerGui, "INVENTORY FULL!", "DecorShopFullNotice", true)
 
 	local open = Vide.source(false)
-	Data.money.Changed(function(value: number)
+	Data.money.Changed(function(value: any)
 		balance(value)
 	end)
 	balance(Data.money())
@@ -97,7 +98,7 @@ function DecorShopServiceClient:init()
 				if not item or (stock()[itemId] or 0) <= 0 then
 					return false
 				end
-				if balance() < item.price then
+				if Money.compare(balance(), tostring(item.price)) < 0 then
 					EggConveyorServiceClient:showNotEnoughMoney()
 					return false
 				end

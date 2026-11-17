@@ -422,6 +422,9 @@
               "$path": "src/game/items/Rarities.luau"
             }
           },
+          "Money": {
+            "$path": "src/game/Money.luau"
+          },
           "PopupMenuState": {
             "$path": "src/game/PopupMenuState.luau"
           }

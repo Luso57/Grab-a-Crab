@@ -7,7 +7,7 @@ local LeaderboardConfig = require(ReplicatedStorage.Source.Features.Leaderboard.
 local create = Vide.create
 local LeaderboardBoard = {}
 
-type Row = { userId: number, name: string, value: number }
+type Row = { userId: number, name: string, value: number | string }
 type BoardState = { status: string, rows: { Row } }
 
 local GOLD = Color3.fromRGB(255, 235, 65)

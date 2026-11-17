@@ -7,6 +7,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Data = require(ReplicatedStorage.Source.Game.Data).server
+local Money = require(ReplicatedStorage.Source.Game.Money)
 local InventoryConfig = require(ReplicatedStorage.Source.Features.Inventory.InventoryConfig)
 local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 local IncubatorServiceServer = require(ServerScriptService.Features.Incubators.IncubatorServiceServer)
@@ -441,14 +442,14 @@ function PlotServiceServer:buyExtraSlot(player: Player)
 			return
 		end
 		local price = PlotExtraSlots.getPrice(count)
-		local money = data.money()
-		if not price or typeof(money) ~= "number" or money ~= money or money < price then
+		local money = Money.get(data, "money")
+		if not price or Money.compare(money, tostring(price)) < 0 then
 			return
 		end
 		if not plot:unlockNextSlot() then
 			return
 		end
-		data.money(money - price)
+		Money.set(data, "money", Money.subtract(money, tostring(price)))
 		data.extraSlotsPurchased(count + 1)
 	end)
 	buyingExtraSlot[player] = nil
