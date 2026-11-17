@@ -191,6 +191,10 @@ function TutorialServiceServer:isTutorialActive(player: Player): boolean
 		return false
 	end
 	local stage = data.tutorialStage()
+	if stage == "Uninitialized" then
+		local profile = Data.Service:getProfile(player)
+		return profile ~= nil and profile.SessionLoadCount == 1
+	end
 	return stage ~= "Complete" and stage ~= "Skipped"
 end
 

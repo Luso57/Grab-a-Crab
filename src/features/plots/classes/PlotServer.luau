@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlotExtraSlots = require(ReplicatedStorage.Source.Features.Plots.Modules.PlotExtraSlots)
+local Workspace = game:GetService("Workspace")
 
 local SLOT_IDS = {
 	Left1 = true,
@@ -254,10 +255,44 @@ function PlotServer.teleportCharacter(self: PlotServer, player: Player, characte
 		return
 	end
 
+	local bridge = self.model:FindFirstChild("Bridge")
+	local conveyor = self.model:FindFirstChild("EggConveyor")
+	local spawnA = if conveyor then conveyor:FindFirstChild("SpawnA") else nil
+	local spawnB = if conveyor then conveyor:FindFirstChild("SpawnB") else nil
+	if not bridge or not bridge:IsA("Model") or not spawnA or not spawnA:IsA("BasePart")
+		or not spawnB or not spawnB:IsA("BasePart") then
+		character:PivotTo(self.spawnBase.CFrame * CFrame.new(0, self.spawnBase.Size.Y / 2 + 4, 0))
+		return
+	end
+
+	local bridgePosition = bridge:GetPivot().Position
+	local conveyorPosition = (spawnA.Position + spawnB.Position) / 2
+	local target = (bridgePosition + conveyorPosition) / 2
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { character }
+	rayParams.RespectCanCollide = true
+	local rayOrigin = Vector3.new(target.X, 100, target.Z)
+	local ground = Workspace:Raycast(rayOrigin, Vector3.new(0, -200, 0), rayParams)
+	local groundY = if ground then ground.Position.Y else target.Y
+	local landingPosition = Vector3.new(target.X, groundY + 4, target.Z)
+	local facing = Vector3.new(conveyorPosition.X - target.X, 0, conveyorPosition.Z - target.Z)
+	if facing.Magnitude == 0 then
+		facing = self.spawn.CFrame.LookVector
+	end
+	character:PivotTo(CFrame.lookAt(landingPosition, landingPosition + facing.Unit))
+end
+
+function PlotServer.teleportCharacterToPlotSpawn(self: PlotServer, player: Player, character: Model)
+	local root = character:WaitForChild("HumanoidRootPart", 10)
+	if not root or self.owner ~= player or player.Character ~= character or not character.Parent then
+		return
+	end
+
 	character:PivotTo(self.spawnBase.CFrame * CFrame.new(0, self.spawnBase.Size.Y / 2 + 4, 0))
 end
 
-function PlotServer.claim(self: PlotServer, player: Player): boolean
+function PlotServer.claim(self: PlotServer, player: Player, shouldUseTutorialSpawn: () -> boolean): boolean
 	if self.owner then
 		return false
 	end
@@ -266,12 +301,21 @@ function PlotServer.claim(self: PlotServer, player: Player): boolean
 	self.model:SetAttribute("OwnerUserId", player.UserId)
 	self.model:SetAttribute("ConveyorLuck", 0)
 	self.ownerBillboard = makeOwnerBillboard(player, self.spawnBase, self.floorModels, self.model)
+	local function teleportCharacter(character: Model)
+		task.spawn(function()
+			if shouldUseTutorialSpawn() then
+				PlotServer.teleportCharacter(self, player, character)
+			else
+				PlotServer.teleportCharacterToPlotSpawn(self, player, character)
+			end
+		end)
+	end
 	self.characterConnection = player.CharacterAdded:Connect(function(character)
-		task.spawn(PlotServer.teleportCharacter, self, player, character)
+		teleportCharacter(character)
 	end)
 
 	if player.Character then
-		task.spawn(PlotServer.teleportCharacter, self, player, player.Character)
+		teleportCharacter(player.Character)
 	end
 
 	return true

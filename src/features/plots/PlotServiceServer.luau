@@ -325,7 +325,9 @@ local function assignWaiting()
 
 			table.remove(waiting, 1)
 			waitingSet[player] = nil
-			if not playerPlots[player] and freePlot:claim(player) then
+			if not playerPlots[player] and freePlot:claim(player, function()
+				return TutorialServiceServer:isTutorialActive(player)
+			end) then
 				playerPlots[player] = freePlot
 				task.spawn(restorePlayer, player, freePlot, data)
 			end
@@ -477,7 +479,7 @@ function PlotServiceServer:travel(player: Player, destination: any)
 	end
 	if destination == "Home" then
 		lastTravel[player] = now
-		plot:teleportCharacter(player, character)
+		plot:teleportCharacterToPlotSpawn(player, character)
 		return
 	end
 
