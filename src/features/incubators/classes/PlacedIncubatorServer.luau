@@ -40,7 +40,7 @@ local function inventoryService()
 	return require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 end
 
-local HATCH_NOW_MIN_DURATION_MS = 5 * 60 * 1000
+local HATCH_NOW_MIN_DURATION_MS = 3 * 60 * 1000
 
 local function canOfferHatchNow(self: PlacedIncubatorServer, eggId: string): boolean
 	local itemId = self.model:GetAttribute("ItemId")
@@ -248,7 +248,7 @@ function PlacedIncubatorServer.canStartHatchNow(self: PlacedIncubatorServer, pla
 		and DateTime.now().UnixTimestampMillis < hatchAt and not self.hatchNowPending and isOwnerInRange(self, player)
 end
 
-function PlacedIncubatorServer:setHatchNowPending(self: PlacedIncubatorServer, pending: boolean)
+function PlacedIncubatorServer.setHatchNowPending(self: PlacedIncubatorServer, pending: boolean)
 	self.hatchNowPending = pending
 	if self.hatchPrompt then self.hatchPrompt.Enabled = not pending and (self.hatchAtUnixMs ~= nil and DateTime.now().UnixTimestampMillis >= self.hatchAtUnixMs) end
 end
