@@ -9,26 +9,28 @@ local TutorialStrip = {}
 
 function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () -> ()
 	return Vide.mount(function()
+		local textSizeConstraint = create "UITextSizeConstraint" { MaxTextSize = 42 }
 		local banner = create "Frame" {
 			Name = "Banner",
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.fromScale(0.5, 0.075),
-			Size = UDim2.new(0.72, 0, 0, 58),
+			Size = UDim2.new(0.46, 0, 0, 58),
 			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.25,
 			BorderSizePixel = 0,
 			Visible = function()
 				return message() ~= ""
 			end,
 			create "UIGradient" {
 				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 112, 199)),
-					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(72, 216, 235)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 112, 199)),
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(38, 38, 38)),
+					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(38, 38, 38)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(38, 38, 38)),
 				}),
 				Transparency = NumberSequence.new({
 					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(0.12, 0),
-					NumberSequenceKeypoint.new(0.88, 0),
+					NumberSequenceKeypoint.new(0.12, 0.25),
+					NumberSequenceKeypoint.new(0.88, 0.25),
 					NumberSequenceKeypoint.new(1, 1),
 				}),
 			},
@@ -38,11 +40,11 @@ function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () ->
 				BackgroundTransparency = 1,
 				Text = message,
 				TextColor3 = Color3.new(1, 1, 1),
-				TextStrokeColor3 = Color3.fromRGB(9, 37, 64),
-				TextStrokeTransparency = 0.2,
+				TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
+				TextStrokeTransparency = 0.15,
 				TextScaled = true,
 				Font = Enum.Font.BuilderSansExtraBold,
-				create "UITextSizeConstraint" { MaxTextSize = 32 },
+				textSizeConstraint,
 			},
 		}
 		local uiScale = Instance.new("UIScale")
@@ -62,8 +64,10 @@ function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () ->
 			local camera = Workspace.CurrentCamera
 			local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
 			local isMobile = math.min(viewport.X, viewport.Y) < 600
-			uiScale.Scale = if isMobile then 0.82 else 1
-			banner.Position = UDim2.fromScale(0.5, if isMobile then 0.095 else 0.075)
+			uiScale.Scale = if isMobile then 0.75 else 1
+			textSizeConstraint.MaxTextSize = if isMobile then 34 else 42
+			banner.Size = UDim2.new(if isMobile then 0.82 else 0.46, 0, 0, if isMobile then 52 else 58)
+			banner.Position = UDim2.fromScale(0.5, if isMobile then 0.125 else 0.075)
 		end
 		local function watchCamera()
 			if viewportConnection then

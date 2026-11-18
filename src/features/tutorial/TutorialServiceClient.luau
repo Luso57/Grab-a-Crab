@@ -61,12 +61,12 @@ local function targetFor(stage: string, plot: Model, root: BasePart, itemId: str
 		return "BUY AN EGG", findThreeSecondEgg(plot, root)
 	end
 	if stage == "GetAnotherEgg" then
-		return "GET ANOTHER EGG AND HATCH IT", findThreeSecondEgg(plot, root)
+		return "GET ANOTHER EGG", findThreeSecondEgg(plot, root)
 	end
 	local incubator = findPlaced(plot, "Right3", "Incubator")
 	local incubatorFloor = if incubator then incubator:FindFirstChild("InsideFloor", true) else nil
 	if stage == "PlaceAnotherEgg" then
-		return "GET ANOTHER EGG AND HATCH IT", nil
+		return "", nil
 	end
 	if stage == "PlaceEgg" then
 		if incubatorFloor and incubatorFloor:IsA("BasePart") then
