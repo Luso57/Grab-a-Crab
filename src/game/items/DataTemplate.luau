@@ -17,7 +17,6 @@ export type SavedItem = {
 	weightGrams: number?,
 	hatchedEggId: string?,
 	isGiganticEgg: boolean?,
-	firstGiganticEggBonus: boolean?,
 }
 
 export type PlayerData = {
@@ -37,7 +36,6 @@ export type PlayerData = {
 	newPlayerPlaySeconds: number,
 	lifetimePlaySeconds: number,
 	biggestCrabGrams: number,
-	firstGiganticEggReceived: boolean,
 	discoveredCrabs: { [string]: boolean },
 	discoveredCrabSizes: { [string]: boolean },
 	claimedIndexMilestones: { [string]: boolean },
@@ -67,7 +65,6 @@ local template: PlayerData = {
 	newPlayerPlaySeconds = 0,
 	lifetimePlaySeconds = 0,
 	biggestCrabGrams = 0,
-	firstGiganticEggReceived = false,
 	discoveredCrabs = {},
 	discoveredCrabSizes = {},
 	claimedIndexMilestones = {},

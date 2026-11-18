@@ -9,7 +9,7 @@ local data = DataServiceTyped({
 	template = DataTemplate,
 	profileStoreIndex = "Playtest3",
 	useMock = false,
-	resetData = true,
+	resetData = false,
 	dontSave = false,
 })
 

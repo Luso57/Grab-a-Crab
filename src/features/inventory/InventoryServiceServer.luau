@@ -24,7 +24,7 @@ local CrabServer = require(ServerScriptService.Features.Crabs.Classes.CrabServer
 local DecorToolFactoryServer = require(ServerScriptService.Features.DecorShop.Modules.DecorToolFactoryServer)
 local TutorialServiceServer = require(ServerScriptService.Features.Tutorial.TutorialServiceServer)
 
-type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number?, weightGrams: number?, hatchedEggId: string?, isGiganticEgg: boolean?, firstGiganticEggBonus: boolean? }
+type SavedItem = { itemId: string, placedSlotId: string?, incubatorInstanceId: string?, tankInstanceId: string?, hatchAtUnixMs: number?, weightGrams: number?, hatchedEggId: string?, isGiganticEgg: boolean? }
 type SavedInventory = { [string]: SavedItem }
 
 local InventoryServiceServer = {}
@@ -64,8 +64,7 @@ local sessionStartedAt: { [Player]: number } = {}
 local NEW_PLAYER_BONUS_PLAY_SECONDS = 180
 local NEW_PLAYER_BONUS_MIN_WEIGHT_HUNDREDTHS = 2500
 local NEW_PLAYER_BONUS_MAX_WEIGHT_HUNDREDTHS = 5000
-local FIRST_GIGANTIC_MIN_WEIGHT_HUNDREDTHS = 5000
-local FIRST_GIGANTIC_MAX_WEIGHT_HUNDREDTHS = 10000
+local GIGANTIC_EGG_MIN_WEIGHT_GRAMS = 50
 local bonusWeightRandom = Random.new()
 
 local function ensureHammer(data: any, player: Player): string
@@ -536,11 +535,7 @@ function InventoryServiceServer:grantItem(player: Player, itemId: string, canGra
 
 	local instanceId = HttpService:GenerateGUID(false)
 	local isGiganticEggItem = string.match(itemId, "^Egg%.") ~= nil and isGiganticEgg == true
-	local firstGiganticEgg = isGiganticEggItem and not data.firstGiganticEggReceived()
-	data.inventory[instanceId]({ itemId = itemId, isGiganticEgg = if isGiganticEggItem then true else nil, firstGiganticEggBonus = if firstGiganticEgg then true else nil })
-	if firstGiganticEgg then
-		data.firstGiganticEggReceived(true)
-	end
+	data.inventory[instanceId]({ itemId = itemId, isGiganticEgg = if isGiganticEggItem then true else nil })
 	if isHotbarEligible(itemId) then
 		local hotbar = normalizeHotbar(data, player)
 		local alreadyAssigned = false
@@ -844,21 +839,21 @@ function InventoryServiceServer:completeIncubation(player: Player, eggInstanceId
 	local startedAt = sessionStartedAt[player]
 	local bonusReady = data.newPlayerHatchStatus() == "Pending" and startedAt ~= nil
 		and data.newPlayerPlaySeconds() + math.max(0, os.clock() - startedAt) >= NEW_PLAYER_BONUS_PLAY_SECONDS
-	local firstGiganticBonus = item.isGiganticEgg == true and item.firstGiganticEggBonus == true
-	if firstGiganticBonus then
-		weightGrams = bonusWeightRandom:NextInteger(FIRST_GIGANTIC_MIN_WEIGHT_HUNDREDTHS, FIRST_GIGANTIC_MAX_WEIGHT_HUNDREDTHS) / 100
-	elseif bonusReady then
+	local isGiganticEgg = item.isGiganticEgg == true
+	if bonusReady and not isGiganticEgg then
 		weightGrams = bonusWeightRandom:NextInteger(NEW_PLAYER_BONUS_MIN_WEIGHT_HUNDREDTHS, NEW_PLAYER_BONUS_MAX_WEIGHT_HUNDREDTHS) / 100
 	end
+	if isGiganticEgg then
+		weightGrams = math.max(weightGrams, GIGANTIC_EGG_MIN_WEIGHT_GRAMS)
+	end
 	updated.weightGrams = weightGrams
-	updated.firstGiganticEggBonus = nil
 	updated.hatchedEggId = eggId
 	updated.hatchAtUnixMs = nil
 	data.inventory[eggInstanceId](updated)
 	data.biggestCrabGrams(function(previous: number)
 		return math.max(previous, weightGrams)
 	end)
-	if bonusReady and not firstGiganticBonus then
+	if bonusReady and not isGiganticEgg then
 		data.newPlayerHatchStatus("Claimed")
 	end
 	local sizeName = CrabSizeIndex.fromWeight(weightGrams)
@@ -900,6 +895,9 @@ function InventoryServiceServer:grantRollAgainReceipt(player: Player, purchaseId
 		end
 		local giganticMultiplier = if pendingItem.isGiganticEgg == true then GiganticEggConfig.GROWTH_LUCK_MULTIPLIER else 1
 		weightGrams = CrabWeights.roll(IndexMilestones.growthLuck(data.claimedIndexMilestones(), data.starterPackClaimed()) * giganticMultiplier * ServerLuck.getMultiplier())
+		if pendingItem.isGiganticEgg == true then
+			weightGrams = math.max(weightGrams, GIGANTIC_EGG_MIN_WEIGHT_GRAMS)
+		end
 		receiptValue = `RollAgain:{instanceId}:{math.round(weightGrams * 100)}`
 		data.processedProductReceipts[purchaseId](receiptValue)
 		data.pendingRollAgainInstanceId("")
