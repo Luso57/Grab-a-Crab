@@ -21,9 +21,16 @@ function LeaderboardServiceClient:init()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	local folder = Workspace:WaitForChild("Leaderboard")
 	for _, board in LeaderboardConfig.boards do
-		local model = folder:WaitForChild(board.model)
+		local model = folder:WaitForChild(board.model) :: Model
+		-- The model can replicate before its parts; wait for both before mounting.
+		local boardPart = model:WaitForChild("Board")
+		local titlePart = model:WaitForChild("Title")
+		if not boardPart:IsA("BasePart") or not titlePart:IsA("BasePart") then
+			warn(`Leaderboard model {board.model} has invalid Board or Title parts`)
+			continue
+		end
 		states[board.key] = Vide.source({ status = "Loading", rows = {} })
-		LeaderboardBoard.mount(playerGui, model :: Model, board.key, board.title, states[board.key])
+		LeaderboardBoard.mount(playerGui, model, board.key, board.title, states[board.key])
 	end
 	local networker = Networker.client.new("LeaderboardService", self)
 	networker:fire("ready")
