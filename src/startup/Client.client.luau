@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local assets = require(ReplicatedStorage.Source.Assets.UI.ShopImages)
+local TutorialHudVisibilityClient = require(ReplicatedStorage.Source.Features.Tutorial.TutorialHudVisibilityClient)
 
 local ShopServiceClient = require(ReplicatedStorage.Source.Features.Shop.ShopServiceClient)
 local DecorShopServiceClient = require(ReplicatedStorage.Source.Features.DecorShop.DecorShopServiceClient)
@@ -24,6 +25,7 @@ local SettingsServiceClient = require(ReplicatedStorage.Source.Features.Settings
 local TutorialServiceClient = require(ReplicatedStorage.Source.Features.Tutorial.TutorialServiceClient)
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+TutorialHudVisibilityClient:init()
 SettingsServiceClient:init()
 local hoverSound = Instance.new("Sound")
 hoverSound.Name = "UIHoverSound"

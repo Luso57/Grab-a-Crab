@@ -2,14 +2,19 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local create = Vide.create
 
 local TutorialStrip = {}
+local pulseRequest = Vide.source(0)
 
 function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () -> ()
 	return Vide.mount(function()
 		local textSizeConstraint = create "UITextSizeConstraint" { MaxTextSize = 42 }
+		local instructionScale = create "UIScale" { Scale = 1 }
+		local pulseTween: Tween? = nil
+		local lastPulseRequest = 0
 		local banner = create "Frame" {
 			Name = "Banner",
 			AnchorPoint = Vector2.new(0.5, 0),
@@ -45,8 +50,30 @@ function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () ->
 				TextScaled = true,
 				Font = Enum.Font.BuilderSansExtraBold,
 				textSizeConstraint,
+				instructionScale,
 			},
 		}
+		pulseTween = TweenService:Create(instructionScale, TweenInfo.new(
+			0.55,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut,
+			0,
+			true
+		), { Scale = 1.16 })
+		Vide.effect(function()
+			local request = pulseRequest()
+			local isPlacementPrompt = message() == "PLACE EGG INSIDE" or message() == "PLACE INSIDE"
+			if isPlacementPrompt and request ~= lastPulseRequest then
+				lastPulseRequest = request
+				pulseTween:Cancel()
+				instructionScale.Scale = 1
+				pulseTween:Play()
+			elseif not isPlacementPrompt then
+				lastPulseRequest = request
+				pulseTween:Cancel()
+				instructionScale.Scale = 1
+			end
+		end)
 		local uiScale = Instance.new("UIScale")
 		uiScale.Name = "MobileScale"
 		uiScale.Parent = banner
@@ -79,6 +106,9 @@ function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () ->
 		end
 		local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
 		screen.Destroying:Connect(function()
+			if pulseTween then
+				pulseTween:Cancel()
+			end
 			cameraConnection:Disconnect()
 			if viewportConnection then
 				viewportConnection:Disconnect()
@@ -87,6 +117,10 @@ function TutorialStrip.mount(playerGui: PlayerGui, message: () -> string): () ->
 		watchCamera()
 		return screen
 	end, playerGui)
+end
+
+function TutorialStrip.pulsePlaceEggInstruction()
+	pulseRequest(pulseRequest() + 1)
 end
 
 return TutorialStrip

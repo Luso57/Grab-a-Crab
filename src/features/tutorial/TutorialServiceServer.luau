@@ -14,12 +14,16 @@ local initialized = false
 local networker = nil
 
 local STEP_NAMES = {
-	[1] = "Tutorial Started",
-	[2] = "Common Egg Bought",
-	[3] = "Egg Incubated",
-	[4] = "Egg Opened",
-	[5] = "Crab Claimed",
-	[6] = "Visited Shop",
+	[1] = "Buy Egg",
+	[2] = "Place Egg",
+	[3] = "Wait for First Egg",
+	[4] = "Collect Your Crab",
+	[5] = "Place Crab in Tank",
+	[6] = "Get Another Egg",
+	[7] = "Place Inside",
+	[8] = "Wait for Second Egg",
+	[9] = "Fill Up Other Tank",
+	[10] = "Buy More Tanks (Shop Reached)",
 }
 
 local function starterTanksFull(inventory: any): boolean
@@ -49,12 +53,32 @@ local function starterTanksFull(inventory: any): boolean
 	return counts.Right1 == 2 and counts.Right2 == 2
 end
 
-local function updateTankStage(data: any)
+local function logStep(player: Player, data: any, step: number)
+	if RunService:IsStudio() or data.tutorialFunnelVersion() ~= 2 then
+		return
+	end
+	local ok, err = pcall(
+		AnalyticsService.LogOnboardingFunnelStepEvent,
+		AnalyticsService,
+		player,
+		step,
+		STEP_NAMES[step]
+	)
+	if not ok then
+		warn(`Tutorial funnel step {step} failed for {player.Name}: {err}`)
+	end
+end
+
+local function updateTankStage(player: Player, data: any)
 	local stage = data.tutorialStage()
 	if stage ~= "FillTanks" and stage ~= "VisitShop" then
 		return
 	end
-	data.tutorialStage(if starterTanksFull(data.inventory()) then "VisitShop" else "FillTanks")
+	local nextStage = if starterTanksFull(data.inventory()) then "VisitShop" else "FillTanks"
+	if nextStage == "VisitShop" and stage ~= "VisitShop" then
+		logStep(player, data, 9)
+	end
+	data.tutorialStage(nextStage)
 end
 
 local function isThreeSecondEgg(itemId: any): boolean
@@ -65,22 +89,12 @@ local function isThreeSecondEgg(itemId: any): boolean
 	return eggId ~= nil and Eggs.get(eggId) ~= nil and Eggs.getRarity(eggId) == "Common"
 end
 
-local function logStep(player: Player, step: number)
-	if RunService:IsStudio() then
-		return
-	end
-	local ok, err = pcall(AnalyticsService.LogOnboardingFunnelStepEvent, AnalyticsService, player, step, STEP_NAMES[step])
-	if not ok then
-		warn(`Tutorial funnel step {step} failed for {player.Name}: {err}`)
-	end
-end
-
 local function resetToBuy(data: any)
 	data.tutorialItemInstanceId("")
 	data.tutorialStage("BuyEgg")
 end
 
-local function recover(data: any)
+local function recover(player: Player, data: any)
 	local stage = data.tutorialStage()
 	if stage == "BuyEgg" or stage == "Complete" or stage == "Skipped" then
 		return
@@ -92,8 +106,11 @@ local function recover(data: any)
 		local egg = data.inventory()[data.tutorialItemInstanceId()]
 		if typeof(egg) ~= "table" or not isThreeSecondEgg(egg.itemId) then
 			data.tutorialStage("GetAnotherEgg")
-		elseif egg.incubatorInstanceId ~= nil then
-			data.tutorialStage("IncubatingAnotherEgg")
+		else
+			if egg.incubatorInstanceId ~= nil then
+				logStep(player, data, 7)
+				data.tutorialStage("IncubatingAnotherEgg")
+			end
 		end
 		return
 	end
@@ -101,14 +118,16 @@ local function recover(data: any)
 		local egg = data.inventory()[data.tutorialItemInstanceId()]
 		if typeof(egg) == "table" and typeof(egg.itemId) == "string"
 			and string.match(egg.itemId, "^Crab%.[%w_]+$") and egg.hatchedEggId ~= nil then
-			data.tutorialStage(if starterTanksFull(data.inventory()) then "VisitShop" else "FillTanks")
+			logStep(player, data, 8)
+			data.tutorialStage("FillTanks")
+			updateTankStage(player, data)
 		elseif typeof(egg) ~= "table" or not isThreeSecondEgg(egg.itemId) then
 			data.tutorialStage("GetAnotherEgg")
 		end
 		return
 	end
 	if stage == "FillTanks" or stage == "VisitShop" then
-		updateTankStage(data)
+		updateTankStage(player, data)
 		return
 	end
 	local instanceId = data.tutorialItemInstanceId()
@@ -119,6 +138,9 @@ local function recover(data: any)
 	end
 	if isThreeSecondEgg(item.itemId) then
 		if item.incubatorInstanceId ~= nil then
+			if stage == "PlaceEgg" then
+				logStep(player, data, 2)
+			end
 			data.tutorialStage("Incubating")
 		elseif item.placedSlotId == nil and item.tankInstanceId == nil then
 			data.tutorialStage("PlaceEgg")
@@ -129,9 +151,20 @@ local function recover(data: any)
 	end
 	if string.match(item.itemId, "^Crab%.[%w_]+$") then
 		if item.tankInstanceId ~= nil then
+			if stage == "PlaceCrab" and data.tutorialItemInstanceId() == instanceId then
+				local tank = data.inventory()[item.tankInstanceId]
+				if typeof(tank) == "table" and tank.placedSlotId == "Right2" then
+					logStep(player, data, 5)
+					data.tutorialStage("GetAnotherEgg")
+					return
+				end
+			end
 			data.tutorialStage("FillTanks")
-			updateTankStage(data)
+			updateTankStage(player, data)
 		elseif item.incubatorInstanceId ~= nil then
+			if stage == "ClaimCrab" then
+				logStep(player, data, 3)
+			end
 			data.tutorialStage("ClaimCrab")
 		else
 			data.tutorialStage("PlaceCrab")
@@ -150,13 +183,13 @@ local function prepare(player: Player)
 		if data.tutorialStage() == "Uninitialized" then
 			local profile = Data.Service:getProfile(player)
 			if profile and profile.SessionLoadCount == 1 then
+				data.tutorialFunnelVersion(2)
 				data.tutorialStage("BuyEgg")
-				logStep(player, 1)
 			else
 				data.tutorialStage("Skipped")
 			end
 		else
-			recover(data)
+			recover(player, data)
 			if data.tutorialStage() == "ClaimCrab" then
 				local InventoryServiceServer = require(ServerScriptService.Features.Inventory.InventoryServiceServer)
 				InventoryServiceServer:claimHatchedCrab(player, data.tutorialItemInstanceId())
@@ -168,7 +201,7 @@ local function prepare(player: Player)
 			if stage == "Complete" or stage == "Skipped" then
 				return
 			end
-			recover(data)
+			recover(player, data)
 		end
 	end)
 end
@@ -203,6 +236,15 @@ function TutorialServiceServer:isBuyingEgg(player: Player): boolean
 	return data ~= nil and data.tutorialStage() == "BuyEgg"
 end
 
+function TutorialServiceServer:isWaitingToPlaceEgg(player: Player): boolean
+	local data = Data[player]
+	if not data then
+		return false
+	end
+	local stage = data.tutorialStage()
+	return stage == "PlaceEgg" or stage == "PlaceAnotherEgg"
+end
+
 function TutorialServiceServer:eggBought(player: Player, instanceId: string)
 	local data = Data[player]
 	local item = if data then data.inventory()[instanceId] else nil
@@ -210,12 +252,13 @@ function TutorialServiceServer:eggBought(player: Player, instanceId: string)
 		or not item or not isThreeSecondEgg(item.itemId) then
 		return
 	end
+	local stage = data.tutorialStage()
+	logStep(player, data, if stage == "BuyEgg" then 1 else 6)
 	data.tutorialItemInstanceId(instanceId)
-	if data.tutorialStage() == "GetAnotherEgg" then
+	if stage == "GetAnotherEgg" then
 		data.tutorialStage("PlaceAnotherEgg")
 	else
 		data.tutorialStage("PlaceEgg")
-		logStep(player, 2)
 	end
 end
 
@@ -227,11 +270,12 @@ function TutorialServiceServer:eggIncubated(player: Player, instanceId: string)
 		or not item or not isThreeSecondEgg(item.itemId) or item.incubatorInstanceId == nil then
 		return
 	end
-	if data.tutorialStage() == "PlaceAnotherEgg" then
+	local stage = data.tutorialStage()
+	logStep(player, data, if stage == "PlaceEgg" then 2 else 7)
+	if stage == "PlaceAnotherEgg" then
 		data.tutorialStage("IncubatingAnotherEgg")
 	else
 		data.tutorialStage("Incubating")
-		logStep(player, 3)
 	end
 end
 
@@ -244,10 +288,12 @@ function TutorialServiceServer:eggOpened(player: Player, instanceId: string)
 		return
 	end
 	if data.tutorialStage() == "IncubatingAnotherEgg" then
-		data.tutorialStage(if starterTanksFull(data.inventory()) then "VisitShop" else "FillTanks")
+		logStep(player, data, 8)
+		data.tutorialStage("FillTanks")
+		updateTankStage(player, data)
 	else
+		logStep(player, data, 3)
 		data.tutorialStage("ClaimCrab")
-		logStep(player, 4)
 	end
 end
 
@@ -258,8 +304,8 @@ function TutorialServiceServer:crabClaimed(player: Player, instanceId: string)
 		or not item or item.incubatorInstanceId ~= nil then
 		return
 	end
+	logStep(player, data, 4)
 	data.tutorialStage("PlaceCrab")
-	logStep(player, 5)
 end
 
 function TutorialServiceServer:crabPlaced(player: Player, instanceId: string, _tankSlotId: string)
@@ -274,10 +320,11 @@ function TutorialServiceServer:crabPlaced(player: Player, instanceId: string, _t
 		if data.tutorialItemInstanceId() ~= instanceId or _tankSlotId ~= "Right2" then
 			return
 		end
+		logStep(player, data, 5)
 		data.tutorialStage("GetAnotherEgg")
 		return
 	end
-	updateTankStage(data)
+	updateTankStage(player, data)
 end
 
 function TutorialServiceServer:canVisitShop(player: Player): boolean
@@ -290,8 +337,8 @@ function TutorialServiceServer:visitedShop(player: Player)
 	if not data or data.tutorialStage() ~= "VisitShop" or not starterTanksFull(data.inventory()) then
 		return
 	end
+	logStep(player, data, 10)
 	data.tutorialStage("Complete")
-	logStep(player, 6)
 	if networker then
 		networker:fire(player, "shopTravelSucceeded")
 	end

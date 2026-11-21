@@ -9,6 +9,13 @@ function TutorialShopPrompt.mount(playerGui: PlayerGui): (boolean) -> ()
 	local travelBar = playerGui:WaitForChild("TravelBar") :: ScreenGui
 	local cards = travelBar:WaitForChild("Cards") :: CanvasGroup
 	local shopButton = cards:WaitForChild("Shop") :: ImageButton
+	local overlay = Instance.new("ScreenGui")
+	overlay.Name = "TutorialShopOverlay"
+	overlay.ResetOnSpawn = false
+	overlay.IgnoreGuiInset = true
+	overlay.DisplayOrder = 80
+	overlay.Enabled = false
+	overlay.Parent = playerGui
 
 	local arrow = Instance.new("TextLabel")
 	arrow.Name = "TutorialShopArrow"
@@ -23,7 +30,7 @@ function TutorialShopPrompt.mount(playerGui: PlayerGui): (boolean) -> ()
 	arrow.TextSize = 48
 	arrow.ZIndex = 20
 	arrow.Visible = false
-	arrow.Parent = travelBar
+	arrow.Parent = overlay
 
 	local arrowOutline = Instance.new("UIStroke")
 	arrowOutline.Color = Color3.fromRGB(255, 229, 170)
@@ -43,7 +50,7 @@ function TutorialShopPrompt.mount(playerGui: PlayerGui): (boolean) -> ()
 	label.TextSize = 20
 	label.ZIndex = 20
 	label.Visible = false
-	label.Parent = travelBar
+	label.Parent = overlay
 
 	local active = false
 	local renderConnection = RunService.RenderStepped:Connect(function()
@@ -51,7 +58,7 @@ function TutorialShopPrompt.mount(playerGui: PlayerGui): (boolean) -> ()
 			return
 		end
 		local centerX = shopButton.AbsolutePosition.X + shopButton.AbsoluteSize.X * 0.5
-		local promptY = shopButton.AbsolutePosition.Y + shopButton.AbsoluteSize.Y + 34
+		local promptY = shopButton.AbsolutePosition.Y + shopButton.AbsoluteSize.Y + 60
 		local bob = math.round(math.sin(os.clock() * 3.2) * 5)
 		arrow.Position = UDim2.fromOffset(centerX, promptY + bob)
 		label.Position = UDim2.fromOffset(centerX, promptY + 49)
@@ -62,7 +69,11 @@ function TutorialShopPrompt.mount(playerGui: PlayerGui): (boolean) -> ()
 	end)
 
 	return function(enabled: boolean)
+		if active == enabled then
+			return
+		end
 		active = enabled
+		overlay.Enabled = enabled
 		arrow.Visible = enabled
 		label.Visible = enabled
 	end

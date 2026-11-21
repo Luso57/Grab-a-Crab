@@ -123,7 +123,11 @@ function EggConveyorServiceServer:start(plotModel: Model)
             intentId = intentId,
         })
         networker:fire(player, "showNotEnoughMoney", productId, intentId)
-    end, function(player: Player)
+	end, function(player: Player)
+		if networker and player.Parent == Players then
+			networker:fire(player, "showTutorialPurchaseBlocked")
+		end
+	end, function(player: Player)
         if networker and player.Parent == Players then
             networker:fire(player, "eggPurchased")
         end

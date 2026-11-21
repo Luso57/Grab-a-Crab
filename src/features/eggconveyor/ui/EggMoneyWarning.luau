@@ -8,7 +8,7 @@ local create = Vide.create
 
 local EggMoneyWarning = {}
 
-function EggMoneyWarning.mount(playerGui: PlayerGui): () -> ()
+function EggMoneyWarning.mount(playerGui: PlayerGui): (() -> (), () -> ())
 	local banner: Frame = nil :: any
 	local label: TextLabel = nil :: any
 	local stroke: UIStroke = nil :: any
@@ -78,7 +78,7 @@ function EggMoneyWarning.mount(playerGui: PlayerGui): () -> ()
 	end, playerGui)
 
 	local version = 0
-	return function()
+	local function showWarning()
 		version += 1
 		local currentVersion = version
 		banner.Visible = true
@@ -107,6 +107,11 @@ function EggMoneyWarning.mount(playerGui: PlayerGui): () -> ()
 			fade:Play()
 		end)
 	end
+	local function playErrorSound()
+		sound.TimePosition = 0
+		sound:Play()
+	end
+	return showWarning, playErrorSound
 end
 
 return EggMoneyWarning

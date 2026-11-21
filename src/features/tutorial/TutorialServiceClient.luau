@@ -66,7 +66,10 @@ local function targetFor(stage: string, plot: Model, root: BasePart, itemId: str
 	local incubator = findPlaced(plot, "Right3", "Incubator")
 	local incubatorFloor = if incubator then incubator:FindFirstChild("InsideFloor", true) else nil
 	if stage == "PlaceAnotherEgg" then
-		return "", nil
+		if incubatorFloor and incubatorFloor:IsA("BasePart") then
+			return "PLACE INSIDE", incubatorFloor
+		end
+		return "PLACE YOUR INCUBATOR", nil
 	end
 	if stage == "PlaceEgg" then
 		if incubatorFloor and incubatorFloor:IsA("BasePart") then
@@ -74,12 +77,20 @@ local function targetFor(stage: string, plot: Model, root: BasePart, itemId: str
 		end
 		return "PLACE YOUR INCUBATOR", nil
 	end
-	if stage == "Incubating" then
+	if stage == "Incubating" or stage == "IncubatingAnotherEgg" then
 		local item = Data.inventory()[itemId]
 		local ready = item and typeof(item.hatchAtUnixMs) == "number"
 			and DateTime.now().UnixTimestampMillis >= item.hatchAtUnixMs
+		local hatchPrompt = if incubator then incubator:FindFirstChild("HatchEggPrompt", true) else nil
+		local hatchSurface = if hatchPrompt then hatchPrompt.Parent else nil
+		local target: BasePart? = nil
+		if hatchSurface and hatchSurface:IsA("BasePart") then
+			target = hatchSurface
+		elseif incubatorFloor and incubatorFloor:IsA("BasePart") then
+			target = incubatorFloor
+		end
 		return if ready then "OPEN THE EGG" else "WAIT FOR THE EGG",
-			nil
+			target
 	end
 	if stage == "ClaimCrab" then
 		return "COLLECT YOUR CRAB", nil
@@ -105,6 +116,22 @@ local function targetFor(stage: string, plot: Model, root: BasePart, itemId: str
 			end
 		end
 		return if equipped then "PLACE CRAB IN TANK" else "EQUIP YOUR CRAB", if equipped then floor else nil
+	end
+	if stage == "FillTanks" then
+		local item = Data.inventory()[itemId]
+		if not item or not string.match(item.itemId, "^Crab%.[%w_]+$")
+			or item.incubatorInstanceId ~= nil then
+			return "", nil
+		end
+		if item.tankInstanceId ~= nil then
+			return "FILL UP OTHER TANK", nil
+		end
+		local tank = findPlaced(plot, "Right2", "Tank.Small")
+		local floor = if tank then tank:FindFirstChild("InsideFloor", true) else nil
+		if not floor or not floor:IsA("BasePart") then
+			return "PLACE YOUR SMALL TANK", nil
+		end
+		return "PLACE CRAB IN TANK", floor
 	end
 	return "", nil
 end
@@ -136,7 +163,7 @@ function TutorialServiceClient:init()
 			point(nil, nil)
 			return
 		end
-		if stage == "IncubatingAnotherEgg" or stage == "FillTanks" or stage == "VisitShop" then
+		if stage == "VisitShop" then
 			if message() ~= "" then
 				message("")
 			end

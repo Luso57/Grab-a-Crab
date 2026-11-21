@@ -30,13 +30,14 @@ export type EggConveyorServer = typeof(setmetatable({} :: {
 	activeEggs: { [EggServer.EggServer]: boolean },
 	purchasing: { [Player]: boolean },
 	onNotEnoughMoney: (Player, string, boolean) -> (),
+	onTutorialPurchaseBlocked: (Player) -> (),
 	onPurchased: (Player) -> (),
 	random: Random,
 	running: boolean,
 	eggsUntilGigantic: number,
 }, EggConveyorServer))
 
-function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnoughMoney: (Player, string, boolean) -> (), onPurchased: (Player) -> ()): EggConveyorServer?
+function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnoughMoney: (Player, string, boolean) -> (), onTutorialPurchaseBlocked: (Player) -> (), onPurchased: (Player) -> ()): EggConveyorServer?
 	local conveyor = plotModel:FindFirstChild("EggConveyor")
 	if not conveyor or not conveyor:IsA("Folder") then
 		warn(plotModel.Name .. " needs EggConveyor")
@@ -78,7 +79,8 @@ function EggConveyorServer.new(plotModel: Model, templates: { Model }, onNotEnou
 		activeFolder = activeFolder,
 		activeEggs = {} :: { [EggServer.EggServer]: boolean },
 		purchasing = {} :: { [Player]: boolean },
-	onNotEnoughMoney = onNotEnoughMoney,
+		onNotEnoughMoney = onNotEnoughMoney,
+		onTutorialPurchaseBlocked = onTutorialPurchaseBlocked,
 		onPurchased = onPurchased,
 		random = Random.new(),
 		running = false,
@@ -101,7 +103,14 @@ local function canCollect(self: EggConveyorServer, player: Player, egg: EggServe
 end
 
 local function collect(self: EggConveyorServer, player: Player, egg: EggServer.EggServer)
-	if self.purchasing[player] or not canCollect(self, player, egg) or not egg:reserve() then
+	if self.purchasing[player] or not canCollect(self, player, egg) then
+		return
+	end
+	if TutorialServiceServer:isWaitingToPlaceEgg(player) then
+		self.onTutorialPurchaseBlocked(player)
+		return
+	end
+	if not egg:reserve() then
 		return
 	end
 	self.purchasing[player] = true

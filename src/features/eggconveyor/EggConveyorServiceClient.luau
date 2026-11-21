@@ -16,6 +16,7 @@ local Crabs = require(ReplicatedStorage.Source.Features.Crabs.Modules.Crabs)
 local EggBillboard = require(ReplicatedStorage.Source.Features.Egg.UI.EggBillboard)
 local EggMoneyWarning = require(ReplicatedStorage.Source.Features.EggConveyor.UI.EggMoneyWarning)
 local PlotServiceClient = require(ReplicatedStorage.Source.Features.Plots.PlotServiceClient)
+local TutorialStrip = require(ReplicatedStorage.Source.Features.Tutorial.UI.TutorialStrip)
 
 local EggConveyorServiceClient = {}
 local initialized = false
@@ -24,6 +25,7 @@ local pendingMounts: { [Model]: { RBXScriptConnection } } = {}
 local mountedSigns: { [Model]: () -> () } = {}
 local mountedCountdowns: { [Model]: () -> () } = {}
 local showMoneyWarning: (() -> ())? = nil
+local playEggErrorSound: (() -> ())? = nil
 local purchaseSound: Sound? = nil
 local networker: any = nil
 local pendingEggPrompts: { [number]: string } = {}
@@ -162,7 +164,7 @@ function EggConveyorServiceClient:init()
 	sound.Volume = 1
 	sound.Parent = playerGui
 	purchaseSound = sound
-	showMoneyWarning = EggMoneyWarning.mount(playerGui)
+	showMoneyWarning, playEggErrorSound = EggMoneyWarning.mount(playerGui)
 	local balance = Vide.source(Data.money() :: any)
 	Data.money.Changed(function(value: any)
 		balance(value)
@@ -240,6 +242,14 @@ function EggConveyorServiceClient:showNotEnoughMoney(productId: any?, intentId: 
 			warn(`Could not open egg Robux purchase prompt: {err}`)
 		end
 	end)
+end
+
+function EggConveyorServiceClient:showTutorialPurchaseBlocked()
+	local play = playEggErrorSound
+	if play then
+		play()
+	end
+	TutorialStrip.pulsePlaceEggInstruction()
 end
 
 function EggConveyorServiceClient:eggPurchased()

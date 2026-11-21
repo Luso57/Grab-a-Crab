@@ -295,12 +295,23 @@ function PlotServiceClient:init()
 	end
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	TravelBar.mount(playerGui, function(destination: string)
+		if Data.tutorialStage() == "VisitShop" then
+			TankServiceClient:closePopup()
+		end
 		if sendTravel then
 			sendTravel(destination)
 		end
 	end, function()
-		return TankServiceClient:isPopupOpen()
+		return TankServiceClient:isPopupOpen() and Data.tutorialStage() ~= "VisitShop"
 	end)
+	Data.tutorialStage.Changed(function(stage: string)
+		if stage == "VisitShop" then
+			TankServiceClient:closePopup()
+		end
+	end)
+	if Data.tutorialStage() == "VisitShop" then
+		TankServiceClient:closePopup()
+	end
 	local balance = Vide.source(Data.money() :: any)
 	Data.money.Changed(function(value: any)
 		balance(value)

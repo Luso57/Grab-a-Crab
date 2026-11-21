@@ -382,6 +382,9 @@
           },
           "Tutorial": {
             "$className": "Folder",
+            "TutorialHudVisibilityClient": {
+              "$path": "src/features/tutorial/TutorialHudVisibilityClient.luau"
+            },
             "TutorialServiceClient": {
               "$path": "src/features/tutorial/TutorialServiceClient.luau"
             },

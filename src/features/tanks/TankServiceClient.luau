@@ -237,6 +237,10 @@ function TankServiceClient:isPopupOpen(): boolean
 	return popupOpen()
 end
 
+function TankServiceClient:closePopup()
+	closePopup()
+end
+
 local function hasCrabEquipped(): boolean
 	local character = Players.LocalPlayer.Character
 	if not character then
